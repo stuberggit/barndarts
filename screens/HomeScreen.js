@@ -3,7 +3,7 @@ import { renderApp } from "../core/router.js";
 
 export function renderHome(container) {
   container.innerHTML = `
-    <h1>🎯 Barndarts</h1>
+    <h1>Barndarts</h1>
 
     <div class="card" id="fun">FUN!</div>
     <div class="card" id="x01">X01</div>
