@@ -2,9 +2,9 @@ import { store } from "../core/store.js";
 import { renderApp } from "../core/router.js";
 
 const gamesByCategory = {
-  fun: ["GolfDarts", "Ahman Green", "FootDarts"],
+  fun: ["Ahman Green", "GolfDarts", "Hammer Cricket", "Killer", "Soon - FootDarts"],
   x01: ["301", "501", "701"],
-  cricket: ["Standard", "No Score", "Random"]
+  cricket: ["Gotcha", "No Score", "Random", "Standard"]
 };
 
 export function renderCategory(container) {
