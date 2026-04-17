@@ -1,3 +1,5 @@
+console.log("HOME SCREEN RENDERING");
+
 import { store } from "../core/store.js";
 import { renderApp } from "../core/router.js";
 
