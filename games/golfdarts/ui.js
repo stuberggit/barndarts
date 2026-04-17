@@ -1,4 +1,4 @@
-import { getState, recordScore, isGameOver } from "./logic.js";
+import { getState, recordScore, isGameOver, undo } from "./logic.js";
 
 export function renderUI(container) {
   const state = getState();
