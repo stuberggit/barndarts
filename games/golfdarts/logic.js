@@ -41,6 +41,8 @@ export function recordScore(score) {
 }
 
 export function undo() {
+  console.log("UNDO CLICKED");
+  
   if (history.length === 0) return;
 
   gameState = history.pop();
