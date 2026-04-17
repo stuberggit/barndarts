@@ -13,10 +13,22 @@ export function renderUI(container) {
 
     <div id="scorecard"></div>
 
-    <h3>
-  🎯 ${state.players[state.currentPlayer].name}
-  (Dart ${state.dartsThrown + 1}/3 | Hits: ${state.turnHitsCount})
-</h3>
+    const currentHitsText = formatCurrentHits(state.currentTurnHits);
+
+container.innerHTML = `
+  <h2>Hole ${state.currentHole + 1}</h2>
+
+  <div id="scorecard"></div>
+
+  <h3>
+    🎯 ${state.players[state.currentPlayer].name}
+    (Dart ${state.dartsThrown + 1}/3${currentHitsText ? ` | Hits ${currentHitsText}` : ""})
+  </h3>
+
+  <div id="controls"></div>
+
+  <div class="button" id="undoBtn">Undo</div>
+`;
 
     <div id="controls"></div>
 
@@ -33,6 +45,21 @@ export function renderUI(container) {
       renderUI(container);
     };
   }
+}
+
+function formatCurrentHits(currentTurnHits = []) {
+  if (!currentTurnHits.length) return "";
+
+  const hitLabels = {
+    1: "Single",
+    2: "Dub",
+    3: "Trip"
+  };
+
+  return currentTurnHits
+    .map(hit => hitLabels[hit] || "")
+    .filter(Boolean)
+    .join(", ");
 }
 
 function renderScorecard(state) {
