@@ -14,9 +14,9 @@ export function renderUI(container) {
     <div id="scorecard"></div>
 
     <h3>
-      🎯 ${state.players[state.currentPlayer].name}
-      (Dart ${state.dartsThrown + 1}/3)
-    </h3>
+  🎯 ${state.players[state.currentPlayer].name}
+  (Dart ${state.dartsThrown + 1}/3 | Hits: ${state.turnHitsCount})
+</h3>
 
     <div id="controls"></div>
 
@@ -99,24 +99,25 @@ function renderControls(container) {
   const controls = document.getElementById("controls");
   controls.innerHTML = "";
 
-  const hitBtn = document.createElement("div");
-  hitBtn.className = "card";
-  hitBtn.innerText = "🎯 HIT";
-  hitBtn.onclick = () => {
-    recordThrow(true);
-    renderUI(container);
-  };
+  const buttons = [
+    { label: "❌ MISS", value: 0 },
+    { label: "Single", value: 1 },
+    { label: "Double", value: 2 },
+    { label: "Triple", value: 3 }
+  ];
 
-  const missBtn = document.createElement("div");
-  missBtn.className = "card";
-  missBtn.innerText = "❌ MISS";
-  missBtn.onclick = () => {
-    recordThrow(false);
-    renderUI(container);
-  };
+  buttons.forEach(({ label, value }) => {
+    const btn = document.createElement("div");
+    btn.className = "card";
+    btn.innerText = label;
 
-  controls.appendChild(hitBtn);
-  controls.appendChild(missBtn);
+    btn.onclick = () => {
+      recordThrow(value);
+      renderUI(container);
+    };
+
+    controls.appendChild(btn);
+  });
 }
 
 function renderEnd(container, state) {
