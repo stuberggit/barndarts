@@ -15,8 +15,10 @@ export function renderUI(container) {
 
     <div id="scorecard"></div>
 
-    <h3>Player: ${state.players[state.currentPlayer].name}</h3>
-
+<h3>
+  Player: ${state.players[state.currentPlayer].name}  
+  (Dart ${state.dartsThrown + 1}/3)
+</h3>
     <div id="controls"></div>
 
     <div class="button" id="undoBtn">Undo</div>
