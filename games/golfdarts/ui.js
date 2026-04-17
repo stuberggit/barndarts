@@ -113,7 +113,8 @@ function renderControls(container) {
     btn.innerText = score;
 
     btn.onclick = () => {
-      recordScore(score);
+      recordThrow(true)   // for HIT
+      recordThrow(false)  // for MISS
       renderUI(container);
     };
 
