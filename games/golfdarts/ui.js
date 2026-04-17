@@ -79,6 +79,14 @@ function renderControls(container) {
 }
 
 function renderEnd(container, state) {
+  if (state.shanghaiWinner) {
+    container.innerHTML = `
+      <h2>🔥 SHANGHAI 🔥</h2>
+      <h3>🏆 Winner: ${state.shanghaiWinner}</h3>
+    `;
+    return;
+  }
+
   const winner = [...state.players].sort((a,b) => a.total - b.total)[0];
 
   container.innerHTML = `
