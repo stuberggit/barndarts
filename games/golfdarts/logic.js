@@ -35,37 +35,38 @@ export function recordThrow(isHit) {
 
   const player = gameState.players[gameState.currentPlayer];
 
-  // Track hits
+  // Initialize turn tracking
+  if (gameState.dartsThrown === undefined) {
+    gameState.dartsThrown = 0;
+  }
+
+  if (gameState.turnHitsCount === undefined) {
+    gameState.turnHitsCount = 0;
+  }
+
+  // Track hit/miss correctly
   if (isHit) {
     gameState.turnHitsCount++;
-    gameState.currentTurnHits.push(1); // (placeholder for Shanghai later)
   }
 
   gameState.dartsThrown++;
 
-  // 🔥 Shanghai check (still fine for now)
-  if (checkShanghai(gameState.currentTurnHits)) {
-    gameState.shanghaiWinner = player.name;
-    return;
-  }
+  // After 3 darts → resolve turn
+  if (gameState.dartsThrown === 3) {
 
-  // 🎯 END OF TURN (after 3 darts)
-  if (gameState.dartsThrown >= 3) {
     const hits = gameState.turnHitsCount;
 
-    // 👇 THIS is where Step 4 lives
     const hazards = gameState.holeHazards?.[gameState.currentHole] || 0;
     const score = getFinalScore(hits, hazards);
 
     player.scores[gameState.currentHole] = score;
     player.total += score;
 
-    // Reset turn
+    // reset turn
     gameState.dartsThrown = 0;
     gameState.turnHitsCount = 0;
-    gameState.currentTurnHits = [];
 
-    // Next player
+    // next player
     gameState.currentPlayer++;
 
     if (gameState.currentPlayer >= gameState.players.length) {
