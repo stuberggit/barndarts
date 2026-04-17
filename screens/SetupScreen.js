@@ -5,6 +5,8 @@ export function renderSetup(container) {
   container.innerHTML = `
     <h1>${store.selectedGame}</h1>
 
+    store.players = [];
+
     <input id="playerName" placeholder="Enter player name" />
     <div class="button" id="addPlayer">Add Player</div>
 
