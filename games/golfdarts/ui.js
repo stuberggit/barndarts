@@ -1,5 +1,7 @@
 import { getState, recordScore, isGameOver, undo } from "./logic.js";
 
+console.log("UNDO IMPORT:", undo);
+
 export function renderUI(container) {
   const state = getState();
 
