@@ -1,6 +1,8 @@
 let gameState = {};
 let history = [];
 
+import { checkShanghai } from "../../core/rules/shanghai.js";
+
 export function initGame(players) {
   gameState = {
     players: players.map(name => ({
@@ -44,7 +46,7 @@ export function recordScore(score) {
   gameState.dartsThrown++;
 
   // 🔥 Check Shanghai after each dart
-  if (checkShanghai()) {
+  if (checkShanghai(gameState.currentTurnHits)) {
     gameState.shanghaiWinner = player.name;
     return;
   }
@@ -69,16 +71,6 @@ export function undo() {
   if (history.length === 0) return;
 
   gameState = history.pop();
-}
-
-function checkShanghai() {
-  const hits = gameState.currentTurnHits;
-
-  return (
-    hits.includes(1) &&
-    hits.includes(2) &&
-    hits.includes(3)
-  );
 }
 
 export function isGameOver() {
