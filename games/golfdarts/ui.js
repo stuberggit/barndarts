@@ -39,22 +39,63 @@ export function renderUI(container) {
 function renderScorecard(state) {
   const div = document.getElementById("scorecard");
 
-  let html = `<table style="width:100%; font-size:12px;">`;
+  let html = `<table style="
+    width:100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    text-align: center;
+  ">`;
 
+  // Header row
   html += "<tr><th></th>";
+
   for (let i = 0; i < 18; i++) {
-    html += `<th>${i + 1}</th>`;
+    const isCurrentHole = i === state.currentHole;
+
+    html += `<th style="
+      padding:4px;
+      border-bottom: 1px solid #555;
+      ${isCurrentHole ? 'color: #22c55e; font-weight: bold;' : ''}
+    ">${i + 1}</th>`;
   }
-  html += "<th>Total</th></tr>";
 
-  state.players.forEach(p => {
-    html += `<tr><td>${p.name}</td>`;
+  html += `<th style="padding:4px;">Total</th></tr>`;
 
-    p.scores.forEach(score => {
-      html += `<td>${score ?? "-"}</td>`;
+  // Player rows
+  state.players.forEach((p, index) => {
+    const isCurrentPlayer = index === state.currentPlayer;
+
+    html += `<tr style="
+      ${isCurrentPlayer ? 'background:#1e293b;' : ''}
+    ">`;
+
+    // Player name
+    html += `<td style="
+      padding:6px;
+      font-weight: bold;
+      text-align:left;
+    ">${p.name}</td>`;
+
+    // Scores
+    p.scores.forEach((score, i) => {
+      const isCurrentHole = i === state.currentHole;
+
+      html += `<td style="
+        padding:4px;
+        border-bottom: 1px solid #333;
+        ${isCurrentHole ? 'color:#22c55e; font-weight:bold;' : ''}
+      ">
+        ${score !== null ? score : ""}
+      </td>`;
     });
 
-    html += `<td>${p.total}</td></tr>`;
+    // Total
+    html += `<td style="
+      padding:6px;
+      font-weight:bold;
+    ">${p.total}</td>`;
+
+    html += "</tr>";
   });
 
   html += "</table>";
