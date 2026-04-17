@@ -1,9 +1,5 @@
-export function checkShanghai(turnHits) {
+export function checkShanghai(turnHits, allowed = [1,2,3]) {
   if (!turnHits || turnHits.length < 3) return false;
 
-  return (
-    turnHits.includes(1) &&
-    turnHits.includes(2) &&
-    turnHits.includes(3)
-  );
+  return allowed.every(hit => turnHits.includes(hit));
 }
