@@ -4,23 +4,20 @@ import { getState, recordThrow, isGameOver, undo } from "./logic.js";
    HELPERS
 --------------------------*/
 
-function formatCurrentHits(currentTurnHits = []) {
-  if (!currentTurnHits.length) return "";
+function formatCurrentHits(hits = []) {
+  if (!hits.length) return "";
 
-  const hitLabels = {
+  const map = {
     1: "Single",
     2: "Dub",
     3: "Trip"
   };
 
-  return currentTurnHits
-    .map(hit => hitLabels[hit] || "")
-    .filter(Boolean)
-    .join(", ");
+  return hits.map(v => map[v] || "").filter(Boolean).join(", ");
 }
 
 /* -------------------------
-   MAIN RENDER
+   MAIN UI
 --------------------------*/
 
 export function renderUI(container) {
@@ -31,8 +28,8 @@ export function renderUI(container) {
     return;
   }
 
-  const currentHitsText = formatCurrentHits(state.currentTurnHits);
-  const hitsDisplay = currentHitsText ? " | Hits " + currentHitsText : "";
+  const hitsText = formatCurrentHits(state.currentTurnHits);
+  const hitsDisplay = hitsText ? ` | Hits ${hitsText}` : "";
 
   container.innerHTML = `
     <h2>Hole ${state.currentHole + 1}</h2>
@@ -52,13 +49,10 @@ export function renderUI(container) {
   renderScorecard(state);
   renderControls(container);
 
-  const undoBtn = document.getElementById("undoBtn");
-  if (undoBtn) {
-    undoBtn.onclick = () => {
-      undo();
-      renderUI(container);
-    };
-  }
+  document.getElementById("undoBtn").onclick = () => {
+    undo();
+    renderUI(container);
+  };
 }
 
 /* -------------------------
@@ -69,25 +63,25 @@ function renderControls(container) {
   const controls = document.getElementById("controls");
   controls.innerHTML = "";
 
-  const buttons = [
+  const options = [
     { label: "❌ MISS", value: 0 },
     { label: "Single", value: 1 },
     { label: "Double", value: 2 },
     { label: "Triple", value: 3 }
   ];
 
-  buttons.forEach(btnData => {
+  for (const opt of options) {
     const btn = document.createElement("div");
     btn.className = "card";
-    btn.innerText = btnData.label;
+    btn.innerText = opt.label;
 
     btn.onclick = () => {
-      recordThrow(btnData.value);
+      recordThrow(opt.value);
       renderUI(container);
     };
 
     controls.appendChild(btn);
-  });
+  }
 }
 
 /* -------------------------
@@ -107,48 +101,47 @@ function renderScorecard(state) {
   html += "<tr><th></th>";
 
   for (let i = 0; i < 18; i++) {
-    const isCurrentHole = i === state.currentHole;
+    const active = i === state.currentHole;
 
     html += `<th style="
       padding:4px;
-      border-bottom: 1px solid #555;
-      ${isCurrentHole ? "color: #22c55e; font-weight: bold;" : ""}
+      border-bottom:1px solid #555;
+      ${active ? "color:#22c55e;font-weight:bold;" : ""}
     ">${i + 1}</th>`;
   }
 
-  html += `<th style="padding:4px;">Total</th></tr>`;
+  html += `<th>Total</th></tr>`;
 
-  state.players.forEach((player, index) => {
-    const isCurrentPlayer = index === state.currentPlayer;
+  for (let i = 0; i < state.players.length; i++) {
+    const p = state.players[i];
+    const activePlayer = i === state.currentPlayer;
 
-    html += `<tr style="${isCurrentPlayer ? "background:#1e293b;" : ""}">`;
+    html += `<tr style="${activePlayer ? "background:#1e293b;" : ""}">`;
 
-    html += `<td style="
-      padding:6px;
-      font-weight:bold;
-      text-align:left;
-    ">${player.name}</td>`;
+    html += `<td style="padding:6px;font-weight:bold;text-align:left;">
+      ${p.name}
+    </td>`;
 
-    player.scores.forEach((score, holeIndex) => {
-      const isCurrentHole = holeIndex === state.currentHole;
+    for (let h = 0; h < p.scores.length; h++) {
+      const activeHole = h === state.currentHole;
 
       html += `<td style="
         padding:4px;
-        border-bottom: 1px solid #333;
-        ${isCurrentHole ? "color:#22c55e; font-weight:bold;" : ""}
-      ">${score !== null ? score : ""}</td>`;
-    });
+        border-bottom:1px solid #333;
+        ${activeHole ? "color:#22c55e;font-weight:bold;" : ""}
+      ">
+        ${p.scores[h] ?? ""}
+      </td>`;
+    }
 
-    html += `<td style="
-      padding:6px;
-      font-weight:bold;
-    ">${player.total}</td>`;
+    html += `<td style="padding:6px;font-weight:bold;">
+      ${p.total}
+    </td>`;
 
     html += "</tr>";
-  });
+  }
 
   html += "</table>";
-
   div.innerHTML = html;
 }
 
@@ -173,93 +166,6 @@ function renderEnd(container, state) {
   container.innerHTML = `
     <h2>Game Over</h2>
     <h3>🏆 Winner: ${winner.name}</h3>
-    <div id="scorecard"></div>
-  `;
-
-  renderScorecard(state);
-}import { getState, recordThrow, isGameOver, undo } from "./logic.js";
-
-export function renderUI(container) {
-  const state = getState();
-
-  if (isGameOver()) {
-    renderEnd(container, state);
-    return;
-  }
-
-  const currentHitsText = formatCurrentHits(state.currentTurnHits);
-  const hitsDisplay = currentHitsText ? " | Hits " + currentHitsText : "";
-
-  container.innerHTML = `
-    <h2>Hole ${state.currentHole + 1}</h2>
-
-    <div id="scorecard"></div>
-
-    <h3>
-      🎯 ${state.players[state.currentPlayer].name}
-      (Dart ${state.dartsThrown + 1}/3${hitsDisplay})
-    </h3>
-
-    <div id="controls"></div>
-
-    <div class="button" id="undoBtn">Undo</div>
-  `;
-
-  renderScorecard(state);
-  renderControls(container);
-
-  const undoBtn = document.getElementById("undoBtn");
-  if (undoBtn) {
-    undoBtn.onclick = () => {
-      undo();
-      renderUI(container);
-    };
-  }
-}
-
-function renderControls(container) {
-  const controls = document.getElementById("controls");
-  controls.innerHTML = "";
-
-  const buttons = [
-    { label: "❌ MISS", value: 0 },
-    { label: "Single", value: 1 },
-    { label: "Double", value: 2 },
-    { label: "Triple", value: 3 }
-  ];
-
-  buttons.forEach(({ label, value }) => {
-    const btn = document.createElement("div");
-    btn.className = "card";
-    btn.innerText = label;
-
-    btn.onclick = () => {
-      recordThrow(value);
-      renderUI(container);
-    };
-
-    controls.appendChild(btn);
-  });
-}
-
-function renderEnd(container, state) {
-  if (state.shanghaiWinner) {
-    container.innerHTML = `
-      <h2>🔥 SHANGHAI 🔥</h2>
-      <h3>🏆 Winner: ${state.shanghaiWinner}</h3>
-      <div id="scorecard"></div>
-    `;
-
-    renderScorecard(state);
-    return;
-  }
-
-  const winner = [...state.players].sort((a, b) => a.total - b.total)[0];
-
-  container.innerHTML = `
-    <h2>Game Over</h2>
-    <h3>🏆 Winner: ${winner.name}</h3>
-
     <div id="scorecard"></div>
   `;
 
