@@ -8,27 +8,18 @@ export function renderUI(container) {
     return;
   }
 
+  const currentHitsText = formatCurrentHits(state.currentTurnHits);
+  const hitsDisplay = currentHitsText ? " | Hits " + currentHitsText : "";
+
   container.innerHTML = `
     <h2>Hole ${state.currentHole + 1}</h2>
 
     <div id="scorecard"></div>
 
-    const currentHitsText = formatCurrentHits(state.currentTurnHits);
-
-container.innerHTML = `
-  <h2>Hole ${state.currentHole + 1}</h2>
-
-  <div id="scorecard"></div>
-
-  <h3>
-    🎯 ${state.players[state.currentPlayer].name}
-    (Dart ${state.dartsThrown + 1}/3${currentHitsText ? ` | Hits ${currentHitsText}` : ""})
-  </h3>
-
-  <div id="controls"></div>
-
-  <div class="button" id="undoBtn">Undo</div>
-`;
+    <h3>
+      🎯 ${state.players[state.currentPlayer].name}
+      (Dart ${state.dartsThrown + 1}/3${hitsDisplay})
+    </h3>
 
     <div id="controls"></div>
 
@@ -45,81 +36,6 @@ container.innerHTML = `
       renderUI(container);
     };
   }
-}
-
-function formatCurrentHits(currentTurnHits = []) {
-  if (!currentTurnHits.length) return "";
-
-  const hitLabels = {
-    1: "Single",
-    2: "Dub",
-    3: "Trip"
-  };
-
-  return currentTurnHits
-    .map(hit => hitLabels[hit] || "")
-    .filter(Boolean)
-    .join(", ");
-}
-
-function renderScorecard(state) {
-  const div = document.getElementById("scorecard");
-
-  let html = `<table style="
-    width:100%;
-    border-collapse: collapse;
-    font-size: 12px;
-    text-align: center;
-  ">`;
-
-  html += "<tr><th></th>";
-
-  for (let i = 0; i < 18; i++) {
-    const isCurrentHole = i === state.currentHole;
-
-    html += `<th style="
-      padding:4px;
-      border-bottom: 1px solid #555;
-      ${isCurrentHole ? "color: #22c55e; font-weight: bold;" : ""}
-    ">${i + 1}</th>`;
-  }
-
-  html += `<th style="padding:4px;">Total</th></tr>`;
-
-  state.players.forEach((player, index) => {
-    const isCurrentPlayer = index === state.currentPlayer;
-
-    html += `<tr style="
-      ${isCurrentPlayer ? "background:#1e293b;" : ""}
-    ">`;
-
-    html += `<td style="
-      padding:6px;
-      font-weight:bold;
-      text-align:left;
-    ">${player.name}</td>`;
-
-    player.scores.forEach((score, holeIndex) => {
-      const isCurrentHole = holeIndex === state.currentHole;
-
-      html += `<td style="
-        padding:4px;
-        border-bottom: 1px solid #333;
-        ${isCurrentHole ? "color:#22c55e; font-weight:bold;" : ""}
-      ">${score !== null ? score : ""}</td>`;
-    });
-
-    html += `<td style="
-      padding:6px;
-      font-weight:bold;
-    ">${player.total}</td>`;
-
-    html += "</tr>";
-  });
-
-  html += "</table>";
-
-  div.innerHTML = html;
 }
 
 function renderControls(container) {
