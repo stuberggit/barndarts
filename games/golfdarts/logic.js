@@ -10,7 +10,9 @@ export function initGame(players) {
     })),
     currentHole: 0,
     currentPlayer: 0,
-    currentTurnHits: []
+    currentTurnHits: [],
+    dartsThrown: 0,
+    shanghaiWinner: null
   };
 
   history = [];
@@ -29,31 +31,36 @@ export function recordScore(score) {
 
   const player = gameState.players[gameState.currentPlayer];
 
-  // Track hit type (simple version)
-  // 1 = single, 2 = double, 3 = triple, 4/5 = misses/over
+  // Track hit type (1 = single, 2 = double, 3 = triple)
   if (score >= 1 && score <= 3) {
     gameState.currentTurnHits.push(score);
   }
 
-  player.scores[gameState.currentHole] = score;
+  player.scores[gameState.currentHole] =
+    (player.scores[gameState.currentHole] || 0) + score;
+
   player.total += score;
 
-  // 🔥 Check Shanghai BEFORE advancing
+  gameState.dartsThrown++;
+
+  // 🔥 Check Shanghai after each dart
   if (checkShanghai()) {
     gameState.shanghaiWinner = player.name;
     return;
   }
 
-  // Move to next player
-  gameState.currentPlayer++;
+  // After 3 darts → next player
+  if (gameState.dartsThrown >= 3) {
+    gameState.dartsThrown = 0;
+    gameState.currentTurnHits = [];
 
-  // Reset turn hits when player changes
-  if (gameState.currentPlayer >= gameState.players.length) {
-    gameState.currentPlayer = 0;
-    gameState.currentHole++;
+    gameState.currentPlayer++;
+
+    if (gameState.currentPlayer >= gameState.players.length) {
+      gameState.currentPlayer = 0;
+      gameState.currentHole++;
+    }
   }
-
-  gameState.currentTurnHits = [];
 }
 
 export function undo() {
