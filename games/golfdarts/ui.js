@@ -3,9 +3,6 @@ import { getState, recordScore, isGameOver } from "./logic.js";
 export function renderUI(container) {
   const state = getState();
 
-  <div id="controls"></div>
-<div class="button" id="undoBtn">Undo</div>
-  
   if (isGameOver()) {
     renderEnd(container, state);
     return;
@@ -19,19 +16,21 @@ export function renderUI(container) {
     <h3>Player: ${state.players[state.currentPlayer].name}</h3>
 
     <div id="controls"></div>
+
+    <div class="button" id="undoBtn">Undo</div>
   `;
 
   renderScorecard(state);
   renderControls(container);
 
-  document.getElementById("undoBtn").onclick = () => {
-  undo();
-  renderUI(container);
-};
-  
+  const undoBtn = document.getElementById("undoBtn");
+  if (undoBtn) {
+    undoBtn.onclick = () => {
+      undo();
+      renderUI(container);
+    };
+  }
 }
-
-import { getState, recordScore, isGameOver, undo } from "./logic.js";
 
 function renderScorecard(state) {
   const div = document.getElementById("scorecard");
