@@ -19,20 +19,31 @@ export function getState() {
   return gameState;
 }
 
+function cloneState(state) {
+  return JSON.parse(JSON.stringify(state));
+}
+
 export function recordScore(score) {
+  // Save snapshot BEFORE change
+  history.push(cloneState(gameState));
+
   const player = gameState.players[gameState.currentPlayer];
 
   player.scores[gameState.currentHole] = score;
   player.total += score;
 
-  // Move to next player
   gameState.currentPlayer++;
 
-  // If all players have gone, move to next hole
   if (gameState.currentPlayer >= gameState.players.length) {
     gameState.currentPlayer = 0;
     gameState.currentHole++;
   }
+}
+
+export function undo() {
+  if (history.length === 0) return;
+
+  gameState = history.pop();
 }
 
 export function isGameOver() {
