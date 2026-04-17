@@ -30,12 +30,11 @@ function cloneState(state) {
   return JSON.parse(JSON.stringify(state));
 }
 
-export function recordThrow(isHit) {
+export function recordThrow(hitValue) {
   history.push(cloneState(gameState));
 
   const player = gameState.players[gameState.currentPlayer];
 
-  // Initialize turn tracking
   if (gameState.dartsThrown === undefined) {
     gameState.dartsThrown = 0;
   }
@@ -44,29 +43,42 @@ export function recordThrow(isHit) {
     gameState.turnHitsCount = 0;
   }
 
-  // Track hit/miss correctly
-  if (isHit) {
-    gameState.turnHitsCount++;
+  if (!Array.isArray(gameState.currentTurnHits)) {
+    gameState.currentTurnHits = [];
   }
 
+  // hitValue should be 0, 1, 2, or 3
+  const safeHitValue = Math.max(0, Math.min(3, hitValue));
+
+  gameState.turnHitsCount += safeHitValue;
   gameState.dartsThrown++;
 
-  // After 3 darts → resolve turn
+  // Only singles/doubles/triples count toward Shanghai
+  if (safeHitValue > 0) {
+    gameState.currentTurnHits.push(safeHitValue);
+  }
+
+  // Check Shanghai after each dart
+  if (checkShanghai(gameState.currentTurnHits)) {
+    gameState.shanghaiWinner = player.name;
+    return;
+  }
+
+  // After 3 darts, resolve the hole score
   if (gameState.dartsThrown === 3) {
-
-    const hits = gameState.turnHitsCount;
-
+    const hits = Math.min(gameState.turnHitsCount, 9);
     const hazards = gameState.holeHazards?.[gameState.currentHole] || 0;
     const score = getFinalScore(hits, hazards);
 
     player.scores[gameState.currentHole] = score;
     player.total += score;
 
-    // reset turn
+    // Reset turn
     gameState.dartsThrown = 0;
     gameState.turnHitsCount = 0;
+    gameState.currentTurnHits = [];
 
-    // next player
+    // Next player
     gameState.currentPlayer++;
 
     if (gameState.currentPlayer >= gameState.players.length) {
@@ -77,11 +89,12 @@ export function recordThrow(isHit) {
 }
 
 export function getBaseScoreFromHits(hits) {
-  // Special case: complete miss
-  if (hits === 0) return 5;
+  const cappedHits = Math.max(0, Math.min(9, hits));
+
+  if (cappedHits === 0) return 5;
 
   const scores = [3, 2, 1, 0, -1, -2, -3, -4, -5];
-  return scores[hits - 1] ?? 5;
+  return scores[cappedHits - 1] ?? 5;
 }
 
 export function getFinalScore(hits, hazards = 0) {
