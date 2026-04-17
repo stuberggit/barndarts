@@ -9,7 +9,7 @@ export function initGame(players) {
       total: 0
     })),
     currentHole: 0,
-    currentPlayer: 0
+    currentPlayer: 0,
     currentTurnHits: []
   };
 
