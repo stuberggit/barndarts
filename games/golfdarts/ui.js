@@ -1,4 +1,4 @@
-import { getState, recordScore, isGameOver, undo } from "./logic.js";
+import { getState, recordThrow, isGameOver, undo } from "./logic.js";
 
 console.log("UNDO IMPORT:", undo);
 
