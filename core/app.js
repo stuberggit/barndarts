@@ -1,1 +1,5 @@
-document.getElementById("app").innerHTML = "<h1>APP STILL WORKS</h1>";
+import { renderApp } from "./router.js";
+
+renderApp();
+  
+
