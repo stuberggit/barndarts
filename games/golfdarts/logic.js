@@ -1,4 +1,5 @@
 let gameState = {};
+let history = [];
 
 export function initGame(players) {
   gameState = {
@@ -10,6 +11,8 @@ export function initGame(players) {
     currentHole: 0,
     currentPlayer: 0
   };
+
+  history = [];
 }
 
 export function getState() {
