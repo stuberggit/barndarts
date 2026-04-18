@@ -1,4 +1,4 @@
-import { getState, recordThrow, isGameOver, undo, nextPlayer, submitHazards } from "./logic.js";
+import { getState, recordThrow, isGameOver, undo, nextPlayer, submitHazards, submitHammer } from "./logic.js";
 
 /* -------------------------
    HELPERS
@@ -65,6 +65,11 @@ export function renderUI(container) {
     return;
   }
 
+   if (state.awaitingHammerInput) {
+  renderHammerPrompt(container, state);
+  return;
+}
+
   const hitsText = formatCurrentHits(state.currentTurnHits);
   const hitsDisplay = hitsText ? ` | Hits ${hitsText}` : "";
 
@@ -85,6 +90,54 @@ export function renderUI(container) {
 
   renderScorecard(state);
   renderControls(container);
+
+  document.getElementById("undoBtn").onclick = () => {
+    undo();
+    renderUI(container);
+  };
+}
+
+/* -------------------------
+   HAMMER PROMPT
+--------------------------*/
+
+function renderHammerPrompt(container, state) {
+  const player = state.players[state.currentPlayer];
+  const hitsText = formatCurrentHits(state.currentTurnHits);
+
+  container.innerHTML = `
+    <h2>🔵 Hammer Hole ${state.currentHole + 1}</h2>
+
+    <div id="scorecard"></div>
+
+    <h3>
+      ${player.name}
+      ${hitsText ? ` | Hits ${hitsText}` : ""}
+    </h3>
+
+    <p>Select hammer modifier:</p>
+
+    <div id="hammerControls"></div>
+
+    <div class="button" id="undoBtn">Undo</div>
+  `;
+
+  renderScorecard(state);
+
+  const hammerControls = document.getElementById("hammerControls");
+
+  [-2, -1, 0, 1, 2].forEach(val => {
+    const btn = document.createElement("div");
+    btn.className = "card";
+    btn.innerText = val >= 0 ? `+${val}` : val;
+
+    btn.onclick = () => {
+      submitHammer(val);
+      renderUI(container);
+    };
+
+    hammerControls.appendChild(btn);
+  });
 
   document.getElementById("undoBtn").onclick = () => {
     undo();
@@ -200,11 +253,15 @@ function renderScorecard(state) {
   for (let i = 0; i < 18; i++) {
     const active = i === state.currentHole;
     const isHazard = hazardHoles.includes(i);
+    const isHammer = state.hammerHoles?.includes(i);
 
     html += `<th style="${headerCellStyle({ active, isHazard })}">
       ${i + 1}
     </th>`;
   }
+
+  ${isHammer ? "color:#3b82f6;" : ""}
+  ${isHammer ? "background:#14223a;" : ""} 
 
   html += `<th>Total</th></tr>`;
 
