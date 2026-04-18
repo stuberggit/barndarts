@@ -52,57 +52,69 @@ export function renderUI(container) {
     <div class="button" id="undoBtn">Undo</div>
   `;
 
-  renderScorecard(state);
-  renderControls(container);
+  function renderScorecard(state) {
+  const div = document.getElementById("scorecard");
+  const hazardHoles = state.hazardHoles || [];
 
-  document.getElementById("undoBtn").onclick = () => {
-    undo();
-    renderUI(container);
-  };
-}
+  let html = `<table style="
+    width:100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    text-align: center;
+  ">`;
 
-function renderHazardPrompt(container, state) {
-  const player = state.players[state.currentPlayer];
-  const hitsText = formatCurrentHits(state.currentTurnHits);
-  const hitsDisplay = hitsText ? ` | Hits ${hitsText}` : "";
+  html += "<tr><th></th>";
 
-  container.innerHTML = `
-    <h2>⚠️ Hazard Hole ${state.currentHole + 1}</h2>
+  // HEADER
+  for (let i = 0; i < 18; i++) {
+    const active = i === state.currentHole;
+    const isHazard = hazardHoles.includes(i);
 
-    <div id="scorecard"></div>
+    html += `<th style="
+      padding:4px;
+      border-bottom:1px solid #555;
+      ${active ? "font-weight:bold;" : ""}
+      ${isHazard ? "color:#ff4c4c;" : ""}
+      ${active ? "color:#22c55e;" : ""}
+    ">${i + 1}</th>`;
+  }
 
-    <h3>
-      🎯 ${player.name}${hitsDisplay}
-    </h3>
+  html += `<th>Total</th></tr>`;
 
-    <p>How many hazards were hit?</p>
+  // PLAYERS
+  for (let i = 0; i < state.players.length; i++) {
+    const p = state.players[i];
+    const activePlayer = i === state.currentPlayer;
 
-    <div id="hazardControls"></div>
+    html += `<tr style="${activePlayer ? "background:#1e293b;" : ""}">`;
 
-    <div class="button" id="undoBtn">Undo</div>
-  `;
+    html += `<td style="padding:6px;font-weight:bold;text-align:left;">
+      ${p.name}
+    </td>`;
 
-  renderScorecard(state);
+    for (let h = 0; h < p.scores.length; h++) {
+      const activeHole = h === state.currentHole;
+      const isHazard = hazardHoles.includes(h);
 
-  const hazardControls = document.getElementById("hazardControls");
+      html += `<td style="
+        padding:4px;
+        border-bottom:1px solid #333;
+        ${activeHole ? "color:#22c55e;font-weight:bold;" : ""}
+        ${isHazard ? "background:#2a1515;" : ""}
+      ">
+        ${p.scores[h] ?? ""}
+      </td>`;
+    }
 
-  [0, 1, 2, 3].forEach(count => {
-    const btn = document.createElement("div");
-    btn.className = "card";
-    btn.innerText = `${count} Hazard${count === 1 ? "" : "s"}`;
+    html += `<td style="padding:6px;font-weight:bold;">
+      ${p.total}
+    </td>`;
 
-    btn.onclick = () => {
-      submitHazards(count);
-      renderUI(container);
-    };
+    html += "</tr>";
+  }
 
-    hazardControls.appendChild(btn);
-  });
-
-  document.getElementById("undoBtn").onclick = () => {
-    undo();
-    renderUI(container);
-  };
+  html += "</table>";
+  div.innerHTML = html;
 }
 
 /* -------------------------
