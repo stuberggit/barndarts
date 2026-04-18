@@ -1,4 +1,4 @@
-import { getState, recordThrow, isGameOver, undo } from "./logic.js";
+import { getState, recordThrow, isGameOver, undo, nextPlayer } from "./logic.js";
 
 /* -------------------------
    HELPERS
@@ -63,25 +63,37 @@ function renderControls(container) {
   const controls = document.getElementById("controls");
   controls.innerHTML = "";
 
-  const options = [
+  const buttons = [
     { label: "❌ MISS", value: 0 },
     { label: "Single", value: 1 },
     { label: "Double", value: 2 },
     { label: "Triple", value: 3 }
   ];
 
-  for (const opt of options) {
+  buttons.forEach(btnData => {
     const btn = document.createElement("div");
     btn.className = "card";
-    btn.innerText = opt.label;
+    btn.innerText = btnData.label;
 
     btn.onclick = () => {
-      recordThrow(opt.value);
+      recordThrow(btnData.value);
       renderUI(container);
     };
 
     controls.appendChild(btn);
-  }
+  });
+
+  // 🔥 NEXT PLAYER BUTTON
+  const nextBtn = document.createElement("div");
+  nextBtn.className = "button";
+  nextBtn.innerText = "➡️ Next Player";
+
+  nextBtn.onclick = () => {
+    nextPlayer();
+    renderUI(container);
+  };
+
+  controls.appendChild(nextBtn);
 }
 
 /* -------------------------
