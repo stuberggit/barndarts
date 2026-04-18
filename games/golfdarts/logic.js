@@ -16,14 +16,15 @@ export function initGame(players) {
     dartsThrown: 0,
     turnHitsCount: 0,
     holeHazards: Array(18).fill(0),
-    shanghaiWinner: null
+    shanghaiWinner: null,
+    hazardHoles: generateHazardHoles(),
+    awaitingHazardInput: false,
+    pendingTurnScore: null,
+    pendingTurnPlayerIndex: null,
+    pendingTurnHole: null,
   };
 
-hazardHoles: generateHazardHoles(),
-awaitingHazardInput: false,
-pendingTurnScore: null,
-pendingTurnPlayerIndex: null,
-pendingTurnHole: null,
+
 
   history = [];
 }
