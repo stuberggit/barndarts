@@ -1,4 +1,12 @@
-import { getState, recordThrow, isGameOver, undo, nextPlayer, submitHazards, submitHammer } from "./logic.js";
+import {
+  getState,
+  recordThrow,
+  isGameOver,
+  undo,
+  nextPlayer,
+  submitHazards,
+  submitHammer
+} from "./logic.js";
 
 /* -------------------------
    HELPERS
@@ -16,22 +24,28 @@ function formatCurrentHits(hits = []) {
   return hits.map(v => map[v] || "").filter(Boolean).join(", ");
 }
 
-function headerCellStyle({ active, isHazard }) {
+function headerCellStyle({ active, isHazard, isHammer }) {
   let style = `
     padding:4px;
     border-bottom:1px solid #555;
   `;
 
+  if (isHazard) {
+    style += "color:#ff4c4c;";
+  }
+
+  if (isHammer) {
+    style += "color:#3b82f6;";
+  }
+
   if (active) {
     style += "font-weight:bold;color:#22c55e;";
-  } else if (isHazard) {
-    style += "color:#ff4c4c;";
   }
 
   return style;
 }
 
-function scoreCellStyle({ active, isHazard }) {
+function scoreCellStyle({ active, isHazard, isHammer }) {
   let style = `
     padding:4px;
     border-bottom:1px solid #333;
@@ -39,6 +53,10 @@ function scoreCellStyle({ active, isHazard }) {
 
   if (isHazard) {
     style += "background:#2a1515;";
+  }
+
+  if (isHammer) {
+    style += "background:#14223a;";
   }
 
   if (active) {
@@ -65,10 +83,10 @@ export function renderUI(container) {
     return;
   }
 
-   if (state.awaitingInput) {
-  renderPrompt(container, state);
-  return;
-}
+  if (state.awaitingHammerInput) {
+    renderHammerPrompt(container, state);
+    return;
+  }
 
   const hitsText = formatCurrentHits(state.currentTurnHits);
   const hitsDisplay = hitsText ? ` | Hits ${hitsText}` : "";
@@ -90,56 +108,6 @@ export function renderUI(container) {
 
   renderScorecard(state);
   renderControls(container);
-
-  document.getElementById("undoBtn").onclick = () => {
-    undo();
-    renderUI(container);
-  };
-}
-
-/* -------------------------
-   HAMMER PROMPT
---------------------------*/
-
-function renderHammerPrompt(container, state) {
-  const player = state.players[state.currentPlayer];
-  const hitsText = formatCurrentHits(state.currentTurnHits);
-  const hitsDisplay = hitsText ? " | Hits " + hitsText : "";
-
-  container.innerHTML = `
-    <h2>Hammer Hole ${state.currentHole + 1}</h2>
-
-    <div id="scorecard"></div>
-
-    <h3>
-      🎯 ${player.name}${hitsDisplay}
-    </h3>
-
-    <p>Select hammer modifier:</p>
-
-    <div id="hammerControls"></div>
-
-    <div class="button" id="undoBtn">Undo</div>
-  `;
-
-  renderScorecard(state);
-
-  const hammerControls = document.getElementById("hammerControls");
-
-  const options = [-2, -1, 0, 1, 2];
-
-  options.forEach(val => {
-    const btn = document.createElement("div");
-    btn.className = "card";
-    btn.innerText = val >= 0 ? "+" + val : val;
-
-    btn.onclick = () => {
-      submitHammer(val);
-      renderUI(container);
-    };
-
-    hammerControls.appendChild(btn);
-  });
 
   document.getElementById("undoBtn").onclick = () => {
     undo();
@@ -196,6 +164,55 @@ function renderHazardPrompt(container, state) {
 }
 
 /* -------------------------
+   HAMMER PROMPT
+--------------------------*/
+
+function renderHammerPrompt(container, state) {
+  const player = state.players[state.currentPlayer];
+  const hitsText = formatCurrentHits(state.currentTurnHits);
+  const hitsDisplay = hitsText ? ` | Hits ${hitsText}` : "";
+
+  container.innerHTML = `
+    <h2>Hammer Hole ${state.currentHole + 1}</h2>
+
+    <div id="scorecard"></div>
+
+    <h3>
+      🎯 ${player.name}${hitsDisplay}
+    </h3>
+
+    <p>Select hammer modifier:</p>
+
+    <div id="hammerControls"></div>
+
+    <div class="button" id="undoBtn">Undo</div>
+  `;
+
+  renderScorecard(state);
+
+  const hammerControls = document.getElementById("hammerControls");
+  const options = [-2, -1, 0, 1, 2];
+
+  options.forEach(value => {
+    const btn = document.createElement("div");
+    btn.className = "card";
+    btn.innerText = value >= 0 ? `+${value}` : `${value}`;
+
+    btn.onclick = () => {
+      submitHammer(value);
+      renderUI(container);
+    };
+
+    hammerControls.appendChild(btn);
+  });
+
+  document.getElementById("undoBtn").onclick = () => {
+    undo();
+    renderUI(container);
+  };
+}
+
+/* -------------------------
    CONTROLS
 --------------------------*/
 
@@ -210,7 +227,7 @@ function renderControls(container) {
     { label: "Triple", value: 3 }
   ];
 
-  for (const opt of options) {
+  options.forEach(opt => {
     const btn = document.createElement("div");
     btn.className = "card";
     btn.innerText = opt.label;
@@ -221,7 +238,7 @@ function renderControls(container) {
     };
 
     controls.appendChild(btn);
-  }
+  });
 
   const nextBtn = document.createElement("div");
   nextBtn.className = "button";
@@ -242,6 +259,7 @@ function renderControls(container) {
 function renderScorecard(state) {
   const div = document.getElementById("scorecard");
   const hazardHoles = state.hazardHoles || [];
+  const hammerHoles = state.hammerHoles || [];
 
   let html = `<table style="
     width:100%;
@@ -255,43 +273,40 @@ function renderScorecard(state) {
   for (let i = 0; i < 18; i++) {
     const active = i === state.currentHole;
     const isHazard = hazardHoles.includes(i);
-    const isHammer = state.hammerHoles?.includes(i);
+    const isHammer = hammerHoles.includes(i);
 
-    html += `<th style="${headerCellStyle({ active, isHazard })}">
+    html += `<th style="${headerCellStyle({ active, isHazard, isHammer })}">
       ${i + 1}
     </th>`;
   }
 
-  ${isHammer ? "color:#3b82f6;" : ""}
-  ${isHammer ? "background:#14223a;" : ""} 
-
   html += `<th>Total</th></tr>`;
 
-  for (let i = 0; i < state.players.length; i++) {
-    const p = state.players[i];
-    const activePlayer = i === state.currentPlayer;
+  state.players.forEach((player, index) => {
+    const activePlayer = index === state.currentPlayer;
 
     html += `<tr style="${activePlayer ? "background:#1e293b;" : ""}">`;
 
     html += `<td style="padding:6px;font-weight:bold;text-align:left;">
-      ${p.name}
+      ${player.name}
     </td>`;
 
-    for (let h = 0; h < p.scores.length; h++) {
-      const active = h === state.currentHole;
-      const isHazard = hazardHoles.includes(h);
+    player.scores.forEach((score, holeIndex) => {
+      const active = holeIndex === state.currentHole;
+      const isHazard = hazardHoles.includes(holeIndex);
+      const isHammer = hammerHoles.includes(holeIndex);
 
-      html += `<td style="${scoreCellStyle({ active, isHazard })}">
-        ${p.scores[h] ?? ""}
+      html += `<td style="${scoreCellStyle({ active, isHazard, isHammer })}">
+        ${score ?? ""}
       </td>`;
-    }
+    });
 
     html += `<td style="padding:6px;font-weight:bold;">
-      ${p.total}
+      ${player.total}
     </td>`;
 
     html += "</tr>";
-  }
+  });
 
   html += "</table>";
   div.innerHTML = html;
