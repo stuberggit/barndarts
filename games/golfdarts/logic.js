@@ -24,6 +24,17 @@ export function initGame(players) {
     pendingTurnHole: null,
   };
 
+  const hazardHoles = generateHazardHoles();
+  const hammerHoles = generateHammerHoles(hazardHoles);
+
+gameState = {
+  ...
+  hazardHoles,
+  hammerHoles,
+
+  awaitingHammerInput: false,
+  pendingHammerValue: null
+};
 
 
   history = [];
@@ -57,18 +68,24 @@ export function recordThrow(hitValue) {
     return;
   }
 
-  if (gameState.dartsThrown === 3) {
-    const isHazardHole = gameState.hazardHoles.includes(gameState.currentHole);
+ if (gameState.dartsThrown === 3) {
+  const hole = gameState.currentHole;
 
-    if (isHazardHole) {
-      gameState.awaitingHazardInput = true;
-      gameState.pendingTurnPlayerIndex = gameState.currentPlayer;
-      gameState.pendingTurnHole = gameState.currentHole;
-      return;
-    }
+  const isHazard = gameState.hazardHoles.includes(hole);
+  const isHammer = gameState.hammerHoles.includes(hole);
 
-    finalizeTurn(0);
+  if (isHazard) {
+    gameState.awaitingHazardInput = true;
+    return;
   }
+
+  if (isHammer) {
+    gameState.awaitingHammerInput = true;
+    return;
+  }
+
+  finalizeTurn(0, 0);
+}
 }
 
 export function getBaseScoreFromHits(hits) {
@@ -141,10 +158,14 @@ function shuffle(array) {
   return copy;
 }
 
-function finalizeTurn(hazards = 0) {
+function finalizeTurn(hazards = 0, hammer = 0) {
   const player = gameState.players[gameState.currentPlayer];
-  const hits = Math.min(gameState.turnHitsCount, 9);
-  const score = getFinalScore(hits, hazards);
+
+  let hits = Math.min(gameState.turnHitsCount, 9);
+  let score = getFinalScore(hits, hazards);
+
+  // 🔵 APPLY HAMMER (simple version for now)
+  score += hammer;
 
   player.scores[gameState.currentHole] = score;
   player.total += score;
@@ -152,10 +173,9 @@ function finalizeTurn(hazards = 0) {
   gameState.dartsThrown = 0;
   gameState.turnHitsCount = 0;
   gameState.currentTurnHits = [];
+
   gameState.awaitingHazardInput = false;
-  gameState.pendingTurnScore = null;
-  gameState.pendingTurnPlayerIndex = null;
-  gameState.pendingTurnHole = null;
+  gameState.awaitingHammerInput = false;
 
   gameState.currentPlayer++;
 
@@ -165,6 +185,16 @@ function finalizeTurn(hazards = 0) {
   }
 }
 
+function generateHammerHoles(hazardHoles) {
+  const frontNine = [0,1,2,3,4,5,6,7,8].filter(h => !hazardHoles.includes(h));
+  const backNine = [9,10,11,12,13,14,15,16,17].filter(h => !hazardHoles.includes(h));
+
+  const frontHammer = shuffle(frontNine)[0];
+  const backHammer = shuffle(backNine)[0];
+
+  return [frontHammer, backHammer];
+}
+
 export function submitHazards(hazardCount) {
   history.push(cloneState(gameState));
 
@@ -172,6 +202,12 @@ export function submitHazards(hazardCount) {
 
   const safeHazards = Math.max(0, Math.min(3, hazardCount));
   finalizeTurn(safeHazards);
+}
+
+export function submitHammer(value) {
+  history.push(cloneState(gameState));
+
+  finalizeTurn(0, value);
 }
 
 export function undo() {
