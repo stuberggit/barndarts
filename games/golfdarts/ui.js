@@ -65,8 +65,8 @@ export function renderUI(container) {
     return;
   }
 
-   if (state.awaitingHammerInput) {
-  renderHammerPrompt(container, state);
+   if (state.awaitingInput) {
+  renderPrompt(container, state);
   return;
 }
 
@@ -104,15 +104,15 @@ export function renderUI(container) {
 function renderHammerPrompt(container, state) {
   const player = state.players[state.currentPlayer];
   const hitsText = formatCurrentHits(state.currentTurnHits);
+  const hitsDisplay = hitsText ? " | Hits " + hitsText : "";
 
   container.innerHTML = `
-    <h2>🔵 Hammer Hole ${state.currentHole + 1}</h2>
+    <h2>Hammer Hole ${state.currentHole + 1}</h2>
 
     <div id="scorecard"></div>
 
     <h3>
-      ${player.name}
-      ${hitsText ? ` | Hits ${hitsText}` : ""}
+      🎯 ${player.name}${hitsDisplay}
     </h3>
 
     <p>Select hammer modifier:</p>
@@ -126,10 +126,12 @@ function renderHammerPrompt(container, state) {
 
   const hammerControls = document.getElementById("hammerControls");
 
-  [-2, -1, 0, 1, 2].forEach(val => {
+  const options = [-2, -1, 0, 1, 2];
+
+  options.forEach(val => {
     const btn = document.createElement("div");
     btn.className = "card";
-    btn.innerText = val >= 0 ? `+${val}` : val;
+    btn.innerText = val >= 0 ? "+" + val : val;
 
     btn.onclick = () => {
       submitHammer(val);
