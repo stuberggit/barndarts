@@ -1,6 +1,5 @@
 import { getState, recordThrow, isGameOver, undo, nextPlayer, submitHazards } from "./logic.js";
 
-
 /* -------------------------
    HELPERS
 --------------------------*/
@@ -15,6 +14,38 @@ function formatCurrentHits(hits = []) {
   };
 
   return hits.map(v => map[v] || "").filter(Boolean).join(", ");
+}
+
+function headerCellStyle({ active, isHazard }) {
+  let style = `
+    padding:4px;
+    border-bottom:1px solid #555;
+  `;
+
+  if (active) {
+    style += "font-weight:bold;color:#22c55e;";
+  } else if (isHazard) {
+    style += "color:#ff4c4c;";
+  }
+
+  return style;
+}
+
+function scoreCellStyle({ active, isHazard }) {
+  let style = `
+    padding:4px;
+    border-bottom:1px solid #333;
+  `;
+
+  if (isHazard) {
+    style += "background:#2a1515;";
+  }
+
+  if (active) {
+    style += "color:#22c55e;font-weight:bold;";
+  }
+
+  return style;
 }
 
 /* -------------------------
@@ -52,69 +83,61 @@ export function renderUI(container) {
     <div class="button" id="undoBtn">Undo</div>
   `;
 
-  function renderScorecard(state) {
-  const div = document.getElementById("scorecard");
-  const hazardHoles = state.hazardHoles || [];
+  renderScorecard(state);
+  renderControls(container);
 
-  let html = `<table style="
-    width:100%;
-    border-collapse: collapse;
-    font-size: 12px;
-    text-align: center;
-  ">`;
+  document.getElementById("undoBtn").onclick = () => {
+    undo();
+    renderUI(container);
+  };
+}
 
-  html += "<tr><th></th>";
+/* -------------------------
+   HAZARD PROMPT
+--------------------------*/
 
-  // HEADER
-  for (let i = 0; i < 18; i++) {
-    const active = i === state.currentHole;
-    const isHazard = hazardHoles.includes(i);
+function renderHazardPrompt(container, state) {
+  const player = state.players[state.currentPlayer];
+  const hitsText = formatCurrentHits(state.currentTurnHits);
+  const hitsDisplay = hitsText ? ` | Hits ${hitsText}` : "";
 
-    html += `<th style="
-      padding:4px;
-      border-bottom:1px solid #555;
-      ${active ? "font-weight:bold;" : ""}
-      ${isHazard ? "color:#ff4c4c;" : ""}
-      ${active ? "color:#22c55e;" : ""}
-    ">${i + 1}</th>`;
-  }
+  container.innerHTML = `
+    <h2>Hazard Hole ${state.currentHole + 1}</h2>
 
-  html += `<th>Total</th></tr>`;
+    <div id="scorecard"></div>
 
-  // PLAYERS
-  for (let i = 0; i < state.players.length; i++) {
-    const p = state.players[i];
-    const activePlayer = i === state.currentPlayer;
+    <h3>
+      🎯 ${player.name}${hitsDisplay}
+    </h3>
 
-    html += `<tr style="${activePlayer ? "background:#1e293b;" : ""}">`;
+    <p>How many hazards were hit?</p>
 
-    html += `<td style="padding:6px;font-weight:bold;text-align:left;">
-      ${p.name}
-    </td>`;
+    <div id="hazardControls"></div>
 
-    for (let h = 0; h < p.scores.length; h++) {
-      const activeHole = h === state.currentHole;
-      const isHazard = hazardHoles.includes(h);
+    <div class="button" id="undoBtn">Undo</div>
+  `;
 
-      html += `<td style="
-        padding:4px;
-        border-bottom:1px solid #333;
-        ${activeHole ? "color:#22c55e;font-weight:bold;" : ""}
-        ${isHazard ? "background:#2a1515;" : ""}
-      ">
-        ${p.scores[h] ?? ""}
-      </td>`;
-    }
+  renderScorecard(state);
 
-    html += `<td style="padding:6px;font-weight:bold;">
-      ${p.total}
-    </td>`;
+  const hazardControls = document.getElementById("hazardControls");
 
-    html += "</tr>";
-  }
+  [0, 1, 2, 3].forEach(count => {
+    const btn = document.createElement("div");
+    btn.className = "card";
+    btn.innerText = `${count} Hazard${count === 1 ? "" : "s"}`;
 
-  html += "</table>";
-  div.innerHTML = html;
+    btn.onclick = () => {
+      submitHazards(count);
+      renderUI(container);
+    };
+
+    hazardControls.appendChild(btn);
+  });
+
+  document.getElementById("undoBtn").onclick = () => {
+    undo();
+    renderUI(container);
+  };
 }
 
 /* -------------------------
@@ -125,27 +148,26 @@ function renderControls(container) {
   const controls = document.getElementById("controls");
   controls.innerHTML = "";
 
-  const buttons = [
+  const options = [
     { label: "❌ MISS", value: 0 },
     { label: "Single", value: 1 },
     { label: "Double", value: 2 },
     { label: "Triple", value: 3 }
   ];
 
-  buttons.forEach(btnData => {
+  for (const opt of options) {
     const btn = document.createElement("div");
     btn.className = "card";
-    btn.innerText = btnData.label;
+    btn.innerText = opt.label;
 
     btn.onclick = () => {
-      recordThrow(btnData.value);
+      recordThrow(opt.value);
       renderUI(container);
     };
 
     controls.appendChild(btn);
-  });
+  }
 
-  // 🔥 NEXT PLAYER BUTTON
   const nextBtn = document.createElement("div");
   nextBtn.className = "button";
   nextBtn.innerText = "➡️ Next Player";
@@ -178,14 +200,10 @@ function renderScorecard(state) {
   for (let i = 0; i < 18; i++) {
     const active = i === state.currentHole;
     const isHazard = hazardHoles.includes(i);
-    const label = `${i + 1}${isHazard ? "⚠️" : ""}`;
 
-    html += `<th style="
-      padding:4px;
-      border-bottom:1px solid #555;
-      ${active ? "color:#22c55e;font-weight:bold;" : ""}
-      ${isHazard ? "background:#3a1f1f;" : ""}
-    ">${label}</th>`;
+    html += `<th style="${headerCellStyle({ active, isHazard })}">
+      ${i + 1}
+    </th>`;
   }
 
   html += `<th>Total</th></tr>`;
@@ -201,15 +219,10 @@ function renderScorecard(state) {
     </td>`;
 
     for (let h = 0; h < p.scores.length; h++) {
-      const activeHole = h === state.currentHole;
+      const active = h === state.currentHole;
       const isHazard = hazardHoles.includes(h);
 
-      html += `<td style="
-        padding:4px;
-        border-bottom:1px solid #333;
-        ${activeHole ? "color:#22c55e;font-weight:bold;" : ""}
-        ${isHazard ? "background:#2b1616;" : ""}
-      ">
+      html += `<td style="${scoreCellStyle({ active, isHazard })}">
         ${p.scores[h] ?? ""}
       </td>`;
     }
@@ -223,15 +236,6 @@ function renderScorecard(state) {
 
   html += "</table>";
   div.innerHTML = html;
-}
-
-/* helper */
-function cellStyle(active) {
-  return `
-    padding:4px;
-    border-bottom:1px solid #333;
-    ${active ? "color:#22c55e;font-weight:bold;" : ""}
-  `;
 }
 
 /* -------------------------
