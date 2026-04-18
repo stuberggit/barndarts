@@ -19,6 +19,12 @@ export function initGame(players) {
     shanghaiWinner: null
   };
 
+hazardHoles: generateHazardHoles(),
+awaitingHazardInput: false,
+pendingTurnScore: null,
+pendingTurnPlayerIndex: null,
+pendingTurnHole: null,
+
   history = [];
 }
 
@@ -33,58 +39,34 @@ function cloneState(state) {
 export function recordThrow(hitValue) {
   history.push(cloneState(gameState));
 
+  if (gameState.awaitingHazardInput) return;
+
   const player = gameState.players[gameState.currentPlayer];
-
-  if (gameState.dartsThrown === undefined) {
-    gameState.dartsThrown = 0;
-  }
-
-  if (gameState.turnHitsCount === undefined) {
-    gameState.turnHitsCount = 0;
-  }
-
-  if (!Array.isArray(gameState.currentTurnHits)) {
-    gameState.currentTurnHits = [];
-  }
-
-  // hitValue should be 0, 1, 2, or 3
   const safeHitValue = Math.max(0, Math.min(3, hitValue));
 
   gameState.turnHitsCount += safeHitValue;
   gameState.dartsThrown++;
 
-  // Only singles/doubles/triples count toward Shanghai
   if (safeHitValue > 0) {
     gameState.currentTurnHits.push(safeHitValue);
   }
 
-  // Check Shanghai after each dart
   if (checkShanghai(gameState.currentTurnHits)) {
     gameState.shanghaiWinner = player.name;
     return;
   }
 
-  // After 3 darts, resolve the hole score
   if (gameState.dartsThrown === 3) {
-    const hits = Math.min(gameState.turnHitsCount, 9);
-    const hazards = gameState.holeHazards?.[gameState.currentHole] || 0;
-    const score = getFinalScore(hits, hazards);
+    const isHazardHole = gameState.hazardHoles.includes(gameState.currentHole);
 
-    player.scores[gameState.currentHole] = score;
-    player.total += score;
-
-    // Reset turn
-    gameState.dartsThrown = 0;
-    gameState.turnHitsCount = 0;
-    gameState.currentTurnHits = [];
-
-    // Next player
-    gameState.currentPlayer++;
-
-    if (gameState.currentPlayer >= gameState.players.length) {
-      gameState.currentPlayer = 0;
-      gameState.currentHole++;
+    if (isHazardHole) {
+      gameState.awaitingHazardInput = true;
+      gameState.pendingTurnPlayerIndex = gameState.currentPlayer;
+      gameState.pendingTurnHole = gameState.currentHole;
+      return;
     }
+
+    finalizeTurn(0);
   }
 }
 
@@ -141,6 +123,54 @@ export function getScoreMeta(score) {
     label: labels[score] ?? "Unknown",
     color: colors[score] ?? "#ffffff"
   };
+}
+
+function generateHazardHoles() {
+  const frontNine = shuffle([0, 1, 2, 3, 4, 5, 6, 7, 8]).slice(0, 2);
+  const backNine = shuffle([9, 10, 11, 12, 13, 14, 15, 16, 17]).slice(0, 2);
+  return [...frontNine, ...backNine];
+}
+
+function shuffle(array) {
+  const copy = [...array];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+function finalizeTurn(hazards = 0) {
+  const player = gameState.players[gameState.currentPlayer];
+  const hits = Math.min(gameState.turnHitsCount, 9);
+  const score = getFinalScore(hits, hazards);
+
+  player.scores[gameState.currentHole] = score;
+  player.total += score;
+
+  gameState.dartsThrown = 0;
+  gameState.turnHitsCount = 0;
+  gameState.currentTurnHits = [];
+  gameState.awaitingHazardInput = false;
+  gameState.pendingTurnScore = null;
+  gameState.pendingTurnPlayerIndex = null;
+  gameState.pendingTurnHole = null;
+
+  gameState.currentPlayer++;
+
+  if (gameState.currentPlayer >= gameState.players.length) {
+    gameState.currentPlayer = 0;
+    gameState.currentHole++;
+  }
+}
+
+export function submitHazards(hazardCount) {
+  history.push(cloneState(gameState));
+
+  if (!gameState.awaitingHazardInput) return;
+
+  const safeHazards = Math.max(0, Math.min(3, hazardCount));
+  finalizeTurn(safeHazards);
 }
 
 export function undo() {
