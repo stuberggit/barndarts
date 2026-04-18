@@ -151,6 +151,36 @@ export function undo() {
   gameState = history.pop();
 }
 
+export function nextPlayer() {
+  history.push(cloneState(gameState));
+
+  const player = gameState.players[gameState.currentPlayer];
+
+  // Fill remaining darts as misses
+  const remainingDarts = 3 - gameState.dartsThrown;
+
+  // No hits added (misses)
+  const hits = Math.min(gameState.turnHitsCount, 9);
+  const hazards = gameState.holeHazards?.[gameState.currentHole] || 0;
+  const score = getFinalScore(hits, hazards);
+
+  player.scores[gameState.currentHole] = score;
+  player.total += score;
+
+  // Reset turn
+  gameState.dartsThrown = 0;
+  gameState.turnHitsCount = 0;
+  gameState.currentTurnHits = [];
+
+  // Advance player
+  gameState.currentPlayer++;
+
+  if (gameState.currentPlayer >= gameState.players.length) {
+    gameState.currentPlayer = 0;
+    gameState.currentHole++;
+  }
+}
+
 export function isGameOver() {
   return gameState.currentHole >= 18 || gameState.shanghaiWinner;
 }
