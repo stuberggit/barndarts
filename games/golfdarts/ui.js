@@ -98,23 +98,29 @@ function renderScorecard(state) {
     text-align: center;
   ">`;
 
+  // ===== HEADER ROW =====
   html += "<tr><th></th>";
 
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < 9; i++) {
     const active = i === state.currentHole;
-
-    html += `<th style="
-      padding:4px;
-      border-bottom:1px solid #555;
-      ${active ? "color:#22c55e;font-weight:bold;" : ""}
-    ">${i + 1}</th>`;
+    html += `<th style="${cellStyle(active)}">${i + 1}</th>`;
   }
 
-  html += `<th>Total</th></tr>`;
+  html += `<th>Out</th>`;
 
-  for (let i = 0; i < state.players.length; i++) {
-    const p = state.players[i];
-    const activePlayer = i === state.currentPlayer;
+  for (let i = 9; i < 18; i++) {
+    const active = i === state.currentHole;
+    html += `<th style="${cellStyle(active)}">${i + 1}</th>`;
+  }
+
+  html += `<th>In</th><th>Total</th></tr>`;
+
+  // ===== PLAYER ROWS =====
+  state.players.forEach((p, index) => {
+    const activePlayer = index === state.currentPlayer;
+
+    let outTotal = 0;
+    let inTotal = 0;
 
     html += `<tr style="${activePlayer ? "background:#1e293b;" : ""}">`;
 
@@ -122,27 +128,49 @@ function renderScorecard(state) {
       ${p.name}
     </td>`;
 
-    for (let h = 0; h < p.scores.length; h++) {
-      const activeHole = h === state.currentHole;
+    // FRONT 9
+    for (let i = 0; i < 9; i++) {
+      const score = p.scores[i];
+      if (score !== null) outTotal += score;
 
-      html += `<td style="
-        padding:4px;
-        border-bottom:1px solid #333;
-        ${activeHole ? "color:#22c55e;font-weight:bold;" : ""}
-      ">
-        ${p.scores[h] ?? ""}
+      html += `<td style="${cellStyle(i === state.currentHole)}">
+        ${score ?? ""}
       </td>`;
     }
 
-    html += `<td style="padding:6px;font-weight:bold;">
-      ${p.total}
+    html += `<td style="font-weight:bold;">${outTotal || ""}</td>`;
+
+    // BACK 9
+    for (let i = 9; i < 18; i++) {
+      const score = p.scores[i];
+      if (score !== null) inTotal += score;
+
+      html += `<td style="${cellStyle(i === state.currentHole)}">
+        ${score ?? ""}
+      </td>`;
+    }
+
+    html += `<td style="font-weight:bold;">${inTotal || ""}</td>`;
+
+    html += `<td style="font-weight:bold;">
+      ${(outTotal + inTotal) || ""}
     </td>`;
 
     html += "</tr>";
-  }
+  });
 
   html += "</table>";
+
   div.innerHTML = html;
+}
+
+/* helper */
+function cellStyle(active) {
+  return `
+    padding:4px;
+    border-bottom:1px solid #333;
+    ${active ? "color:#22c55e;font-weight:bold;" : ""}
+  `;
 }
 
 /* -------------------------
