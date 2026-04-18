@@ -1,5 +1,6 @@
 import { getState, recordThrow, isGameOver, undo, nextPlayer, submitHazards } from "./logic.js";
 
+
 /* -------------------------
    HELPERS
 --------------------------*/
@@ -22,12 +23,14 @@ function formatCurrentHits(hits = []) {
 
 export function renderUI(container) {
   const state = getState();
-if (state.awaitingHazardInput) {
-  renderHazardPrompt(container, state);
-  return;
-}
+
   if (isGameOver()) {
     renderEnd(container, state);
+    return;
+  }
+
+  if (state.awaitingHazardInput) {
+    renderHazardPrompt(container, state);
     return;
   }
 
@@ -51,6 +54,50 @@ if (state.awaitingHazardInput) {
 
   renderScorecard(state);
   renderControls(container);
+
+  document.getElementById("undoBtn").onclick = () => {
+    undo();
+    renderUI(container);
+  };
+}
+
+function renderHazardPrompt(container, state) {
+  const player = state.players[state.currentPlayer];
+  const hitsText = formatCurrentHits(state.currentTurnHits);
+  const hitsDisplay = hitsText ? ` | Hits ${hitsText}` : "";
+
+  container.innerHTML = `
+    <h2>⚠️ Hazard Hole ${state.currentHole + 1}</h2>
+
+    <div id="scorecard"></div>
+
+    <h3>
+      🎯 ${player.name}${hitsDisplay}
+    </h3>
+
+    <p>How many hazards were hit?</p>
+
+    <div id="hazardControls"></div>
+
+    <div class="button" id="undoBtn">Undo</div>
+  `;
+
+  renderScorecard(state);
+
+  const hazardControls = document.getElementById("hazardControls");
+
+  [0, 1, 2, 3].forEach(count => {
+    const btn = document.createElement("div");
+    btn.className = "card";
+    btn.innerText = `${count} Hazard${count === 1 ? "" : "s"}`;
+
+    btn.onclick = () => {
+      submitHazards(count);
+      renderUI(container);
+    };
+
+    hazardControls.appendChild(btn);
+  });
 
   document.getElementById("undoBtn").onclick = () => {
     undo();
@@ -149,6 +196,7 @@ function renderHazardPrompt(container, state) {
 
 function renderScorecard(state) {
   const div = document.getElementById("scorecard");
+  const hazardHoles = state.hazardHoles || [];
 
   let html = `<table style="
     width:100%;
@@ -157,29 +205,26 @@ function renderScorecard(state) {
     text-align: center;
   ">`;
 
-  // ===== HEADER ROW =====
   html += "<tr><th></th>";
 
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < 18; i++) {
     const active = i === state.currentHole;
-    html += `<th style="${cellStyle(active)}">${i + 1}</th>`;
+    const isHazard = hazardHoles.includes(i);
+    const label = `${i + 1}${isHazard ? "⚠️" : ""}`;
+
+    html += `<th style="
+      padding:4px;
+      border-bottom:1px solid #555;
+      ${active ? "color:#22c55e;font-weight:bold;" : ""}
+      ${isHazard ? "background:#3a1f1f;" : ""}
+    ">${label}</th>`;
   }
 
-  html += `<th>Out</th>`;
+  html += `<th>Total</th></tr>`;
 
-  for (let i = 9; i < 18; i++) {
-    const active = i === state.currentHole;
-    html += `<th style="${cellStyle(active)}">${i + 1}</th>`;
-  }
-
-  html += `<th>In</th><th>Total</th></tr>`;
-
-  // ===== PLAYER ROWS =====
-  state.players.forEach((p, index) => {
-    const activePlayer = index === state.currentPlayer;
-
-    let outTotal = 0;
-    let inTotal = 0;
+  for (let i = 0; i < state.players.length; i++) {
+    const p = state.players[i];
+    const activePlayer = i === state.currentPlayer;
 
     html += `<tr style="${activePlayer ? "background:#1e293b;" : ""}">`;
 
@@ -187,39 +232,28 @@ function renderScorecard(state) {
       ${p.name}
     </td>`;
 
-    // FRONT 9
-    for (let i = 0; i < 9; i++) {
-      const score = p.scores[i];
-      if (score !== null) outTotal += score;
+    for (let h = 0; h < p.scores.length; h++) {
+      const activeHole = h === state.currentHole;
+      const isHazard = hazardHoles.includes(h);
 
-      html += `<td style="${cellStyle(i === state.currentHole)}">
-        ${score ?? ""}
+      html += `<td style="
+        padding:4px;
+        border-bottom:1px solid #333;
+        ${activeHole ? "color:#22c55e;font-weight:bold;" : ""}
+        ${isHazard ? "background:#2b1616;" : ""}
+      ">
+        ${p.scores[h] ?? ""}
       </td>`;
     }
 
-    html += `<td style="font-weight:bold;">${outTotal || ""}</td>`;
-
-    // BACK 9
-    for (let i = 9; i < 18; i++) {
-      const score = p.scores[i];
-      if (score !== null) inTotal += score;
-
-      html += `<td style="${cellStyle(i === state.currentHole)}">
-        ${score ?? ""}
-      </td>`;
-    }
-
-    html += `<td style="font-weight:bold;">${inTotal || ""}</td>`;
-
-    html += `<td style="font-weight:bold;">
-      ${(outTotal + inTotal) || ""}
+    html += `<td style="padding:6px;font-weight:bold;">
+      ${p.total}
     </td>`;
 
     html += "</tr>";
-  });
+  }
 
   html += "</table>";
-
   div.innerHTML = html;
 }
 
