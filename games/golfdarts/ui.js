@@ -146,50 +146,6 @@ function renderControls(container) {
   controls.appendChild(nextBtn);
 }
 
-function renderHazardPrompt(container, state) {
-  const player = state.players[state.currentPlayer];
-  const hitsText = formatCurrentHits(state.currentTurnHits);
-
-  container.innerHTML = `
-    <h2>⚠️ Hazard Hole</h2>
-
-    <div id="scorecard"></div>
-
-    <h3>
-      ${player.name} | Hole ${state.currentHole + 1}
-      ${hitsText ? `| Hits ${hitsText}` : ""}
-    </h3>
-
-    <p>How many hazards were hit?</p>
-
-    <div id="hazardControls"></div>
-
-    <div class="button" id="undoBtn">Undo</div>
-  `;
-
-  renderScorecard(state);
-
-  const hazardControls = document.getElementById("hazardControls");
-
-  [0, 1, 2, 3].forEach(count => {
-    const btn = document.createElement("div");
-    btn.className = "card";
-    btn.innerText = `${count} Hazard${count === 1 ? "" : "s"}`;
-
-    btn.onclick = () => {
-      submitHazards(count);
-      renderUI(container);
-    };
-
-    hazardControls.appendChild(btn);
-  });
-
-  document.getElementById("undoBtn").onclick = () => {
-    undo();
-    renderUI(container);
-  };
-}
-
 /* -------------------------
    SCORECARD
 --------------------------*/
