@@ -4,38 +4,35 @@ let history = [];
 import { checkShanghai } from "../../core/rules/shanghai.js";
 
 export function initGame(players) {
+  const hazardHoles = generateHazardHoles();
+  const hammerHoles = generateHammerHoles(hazardHoles);
+
   gameState = {
     players: players.map(name => ({
       name,
       scores: Array(18).fill(null),
       total: 0
     })),
+
     currentHole: 0,
     currentPlayer: 0,
-    currentTurnHits: [],
+
     dartsThrown: 0,
     turnHitsCount: 0,
-    holeHazards: Array(18).fill(0),
+    currentTurnHits: [],
+
     shanghaiWinner: null,
-    hazardHoles: generateHazardHoles(),
+
+    hazardHoles,
+    hammerHoles,
+
     awaitingHazardInput: false,
-    pendingTurnScore: null,
+    awaitingHammerInput: false,
+
     pendingTurnPlayerIndex: null,
     pendingTurnHole: null,
+    pendingHammerValue: null
   };
-
-  const hazardHoles = generateHazardHoles();
-  const hammerHoles = generateHammerHoles(hazardHoles);
-
-gameState = {
-  ...
-  hazardHoles,
-  hammerHoles,
-
-  awaitingHammerInput: false,
-  pendingHammerValue: null
-};
-
 
   history = [];
 }
