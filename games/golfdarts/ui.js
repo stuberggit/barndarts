@@ -75,7 +75,19 @@ export function renderUI(container) {
 
   const previewLabelHtml =
     state.dartsThrown > 0
-      ? ` | <span style="color:${previewMeta.color};font-weight:bold;">${previewMeta.label}</span>`
+      ? `
+        <div style="
+          padding: 8px 10px;
+          border-radius: 10px;
+          background: rgba(255,255,255,0.08);
+          color:${previewMeta.color};
+          font-weight:bold;
+          text-align:center;
+        ">
+          ${state.players[state.currentPlayer].name}
+          (${hitsDisplay ? hitsDisplay.replace(" | ", "") + " | " : ""}${previewScore === 1 ? "Hole in One" : previewMeta.label})
+        </div>
+      `
       : "";
 
   const scoreAge = Date.now() - (state.lastScoreTimestamp || 0);
@@ -85,8 +97,7 @@ export function renderUI(container) {
   const scoreFlashHtml = showScoreFlash
     ? `
       <div style="
-        margin: 8px 0 12px;
-        padding: 10px 12px;
+        padding: 8px 10px;
         border-radius: 10px;
         background: rgba(255,255,255,0.08);
         color: ${state.lastScoreColor || "#ffffff"};
@@ -100,16 +111,28 @@ export function renderUI(container) {
     `
     : "";
 
-    container.innerHTML = `
+  const feedbackHtml = scoreFlashHtml || previewLabelHtml || `<div></div>`;
+
+  container.innerHTML = `
     <h2>Hole ${state.currentHole + 1}</h2>
 
     <div id="scorecard"></div>
 
-    ${scoreFlashHtml}
+    <div style="
+      min-height: 54px;
+      margin: 8px 0 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    ">
+      <div style="width:100%;">
+        ${feedbackHtml}
+      </div>
+    </div>
 
     <h3>
       🎯 ${state.players[state.currentPlayer].name}
-      (Dart ${state.dartsThrown + 1}/3${hitsDisplay}${previewLabelHtml})
+      (Dart ${state.dartsThrown + 1}/3${hitsDisplay})
     </h3>
 
     <div id="controls"></div>
@@ -131,7 +154,6 @@ export function renderUI(container) {
     }, 700);
   }
 }
-
 function getPreviewScore(hits) {
   if (hits === 0) return 5;
 
