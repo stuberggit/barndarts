@@ -34,47 +34,6 @@ function getPreviewScoreFromHits(hits) {
   return scores[cappedHits - 1] ?? 5;
 }
 
-function headerCellStyle({ active, isHazard, isHammer }) {
-  let style = `
-    padding:4px;
-    border-bottom:1px solid #555;
-  `;
-
-  if (isHazard) {
-    style += "color:#ff4c4c;";
-  }
-
-  if (isHammer) {
-    style += "color:#3b82f6;";
-  }
-
-  if (active) {
-    style += "font-weight:bold;color:#22c55e;";
-  }
-
-  return style;
-}
-
-function scoreCellStyle({ active, isHazard, isHammer }) {
-  let style = `
-    padding:4px;
-    border-bottom:1px solid #333;
-  `;
-
-  if (isHazard) {
-    style += "background:#2a1515;";
-  }
-
-  if (isHammer) {
-    style += "background:#14223a;";
-  }
-
-  if (active) {
-    style += "color:#22c55e;font-weight:bold;";
-  }
-
-  return style;
-}
 
 /* -------------------------
    MAIN UI
