@@ -9,18 +9,17 @@ const gameMap = {
   "hammer-cricket": HammerCricket
 };
 
-const game = games[gameId];
-
-if (!game) {
-  container.innerHTML = `<h2>Game not found: ${gameId}</h2>`;
-  return;
-}
-
 export function renderGame(container) {
-  const game = gameMap[store.selectedGame];
+  const gameId = store.selectedGame;
+  const game = gameMap[gameId];
+
+  if (!game) {
+    container.innerHTML = `<h2>Game not found: ${gameId}</h2>`;
+    return;
+  }
 
   container.innerHTML = `
-    <h1>${store.selectedGame}</h1>
+    <h1>${game.name}</h1>
     <div id="gameArea"></div>
     <div class="button" id="end">End Game</div>
   `;
