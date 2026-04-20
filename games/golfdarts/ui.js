@@ -5,7 +5,8 @@ import {
   undo,
   nextPlayer,
   submitHazards,
-  submitHammer
+  submitHammer,
+  getScoreLabel
 } from "./logic.js";
 
 /* -------------------------
@@ -88,18 +89,32 @@ export function renderUI(container) {
     return;
   }
 
-  const hitsText = formatCurrentHits(state.currentTurnHits);
+  const  = formatCurrentHits(state.currentTurnHits);
   const hitsDisplay = hitsText ? ` | Hits ${hitsText}` : "";
 
+const previewHits = state.hammerHoles?.includes(state.currentHole)
+  ? Math.min(
+      (state.currentTurnThrows || []).reduce(
+        (sum, val, i) => sum + val * [1, 2, 3][i],
+        0
+      ),
+      9
+    )
+  : Math.min(state.turnHitsCount || 0, 9);
+
+const previewScore = previewHits === 0 ? 5 : getPreviewScore(previewHits);
+const previewLabel =
+  state.dartsThrown > 0 ? ` | ${getScoreLabel(previewScore)}` : "";
+  
   container.innerHTML = `
     <h2>Hole ${state.currentHole + 1}</h2>
 
     <div id="scorecard"></div>
 
     <h3>
-      🎯 ${state.players[state.currentPlayer].name}
-      (Dart ${state.dartsThrown + 1}/3${hitsDisplay})
-    </h3>
+  🎯 ${state.players[state.currentPlayer].name}
+  (Dart ${state.dartsThrown + 1}/3${hitsDisplay}${previewLabel})
+</h3>
 
     <div id="controls"></div>
 
@@ -113,6 +128,13 @@ export function renderUI(container) {
     undo();
     renderUI(container);
   };
+}
+
+function getPreviewScore(hits) {
+  if (hits === 0) return 5;
+
+  const scores = [3, 2, 1, 0, -1, -2, -3, -4, -5];
+  return scores[hits - 1] ?? 5;
 }
 
 /* -------------------------
