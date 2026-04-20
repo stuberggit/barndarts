@@ -100,12 +100,12 @@ export function renderUI(container) {
     `
     : "";
 
-  container.innerHTML = `
+    container.innerHTML = `
     <h2>Hole ${state.currentHole + 1}</h2>
 
-    ${scoreFlashHtml}
-
     <div id="scorecard"></div>
+
+    ${scoreFlashHtml}
 
     <h3>
       🎯 ${state.players[state.currentPlayer].name}
