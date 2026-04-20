@@ -6,7 +6,7 @@ import {
   nextPlayer,
   submitHazards,
   submitHammer,
-  getScoreLabel
+  getMeta
 } from "./logic.js";
 
 /* -------------------------
@@ -23,6 +23,15 @@ function formatCurrentHits(hits = []) {
   };
 
   return hits.map(v => map[v] || "").filter(Boolean).join(", ");
+}
+
+function getPreviewScoreFromHits(hits) {
+  const cappedHits = Math.max(0, Math.min(9, hits));
+
+  if (cappedHits === 0) return 5;
+
+  const scores = [3, 2, 1, 0, -1, -2, -3, -4, -5];
+  return scores[cappedHits - 1] ?? 5;
 }
 
 function headerCellStyle({ active, isHazard, isHammer }) {
@@ -89,32 +98,32 @@ export function renderUI(container) {
     return;
   }
 
-  const  = formatCurrentHits(state.currentTurnHits);
+  const hitsText = formatCurrentHits(state.currentTurnHits);
   const hitsDisplay = hitsText ? ` | Hits ${hitsText}` : "";
 
-const previewHits = state.hammerHoles?.includes(state.currentHole)
-  ? Math.min(
-      (state.currentTurnThrows || []).reduce(
-        (sum, val, i) => sum + val * [1, 2, 3][i],
-        0
-      ),
-      9
-    )
-  : Math.min(state.turnHitsCount || 0, 9);
+  const previewHits = state.hammerHoles?.includes(state.currentHole)
+    ? Math.min(
+        (state.currentTurnThrows || []).reduce(
+          (sum, val, i) => sum + val * [1, 2, 3][i],
+          0
+        ),
+        9
+      )
+    : Math.min(state.turnHitsCount || 0, 9);
 
-const previewScore = previewHits === 0 ? 5 : getPreviewScore(previewHits);
-const previewLabel =
-  state.dartsThrown > 0 ? ` | ${getScoreLabel(previewScore)}` : "";
-  
+  const previewScore = getPreviewScoreFromHits(previewHits);
+  const previewLabel =
+    state.dartsThrown > 0 ? ` | ${getMeta(previewScore).label}` : "";
+
   container.innerHTML = `
     <h2>Hole ${state.currentHole + 1}</h2>
 
     <div id="scorecard"></div>
 
     <h3>
-  🎯 ${state.players[state.currentPlayer].name}
-  (Dart ${state.dartsThrown + 1}/3${hitsDisplay}${previewLabel})
-</h3>
+      🎯 ${state.players[state.currentPlayer].name}
+      (Dart ${state.dartsThrown + 1}/3${hitsDisplay}${previewLabel})
+    </h3>
 
     <div id="controls"></div>
 
@@ -280,6 +289,11 @@ function renderScorecard(state) {
   const hazardHoles = state.hazardHoles || [];
   const hammerHoles = state.hammerHoles || [];
 
+  const showingFront = state.currentHole < 9;
+  const startHole = showingFront ? 0 : 9;
+  const endHole = showingFront ? 9 : 18;
+  const subtotalLabel = showingFront ? "Out" : "In";
+
   let html = `<table style="
     width:100%;
     border-collapse: collapse;
@@ -289,7 +303,7 @@ function renderScorecard(state) {
 
   html += "<tr><th></th>";
 
-  for (let i = 0; i < 18; i++) {
+  for (let i = startHole; i < endHole; i++) {
     const active = i === state.currentHole;
     const isHazard = hazardHoles.includes(i);
     const isHammer = hammerHoles.includes(i);
@@ -299,10 +313,17 @@ function renderScorecard(state) {
     </th>`;
   }
 
-  html += `<th>Total</th></tr>`;
+  html += `<th>${subtotalLabel}</th><th>Total</th></tr>`;
 
   state.players.forEach((player, index) => {
     const activePlayer = index === state.currentPlayer;
+    const frontTotal = player.scores
+      .slice(0, 9)
+      .reduce((sum, score) => sum + (score ?? 0), 0);
+    const backTotal = player.scores
+      .slice(9, 18)
+      .reduce((sum, score) => sum + (score ?? 0), 0);
+    const subtotal = showingFront ? frontTotal : backTotal;
 
     html += `<tr style="${activePlayer ? "background:#1e293b;" : ""}">`;
 
@@ -310,15 +331,20 @@ function renderScorecard(state) {
       ${player.name}
     </td>`;
 
-    player.scores.forEach((score, holeIndex) => {
-      const active = holeIndex === state.currentHole;
-      const isHazard = hazardHoles.includes(holeIndex);
-      const isHammer = hammerHoles.includes(holeIndex);
+    for (let h = startHole; h < endHole; h++) {
+      const score = player.scores[h];
+      const active = h === state.currentHole;
+      const isHazard = hazardHoles.includes(h);
+      const isHammer = hammerHoles.includes(h);
 
       html += `<td style="${scoreCellStyle({ active, isHazard, isHammer })}">
         ${score ?? ""}
       </td>`;
-    });
+    }
+
+    html += `<td style="padding:6px;font-weight:bold;">
+      ${subtotal || ""}
+    </td>`;
 
     html += `<td style="padding:6px;font-weight:bold;">
       ${player.total}
