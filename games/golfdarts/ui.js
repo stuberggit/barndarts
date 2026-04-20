@@ -181,7 +181,7 @@ function renderHammerPrompt(container, state) {
       🎯 ${player.name}${hitsDisplay}
     </h3>
 
-    <p>Select hammer modifier:</p>
+    <p>Hammer scoring uses dart order: 1st ×1, 2nd ×2, 3rd ×3.</p>
 
     <div id="hammerControls"></div>
 
@@ -191,20 +191,17 @@ function renderHammerPrompt(container, state) {
   renderScorecard(state);
 
   const hammerControls = document.getElementById("hammerControls");
-  const options = [-2, -1, 0, 1, 2];
 
-  options.forEach(value => {
-    const btn = document.createElement("div");
-    btn.className = "card";
-    btn.innerText = value >= 0 ? `+${value}` : `${value}`;
+  const applyBtn = document.createElement("div");
+  applyBtn.className = "button";
+  applyBtn.innerText = "Apply Hammer Score";
 
-    btn.onclick = () => {
-      submitHammer(value);
-      renderUI(container);
-    };
+  applyBtn.onclick = () => {
+    submitHammer();
+    renderUI(container);
+  };
 
-    hammerControls.appendChild(btn);
-  });
+  hammerControls.appendChild(applyBtn);
 
   document.getElementById("undoBtn").onclick = () => {
     undo();
