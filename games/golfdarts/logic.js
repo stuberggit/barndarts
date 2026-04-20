@@ -22,6 +22,10 @@ export function initGame(players) {
     currentTurnHits: [],
     currentTurnThrows: [],
 
+    lastScoreMessage: "",
+    lastScoreColor: "",
+    lastScoreTimestamp: 0,
+
     shanghaiWinner: null,
 
     hazardHoles,
@@ -123,7 +127,7 @@ export function getMeta(score) {
     4: "Bogey",
     3: "Par",
     2: "Birdie",
-    1: "Ace",
+    1: "Hole in One",
     0: "Goose Egg",
     "-1": "Icicle",
     "-2": "Polar Bear",
@@ -183,9 +187,16 @@ function finalizeTurn(hazards = 0, isHammer = false) {
   }
 
   const score = getFinalScore(hits, hazards);
+  const meta = getMeta(score);
+
+  const scoreLabel = score === 1 ? "Hole in One" : meta.label;
 
   player.scores[gameState.currentHole] = score;
   player.total += score;
+
+  gameState.lastScoreMessage = `${player.name} scores ${scoreLabel}!`;
+  gameState.lastScoreColor = meta.color || "#ffffff";
+  gameState.lastScoreTimestamp = Date.now();
 
   gameState.dartsThrown = 0;
   gameState.turnHitsCount = 0;
