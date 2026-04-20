@@ -1,6 +1,8 @@
 let gameState = {};
 let history = [];
 
+import { checkShanghai } from "../../core/rules/shanghai.js";
+
 /* -------------------------
    INIT / STATE
 --------------------------*/
@@ -21,10 +23,13 @@ export function initGame(players) {
 
     dartsThrown: 0,
     currentTurnThrows: [],
+    currentTurnHits: [],
 
     lastScoreMessage: "",
     lastScoreColor: "#ffffff",
-    lastScoreTimestamp: 0
+    lastScoreTimestamp: 0,
+
+    shanghaiWinner: null
   };
 
   history = [];
@@ -132,6 +137,7 @@ function finalizeTurn() {
 
   gameState.dartsThrown = 0;
   gameState.currentTurnThrows = [];
+  gameState.currentTurnHits = [];
 
   gameState.currentPlayer++;
 
@@ -148,10 +154,23 @@ function finalizeTurn() {
 export function recordThrow(hitValue) {
   history.push(cloneState(gameState));
 
+  const player = gameState.players[gameState.currentPlayer];
   const safeHitValue = Math.max(0, Math.min(3, hitValue));
 
   gameState.currentTurnThrows.push(safeHitValue);
   gameState.dartsThrown++;
+
+  if (safeHitValue > 0) {
+    gameState.currentTurnHits.push(safeHitValue);
+  }
+
+  if (checkShanghai(gameState.currentTurnHits)) {
+    gameState.shanghaiWinner = player.name;
+    gameState.lastScoreMessage = `${player.name} hit SHANGHAI!`;
+    gameState.lastScoreColor = "#ffcc00";
+    gameState.lastScoreTimestamp = Date.now();
+    return;
+  }
 
   if (gameState.dartsThrown === 3) {
     finalizeTurn();
@@ -169,7 +188,7 @@ export function undo() {
 }
 
 export function isGameOver() {
-  return gameState.currentRound >= gameState.rounds.length;
+  return gameState.currentRound >= gameState.rounds.length || !!gameState.shanghaiWinner;
 }
 
 export function getMeta(score) {
