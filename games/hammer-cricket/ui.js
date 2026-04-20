@@ -19,13 +19,14 @@ export function renderUI(container) {
   const scoreFlashHtml = showScoreFlash
     ? `
       <div style="
-        margin: 8px 0 12px;
-        padding: 10px 12px;
+        padding: 8px 10px;
         border-radius: 10px;
         background: rgba(255,255,255,0.08);
         color: ${state.lastScoreColor || "#ffffff"};
         font-weight: bold;
         text-align: center;
+        opacity: ${scoreAge > 1800 ? 0.35 : 1};
+        transition: opacity 0.6s ease;
       ">
         ${state.lastScoreMessage}
       </div>
@@ -45,7 +46,6 @@ export function renderUI(container) {
     liveScore !== null
       ? `
         <div style="
-          margin: 8px 0 12px;
           padding: 8px 10px;
           border-radius: 10px;
           background: rgba(255,255,255,0.08);
@@ -59,13 +59,24 @@ export function renderUI(container) {
       `
       : "";
 
+  const feedbackHtml = scoreFlashHtml || liveLabelHtml || `<div></div>`;
+
   container.innerHTML = `
     <h2>${round.label}</h2>
 
     <div id="scorecard"></div>
 
-    ${scoreFlashHtml}
-    ${liveLabelHtml}
+    <div style="
+      min-height: 54px;
+      margin: 8px 0 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    ">
+      <div style="width:100%;">
+        ${feedbackHtml}
+      </div>
+    </div>
 
     <h3>
       🎯 ${state.players[state.currentPlayer].name}
