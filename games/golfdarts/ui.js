@@ -78,8 +78,32 @@ export function renderUI(container) {
       ? ` | <span style="color:${previewMeta.color};font-weight:bold;">${previewMeta.label}</span>`
       : "";
 
+  const scoreAge = Date.now() - (state.lastScoreTimestamp || 0);
+  const showScoreFlash = state.lastScoreMessage && scoreAge < 2500;
+  const flashOpacity = scoreAge > 1800 ? 0.35 : 1;
+
+  const scoreFlashHtml = showScoreFlash
+    ? `
+      <div style="
+        margin: 8px 0 12px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.08);
+        color: ${state.lastScoreColor || "#ffffff"};
+        font-weight: bold;
+        text-align: center;
+        opacity: ${flashOpacity};
+        transition: opacity 0.6s ease;
+      ">
+        ${state.lastScoreMessage}
+      </div>
+    `
+    : "";
+
   container.innerHTML = `
     <h2>Hole ${state.currentHole + 1}</h2>
+
+    ${scoreFlashHtml}
 
     <div id="scorecard"></div>
 
@@ -100,6 +124,12 @@ export function renderUI(container) {
     undo();
     renderUI(container);
   };
+
+  if (showScoreFlash) {
+    setTimeout(() => {
+      renderUI(container);
+    }, 700);
+  }
 }
 
 function getPreviewScore(hits) {
