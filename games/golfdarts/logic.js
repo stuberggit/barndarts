@@ -86,21 +86,21 @@ export function recordThrow(hitValue) {
   }
 }
 
-export function getBaseScoreFromHits(hits) {
+export function getBaseFromHits(hits) {
   const cappedHits = Math.max(0, Math.min(9, hits));
 
   if (cappedHits === 0) return 5;
 
-  const scores = [3, 2, 1, 0, -1, -2, -3, -4, -5];
-  return scores[cappedHits - 1] ?? 5;
+  const s = [3, 2, 1, 0, -1, -2, -3, -4, -5];
+  return s[cappedHits - 1] ?? 5;
 }
 
-export function getFinalScore(hits, hazards = 0) {
-  const base = getBaseScoreFromHits(hits);
+export function getFinal(hits, hazards = 0) {
+  const base = getBaseFromHits(hits);
   return base + hazards;
 }
 
-export function getScoreMeta(score) {
+export function getMeta(score) {
   const labels = {
     8: "Buster",
     7: "Quad Bogey",
@@ -139,6 +139,27 @@ export function getScoreMeta(score) {
     label: labels[score] ?? "Unknown",
     color: colors[score] ?? "#ffffff"
   };
+}
+
+export function getScoreLabel(score) {
+  const labels = {
+    8: "Buster",
+    7: "Quad Bogey",
+    6: "Triple Bogey",
+    5: "Double Bogey",
+    4: "Bogey",
+    3: "Par",
+    2: "Birdie",
+    1: "Ace",
+    0: "Goose Egg",
+    "-1": "Icicle",
+    "-2": "Polar Bear",
+    "-3": "Frostbite",
+    "-4": "Snowman",
+    "-5": "Avalanche"
+  };
+
+  return labels[score] ?? "";
 }
 
 function generateHazardHoles() {
