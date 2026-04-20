@@ -405,8 +405,8 @@ function renderScorecard(state) {
       }
 
       if (active) {
-        cellStyle += "font-weight:bold;outline:2px solid #22c55e;outline-offset:-2px;";
-      }
+  cellStyle += "font-weight:bold;";
+}
 
       html += `<td style="${cellStyle}">${score ?? ""}</td>`;
     }
