@@ -100,6 +100,15 @@ export function getFinal(hits, hazards = 0) {
   return base + hazards;
 }
 
+export function getBaseScoreFromHits(hits) {
+  const cappedHits = Math.max(0, Math.min(9, hits));
+
+  if (cappedHits === 0) return 5;
+
+  const scores = [3, 2, 1, 0, -1, -2, -3, -4, -5];
+  return scores[cappedHits - 1] ?? 5;
+}
+
 export function getFinalScore(hits, hazards = 0) {
   const baseScore = getBaseScoreFromHits(hits);
   return baseScore + hazards;
