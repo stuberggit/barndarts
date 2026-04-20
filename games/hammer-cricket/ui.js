@@ -1,4 +1,4 @@
-import { getState, recordThrow, nextPlayer, undo, isGameOver } from "./logic.js";
+import { getState, recordThrow, nextPlayer, undo, isGameOver, getMeta } from "./logic.js";
 
 function formatTarget(target) {
   return target === 25 ? "Bull" : String(target);
@@ -32,12 +32,40 @@ export function renderUI(container) {
     `
     : "";
 
+  const throwsText = formatCurrentThrows(state.currentTurnThrows);
+  const throwsDisplay = throwsText ? ` | Hits ${throwsText}` : "";
+
+  const liveScore =
+    state.dartsThrown > 0 ? getLiveRoundScore(state.currentTurnThrows, round) : null;
+
+  const liveMeta =
+    liveScore !== null ? getMeta(liveScore) : { label: "", color: "#ffffff" };
+
+  const liveLabelHtml =
+    liveScore !== null
+      ? `
+        <div style="
+          margin: 8px 0 12px;
+          padding: 8px 10px;
+          border-radius: 10px;
+          background: rgba(255,255,255,0.08);
+          color: ${liveMeta.color};
+          font-weight: bold;
+          text-align: center;
+        ">
+          ${state.players[state.currentPlayer].name}
+          (${throwsDisplay ? throwsDisplay.replace(" | ", "") + " | " : ""}${liveMeta.label}: ${liveScore > 0 ? "+" : ""}${liveScore})
+        </div>
+      `
+      : "";
+
   container.innerHTML = `
     <h2>${round.label}</h2>
 
     <div id="scorecard"></div>
 
     ${scoreFlashHtml}
+    ${liveLabelHtml}
 
     <h3>
       🎯 ${state.players[state.currentPlayer].name}
@@ -98,6 +126,40 @@ function renderControls(container) {
   };
 
   controls.appendChild(nextBtn);
+}
+
+function formatCurrentThrows(throws = []) {
+  if (!throws.length) return "";
+
+  const map = {
+    0: "Miss",
+    1: "Single",
+    2: "Dub",
+    3: "Trip"
+  };
+
+  return throws.map(v => map[v] || "").join(", ");
+}
+
+function getLiveRoundScore(throws, round) {
+  if (!round || !Array.isArray(throws)) return 0;
+
+  const safeThrows = throws.slice(0, 3);
+  const allMisses = safeThrows.length === 3 && safeThrows.every(v => v === 0);
+
+  if (allMisses) {
+    const penaltyMultiplier = round.type === "bonus" ? 5 : 3;
+    return -(round.target * penaltyMultiplier);
+  }
+
+  let total = 0;
+
+  for (let i = 0; i < safeThrows.length; i++) {
+    const hitValue = Math.max(0, Math.min(3, safeThrows[i]));
+    total += round.target * hitValue * round.multipliers[i];
+  }
+
+  return total;
 }
 
 function renderScorecard(state) {
