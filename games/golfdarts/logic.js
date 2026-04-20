@@ -141,26 +141,6 @@ export function getMeta(score) {
   };
 }
 
-export function getScoreLabel(score) {
-  const labels = {
-    8: "Buster",
-    7: "Quad Bogey",
-    6: "Triple Bogey",
-    5: "Double Bogey",
-    4: "Bogey",
-    3: "Par",
-    2: "Birdie",
-    1: "Ace",
-    0: "Goose Egg",
-    "-1": "Icicle",
-    "-2": "Polar Bear",
-    "-3": "Frostbite",
-    "-4": "Snowman",
-    "-5": "Avalanche"
-  };
-
-  return labels[score] ?? "";
-}
 
 function generateHazardHoles() {
   const frontNine = shuffle([0, 1, 2, 3, 4, 5, 6, 7, 8]).slice(0, 2);
