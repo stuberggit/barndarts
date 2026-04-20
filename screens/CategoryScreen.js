@@ -2,13 +2,28 @@ import { store } from "../core/store.js";
 import { renderApp } from "../core/router.js";
 
 const gamesByCategory = {
-  fun: ["Ahman Green", "GolfDarts", "Hammer Cricket", "Killer", "Soon - FootDarts"],
-  x01: ["Gotcha", "301", "501", "701"],
-  cricket: ["No Score", "Random", "Standard"]
+  fun: [
+    { id: "ahman-green", label: "Ahman Green" },
+    { id: "GolfDarts", label: "GolfDarts" },
+    { id: "hammer-cricket", label: "Hammer Cricket" },
+    { id: "killer", label: "Killer" },
+    { id: "soon-footdarts", label: "Soon - FootDarts" }
+  ],
+  x01: [
+    { id: "gotcha", label: "Gotcha" },
+    { id: "301", label: "301" },
+    { id: "501", label: "501" },
+    { id: "701", label: "701" }
+  ],
+  cricket: [
+    { id: "cricket-no-score", label: "No Score" },
+    { id: "cricket-random", label: "Random" },
+    { id: "cricket-standard", label: "Standard" }
+  ]
 };
 
 export function renderCategory(container) {
-  const games = gamesByCategory[store.selectedCategory];
+  const games = gamesByCategory[store.selectedCategory] || [];
 
   container.innerHTML = `
     <h1>${store.selectedCategory.toUpperCase()}</h1>
@@ -21,10 +36,10 @@ export function renderCategory(container) {
   games.forEach(game => {
     const div = document.createElement("div");
     div.className = "card";
-    div.innerText = game;
+    div.innerText = game.label;
 
     div.onclick = () => {
-      store.selectedGame = game;
+      store.selectedGame = game.id;
       store.screen = "SETUP";
       renderApp();
     };
