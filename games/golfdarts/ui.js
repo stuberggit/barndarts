@@ -112,8 +112,12 @@ export function renderUI(container) {
     : Math.min(state.turnHitsCount || 0, 9);
 
   const previewScore = getPreviewScoreFromHits(previewHits);
-  const previewLabel =
-    state.dartsThrown > 0 ? ` | ${getMeta(previewScore).label}` : "";
+  const previewMeta = getMeta(previewScore);
+
+  const previewLabelHtml =
+    state.dartsThrown > 0
+      ? ` | <span style="color:${previewMeta.color};font-weight:bold;">${previewMeta.label}</span>`
+      : "";
 
   container.innerHTML = `
     <h2>Hole ${state.currentHole + 1}</h2>
@@ -122,7 +126,7 @@ export function renderUI(container) {
 
     <h3>
       🎯 ${state.players[state.currentPlayer].name}
-      (Dart ${state.dartsThrown + 1}/3${hitsDisplay}${previewLabel})
+      (Dart ${state.dartsThrown + 1}/3${hitsDisplay}${previewLabelHtml})
     </h3>
 
     <div id="controls"></div>
@@ -299,37 +303,84 @@ function renderScorecard(state) {
     border-collapse: collapse;
     font-size: 12px;
     text-align: center;
+    background:#ffffff;
+    color:#111111;
+    border:1px solid #cfcfcf;
+    border-radius:8px;
+    overflow:hidden;
   ">`;
 
-  html += "<tr><th></th>";
+  html += `<tr style="background:#f4f4f4;"><th style="
+    padding:6px;
+    border:1px solid #d6d6d6;
+    min-width:72px;
+  "></th>`;
 
   for (let i = startHole; i < endHole; i++) {
     const active = i === state.currentHole;
     const isHazard = hazardHoles.includes(i);
     const isHammer = hammerHoles.includes(i);
 
-    html += `<th style="${headerCellStyle({ active, isHazard, isHammer })}">
-      ${i + 1}
-    </th>`;
+    let holeStyle = `
+      padding:6px 4px;
+      border:1px solid #d6d6d6;
+      min-width:28px;
+      background:#fdfdfd;
+      color:#111111;
+      font-weight:600;
+    `;
+
+    if (isHazard) {
+      holeStyle += "background:#fff4f5;color:#d22;";
+    }
+
+    if (isHammer) {
+      holeStyle += "background:#eef5ff;color:#2563eb;";
+    }
+
+    if (active) {
+      holeStyle += "outline:2px solid #22c55e;outline-offset:-2px;";
+    }
+
+    html += `<th style="${holeStyle}">${i + 1}</th>`;
   }
 
-  html += `<th>${subtotalLabel}</th><th>Total</th></tr>`;
+  html += `<th style="
+    padding:6px 4px;
+    border:1px solid #d6d6d6;
+    background:#f4f4f4;
+    min-width:36px;
+  ">${subtotalLabel}</th>`;
+
+  html += `<th style="
+    padding:6px 4px;
+    border:1px solid #d6d6d6;
+    background:#f4f4f4;
+    min-width:42px;
+  ">Total</th></tr>`;
 
   state.players.forEach((player, index) => {
     const activePlayer = index === state.currentPlayer;
+
     const frontTotal = player.scores
       .slice(0, 9)
       .reduce((sum, score) => sum + (score ?? 0), 0);
+
     const backTotal = player.scores
       .slice(9, 18)
       .reduce((sum, score) => sum + (score ?? 0), 0);
+
     const subtotal = showingFront ? frontTotal : backTotal;
 
-    html += `<tr style="${activePlayer ? "background:#1e293b;" : ""}">`;
+    html += `<tr style="${activePlayer ? "background:#f7fff8;" : "background:#ffffff;"}">`;
 
-    html += `<td style="padding:6px;font-weight:bold;text-align:left;">
-      ${player.name}
-    </td>`;
+    html += `<td style="
+      padding:6px 8px;
+      border:1px solid #d6d6d6;
+      font-weight:bold;
+      text-align:left;
+      white-space:nowrap;
+    ">${player.name}</td>`;
 
     for (let h = startHole; h < endHole; h++) {
       const score = player.scores[h];
@@ -337,23 +388,48 @@ function renderScorecard(state) {
       const isHazard = hazardHoles.includes(h);
       const isHammer = hammerHoles.includes(h);
 
-      html += `<td style="${scoreCellStyle({ active, isHazard, isHammer })}">
-        ${score ?? ""}
-      </td>`;
+      let cellStyle = `
+        padding:6px 4px;
+        border:1px solid #d6d6d6;
+        background:#ffffff;
+        color:#111111;
+        min-width:28px;
+      `;
+
+      if (isHazard) {
+        cellStyle += "background:#fff4f5;";
+      }
+
+      if (isHammer) {
+        cellStyle += "background:#eef5ff;";
+      }
+
+      if (active) {
+        cellStyle += "font-weight:bold;outline:2px solid #22c55e;outline-offset:-2px;";
+      }
+
+      html += `<td style="${cellStyle}">${score ?? ""}</td>`;
     }
 
-    html += `<td style="padding:6px;font-weight:bold;">
-      ${subtotal || ""}
-    </td>`;
+    html += `<td style="
+      padding:6px 4px;
+      border:1px solid #d6d6d6;
+      background:#fafafa;
+      font-weight:bold;
+    ">${subtotal || ""}</td>`;
 
-    html += `<td style="padding:6px;font-weight:bold;">
-      ${player.total}
-    </td>`;
+    html += `<td style="
+      padding:6px 4px;
+      border:1px solid #d6d6d6;
+      background:#fafafa;
+      font-weight:bold;
+    ">${player.total}</td>`;
 
     html += "</tr>";
   });
 
   html += "</table>";
+
   div.innerHTML = html;
 }
 
