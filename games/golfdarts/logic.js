@@ -100,6 +100,11 @@ export function getFinal(hits, hazards = 0) {
   return base + hazards;
 }
 
+export function getFinalScore(hits, hazards = 0) {
+  const baseScore = getBaseScoreFromHits(hits);
+  return baseScore + hazards;
+}
+
 export function getMeta(score) {
   const labels = {
     8: "Buster",
