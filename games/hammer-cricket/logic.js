@@ -2,6 +2,38 @@ let gameState = {};
 let history = [];
 
 /* -------------------------
+   INIT / STATE
+--------------------------*/
+
+export function initGame(players) {
+  const rounds = buildRoundOrder();
+
+  gameState = {
+    players: players.map(name => ({
+      name,
+      roundScores: Array(rounds.length).fill(null),
+      total: 0
+    })),
+
+    rounds,
+    currentRound: 0,
+    currentPlayer: 0,
+
+    dartsThrown: 0,
+    currentTurnThrows: [],
+
+    lastScoreMessage: "",
+    lastScoreColor: "#ffffff",
+    lastScoreTimestamp: 0
+  };
+
+  history = [];
+}
+
+export function getState() {
+  return gameState;
+}
+/* -------------------------
    SETUP HELPERS
 --------------------------*/
 
@@ -43,4 +75,111 @@ function buildRoundOrder() {
 
 function formatTargetLabel(target) {
   return target === 25 ? "Bull" : String(target);
+}
+
+/* -------------------------
+   SCORING
+--------------------------*/
+
+function getCurrentRoundConfig() {
+  return gameState.rounds[gameState.currentRound];
+}
+
+function getRoundScore(throws, roundConfig) {
+  const { target, multipliers } = roundConfig;
+
+  const safeThrows = Array.isArray(throws) ? throws.slice(0, 3) : [];
+  const allMisses = safeThrows.length === 3 && safeThrows.every(v => v === 0);
+
+  if (allMisses) {
+    const penaltyMultiplier = roundConfig.type === "bonus" ? 5 : 3;
+    return -(target * penaltyMultiplier);
+  }
+
+  let total = 0;
+
+  for (let i = 0; i < safeThrows.length; i++) {
+    const hitValue = Math.max(0, Math.min(3, safeThrows[i]));
+    total += target * hitValue * multipliers[i];
+  }
+
+  return total;
+}
+
+function getRoundLabel(score) {
+  if (score < 0) return "Penalty";
+  if (score === 0) return "No Score";
+  return "Scored";
+}
+
+function finalizeTurn() {
+  const player = gameState.players[gameState.currentPlayer];
+  const roundConfig = getCurrentRoundConfig();
+
+  while (gameState.currentTurnThrows.length < 3) {
+    gameState.currentTurnThrows.push(0);
+  }
+
+  const score = getRoundScore(gameState.currentTurnThrows, roundConfig);
+  const roundLabel = getRoundLabel(score);
+
+  player.roundScores[gameState.currentRound] = score;
+  player.total += score;
+
+  gameState.lastScoreMessage = `${player.name} ${roundLabel}: ${score > 0 ? "+" : ""}${score}`;
+  gameState.lastScoreColor = score < 0 ? "#ff4c4c" : "#22c55e";
+  gameState.lastScoreTimestamp = Date.now();
+
+  gameState.dartsThrown = 0;
+  gameState.currentTurnThrows = [];
+
+  gameState.currentPlayer++;
+
+  if (gameState.currentPlayer >= gameState.players.length) {
+    gameState.currentPlayer = 0;
+    gameState.currentRound++;
+  }
+}
+
+/* -------------------------
+   ACTIONS
+--------------------------*/
+
+export function recordThrow(hitValue) {
+  history.push(cloneState(gameState));
+
+  const safeHitValue = Math.max(0, Math.min(3, hitValue));
+
+  gameState.currentTurnThrows.push(safeHitValue);
+  gameState.dartsThrown++;
+
+  if (gameState.dartsThrown === 3) {
+    finalizeTurn();
+  }
+}
+
+export function nextPlayer() {
+  history.push(cloneState(gameState));
+  finalizeTurn();
+}
+
+export function undo() {
+  if (!history.length) return;
+  gameState = history.pop();
+}
+
+export function isGameOver() {
+  return gameState.currentRound >= gameState.rounds.length;
+}
+
+export function getMeta(score) {
+  if (score < 0) {
+    return { label: "Penalty", color: "#ff4c4c" };
+  }
+
+  if (score === 0) {
+    return { label: "No Score", color: "#ffffff" };
+  }
+
+  return { label: "Scored", color: "#22c55e" };
 }
