@@ -2,10 +2,19 @@ import { store } from "../core/store.js";
 import { renderApp } from "../core/router.js";
 
 import golfdarts from "../games/golfdarts/index.js";
+import HammerCricket from "../games/hammer-cricket/index.js";
 
 const gameMap = {
-  "GolfDarts": golfdarts
+  "GolfDarts": golfdarts,
+  "hammer-cricket": HammerCricket
 };
+
+const game = games[gameId];
+
+if (!game) {
+  container.innerHTML = `<h2>Game not found: ${gameId}</h2>`;
+  return;
+}
 
 export function renderGame(container) {
   const game = gameMap[store.selectedGame];
