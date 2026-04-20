@@ -224,6 +224,17 @@ function renderScorecard(state) {
 }
 
 function renderEnd(container, state) {
+  if (state.shanghaiWinner) {
+    container.innerHTML = `
+      <h2>🔥 SHANGHAI 🔥</h2>
+      <h3>🏆 Winner: ${state.shanghaiWinner}</h3>
+      <div id="scorecard"></div>
+    `;
+
+    renderScorecard(state);
+    return;
+  }
+
   const winner = [...state.players].sort((a, b) => b.total - a.total)[0];
 
   container.innerHTML = `
