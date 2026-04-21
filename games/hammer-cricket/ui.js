@@ -172,7 +172,7 @@ function renderPlayerTiles(state) {
       justify-content:space-between;
       align-items:center;
       font-size:18px;
-      border:2px solid #ffffff;
+      border:1px solid #ffffff;
     `;
 
     tile.innerHTML = `
@@ -221,7 +221,7 @@ function renderControls(container) {
   const greenButtonStyle = `
     background:#206a1e;
     color:#ffffff;
-    border:2px solid #ffffff;
+    border:1px solid #ffffff;
     border-radius:10px;
     cursor:pointer;
     display:flex;
@@ -307,7 +307,7 @@ function renderControls(container) {
   leaderboardBtn.style = `
     background:#ffffff;
     color:#206a1e;
-    border:2px solid #000000;
+    border:1px solid #000000;
     border-radius:10px;
     cursor:pointer;
     display:flex;
@@ -328,7 +328,7 @@ function renderControls(container) {
   undoBtn.style = `
     background:#206a1e;
     color:#ffffff;
-    border:2px solid #ff4c4c;
+    border:1px solid #ff4c4c;
     border-radius:10px;
     cursor:pointer;
     display:flex;
@@ -415,7 +415,7 @@ function renderLeaderboardModal(state) {
         <div class="button" id="closeModal" style="
           background:#206a1e;
           color:#ffffff;
-          border:2px solid #ffffff;
+          border:1px solid #ffffff;
           margin-top:12px;
         ">Close</div>
       </div>
@@ -525,7 +525,7 @@ function renderEnd(container, state) {
     undoBtn.style = `
       background:#206a1e;
       color:#ffffff;
-      border:2px solid #ff4c4c;
+      border:1px solid #ff4c4c;
       border-radius:10px;
       cursor:pointer;
       display:flex;
