@@ -71,7 +71,7 @@ function buildRoundOrder() {
     { type: "number", label: "16", target: 16, multipliers: [1, 2, 3] },
     { type: "number", label: "17", target: 17, multipliers: [1, 2, 3] },
 
-    { type: "bonus", label: `Bonus`, target: bonus1, multipliers: [1, 3, 5] },
+    { type: "bonus", label: `Bonus (${formatTargetLabel(bonus1)})`, target: bonus1, multipliers: [1, 3, 5] },
 
     { type: "number", label: "18", target: 18, multipliers: [1, 2, 3] },
     { type: "number", label: "19", target: 19, multipliers: [1, 2, 3] },
@@ -79,7 +79,7 @@ function buildRoundOrder() {
 
     { type: "bull", label: "Bull", target: 25, multipliers: [1, 2, 3] },
 
-    { type: "bonus", label: `Bonus`, target: bonus2, multipliers: [1, 3, 5] }
+    { type: "bonus", label: `Bonus (${formatTargetLabel(bonus2)})`, target: bonus2, multipliers: [1, 3, 5] }
   ];
 }
 
