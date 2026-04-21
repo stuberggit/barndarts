@@ -124,12 +124,15 @@ function getRoundLabel(score) {
 }
 
 function finalizeTurn() {
-  if (gameState.currentRound >= gameState.rounds.length) return;
+  if (gameState.currentRound >= gameState.rounds.length || gameState.shanghaiWinner) {
+    return;
+  }
+
+  const roundConfig = gameState.rounds[gameState.currentRound];
+  if (!roundConfig) return;
 
   const player = gameState.players[gameState.currentPlayer];
-  const roundConfig = getCurrentRoundConfig();
-
-  if (!roundConfig) return;
+  if (!player) return;
 
   while (gameState.currentTurnThrows.length < 3) {
     gameState.currentTurnThrows.push(0);
@@ -162,6 +165,10 @@ function finalizeTurn() {
 --------------------------*/
 
 export function recordThrow(hitValue) {
+  if (gameState.currentRound >= gameState.rounds.length || gameState.shanghaiWinner) {
+    return;
+  }
+
   history.push(cloneState(gameState));
 
   const player = gameState.players[gameState.currentPlayer];
@@ -174,7 +181,12 @@ export function recordThrow(hitValue) {
     gameState.currentTurnHits.push(safeHitValue);
   }
 
-  if (checkShanghai(gameState.currentTurnHits)) {
+  // Shanghai = single + double + triple in one turn
+  if (
+    gameState.currentTurnHits.includes(1) &&
+    gameState.currentTurnHits.includes(2) &&
+    gameState.currentTurnHits.includes(3)
+  ) {
     gameState.shanghaiWinner = player.name;
     gameState.lastScoreMessage = `${player.name} hit SHANGHAI!`;
     gameState.lastScoreColor = "#ffcc00";
@@ -188,12 +200,11 @@ export function recordThrow(hitValue) {
 }
 
 export function nextPlayer() {
-  history.push(cloneState(gameState));
-
   if (gameState.currentRound >= gameState.rounds.length || gameState.shanghaiWinner) {
     return;
   }
 
+  history.push(cloneState(gameState));
   finalizeTurn();
 }
 
@@ -203,7 +214,7 @@ export function undo() {
 }
 
 export function isGameOver() {
-  return gameState.currentRound >= gameState.rounds.length || !!gameState.shanghaiWinner;
+  return !!gameState.shanghaiWinner || gameState.currentRound >= gameState.rounds.length;
 }
 
 export function getMeta(score) {
