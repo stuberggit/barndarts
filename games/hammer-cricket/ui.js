@@ -102,12 +102,13 @@ export function renderUI(container) {
       ">TARGET -</div>
 
       <div style="
-        font-size:36px;
-        font-weight:bold;
-        line-height:1.1;
-      ">
-        ${formatTarget(round.target)}
-      </div>
+  font-size:36px;
+  font-weight:bold;
+  line-height:1.1;
+  color:${round.type === "bonus" ? "#facc15" : round.type === "bull" ? "#3b82f6" : "#ffffff"};
+">
+  ${formatTarget(round.target)}
+</div>
     </div>
 
     <div id="playerTiles"></div>
