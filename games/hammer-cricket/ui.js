@@ -61,7 +61,7 @@ export function renderUI(container) {
   const state = getState();
 
   if (isGameOver()) {
-    renderEnd(container, state);
+    (container, state);
     return;
   }
 
@@ -207,7 +207,7 @@ function renderControls(container) {
 
   let topOptions;
 
-  if (round.type === "bull") {
+    if (round.target === 25) {
     topOptions = [
       { label: "Single Bull", value: 1 },
       { label: "Double Bull", value: 2 }
@@ -542,27 +542,6 @@ function renderEnd(container, state) {
 
   const controls = document.getElementById("endControls");
 
-  const leaderboardBtn = document.createElement("div");
-  leaderboardBtn.innerText = "Leaderboard";
-  leaderboardBtn.style = `
-    background:#ffffff;
-    color:#206a1e;
-    border:1px solid #000000;
-    border-radius:10px;
-    cursor:pointer;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:bold;
-    box-sizing:border-box;
-    padding:10px;
-    font-size:16px;
-    min-height:44px;
-  `;
-  leaderboardBtn.onclick = () => {
-    renderLeaderboardModal(state);
-  };
-
   const playAgainBtn = document.createElement("div");
   playAgainBtn.innerText = "Play Again";
   playAgainBtn.style = `
@@ -609,7 +588,6 @@ function renderEnd(container, state) {
     renderApp();
   };
 
-  controls.appendChild(leaderboardBtn);
   controls.appendChild(playAgainBtn);
   controls.appendChild(mainMenuBtn);
 }
