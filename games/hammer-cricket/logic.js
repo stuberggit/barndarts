@@ -128,10 +128,10 @@ function finalizeTurn() {
     return;
   }
 
-  const roundConfig = gameState.rounds[gameState.currentRound];
+  const roundConfig = gameState.rounds?.[gameState.currentRound];
   if (!roundConfig) return;
 
-  const player = gameState.players[gameState.currentPlayer];
+  const player = gameState.players?.[gameState.currentPlayer];
   if (!player) return;
 
   while (gameState.currentTurnThrows.length < 3) {
