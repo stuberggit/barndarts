@@ -1,4 +1,6 @@
 import { getState, recordThrow, nextPlayer, undo, isGameOver, getMeta } from "./logic.js";
+import { store } from "../../core/store.js";
+import { renderApp } from "../../core/router.js";
 
 function formatTarget(target) {
   return target === 25 ? "Bull" : String(target);
@@ -62,7 +64,6 @@ export function renderUI(container) {
 
     <div style="display:flex;gap:8px;margin-top:10px;">
       <div class="button" id="leaderboard">Leaderboard</div>
-      <div class="button" id="undoBtn">Undo</div>
     </div>
 
     <div id="modal"></div>
@@ -70,11 +71,6 @@ export function renderUI(container) {
 
   renderPlayerTiles(state);
   renderControls(container);
-
-  document.getElementById("undoBtn").onclick = () => {
-    undo();
-    renderUI(container);
-  };
 
   document.getElementById("leaderboard").onclick = () => {
     renderLeaderboardModal(state);
@@ -86,66 +82,186 @@ export function renderUI(container) {
 }
 
 function renderControls(container) {
+  const state = getState();
   const controls = document.getElementById("controls");
   controls.innerHTML = "";
 
-  const state = getState();
-
   const round = state.rounds[state.currentRound];
 
-let options;
+  let topOptions;
 
-if (round.type === "bull") {
-  options = [
-    { label: "❌ MISS", value: 0 },
-    { label: "Single Bull", value: 1 },
-    { label: "Double Bull", value: 2 }
-  ];
-} else {
-  options = [
-    { label: "❌ MISS", value: 0 },
-    { label: "Single", value: 1 },
-    { label: "Double", value: 2 },
-    { label: "Triple", value: 3 }
-  ];
-}
+  if (round.type === "bull") {
+    topOptions = [
+      { label: "Single Bull", value: 1 },
+      { label: "Double Bull", value: 2 }
+    ];
+  } else {
+    topOptions = [
+      { label: "Single", value: 1 },
+      { label: "Dub", value: 2 },
+      { label: "Trip", value: 3 }
+    ];
+  }
 
-  options.forEach(opt => {
+  const controlsWrap = document.createElement("div");
+  controlsWrap.style = `
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    margin-top:8px;
+  `;
+
+  // Top row
+  const topRow = document.createElement("div");
+  topRow.style = `
+    display:grid;
+    grid-template-columns:${round.type === "bull" ? "1fr 1fr" : "1fr 1fr 1fr"};
+    gap:8px;
+  `;
+
+  topOptions.forEach(opt => {
     const btn = document.createElement("div");
     btn.className = "card";
     btn.innerText = opt.label;
+    btn.style = `
+      padding:10px 8px;
+      font-size:16px;
+      min-height:44px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    `;
 
     btn.onclick = () => {
       recordThrow(opt.value);
       renderUI(container);
     };
 
-    controls.appendChild(btn);
+    topRow.appendChild(btn);
   });
+
+  // Middle row
+  const middleRow = document.createElement("div");
+  middleRow.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+  `;
+
+  const missBtn = document.createElement("div");
+  missBtn.className = "button";
+  missBtn.innerText = "❌ Miss";
+  missBtn.style = `
+    padding:8px;
+    font-size:15px;
+    min-height:40px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  `;
+  missBtn.onclick = () => {
+    recordThrow(0);
+    renderUI(container);
+  };
 
   const nextBtn = document.createElement("div");
   nextBtn.className = "button";
   nextBtn.innerText = "➡️ Next Player";
-
+  nextBtn.style = `
+    padding:8px;
+    font-size:15px;
+    min-height:40px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  `;
   nextBtn.onclick = () => {
     nextPlayer();
     renderUI(container);
   };
 
-  controls.appendChild(nextBtn);
-}
+  middleRow.appendChild(missBtn);
+  middleRow.appendChild(nextBtn);
 
-function formatCurrentThrows(throws = []) {
-  if (!throws.length) return "";
+  // Lower row
+  const lowerRow = document.createElement("div");
+  lowerRow.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+  `;
 
-  const map = {
-    0: "Miss",
-    1: "Single",
-    2: "Dub",
-    3: "Trip"
+  const leaderboardBtn = document.createElement("div");
+  leaderboardBtn.className = "button";
+  leaderboardBtn.innerText = "Leaderboard";
+  leaderboardBtn.style = `
+    padding:8px;
+    font-size:15px;
+    min-height:40px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  `;
+  leaderboardBtn.onclick = () => {
+    renderLeaderboardModal(state);
   };
 
-  return throws.map(v => map[v] || "").join(", ");
+  const undoBtn = document.createElement("div");
+  undoBtn.innerText = "Undo";
+  undoBtn.style = `
+    background:#c62828;
+    color:#ffffff;
+    padding:8px;
+    font-size:15px;
+    min-height:40px;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+  `;
+  undoBtn.onclick = () => {
+    undo();
+    renderUI(container);
+  };
+
+  lowerRow.appendChild(leaderboardBtn);
+  lowerRow.appendChild(undoBtn);
+
+  // End game row
+  const endRow = document.createElement("div");
+  endRow.style = `
+    display:grid;
+    grid-template-columns:1fr;
+    gap:8px;
+  `;
+
+  const endBtn = document.createElement("div");
+  endBtn.className = "button";
+  endBtn.innerText = "End Game";
+  endBtn.style = `
+    padding:10px;
+    font-size:16px;
+    min-height:44px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  `;
+  endBtn.onclick = () => {
+  store.screen = "HOME";
+  store.players = [];
+  renderApp();
+};
+
+  endRow.appendChild(endBtn);
+
+  controlsWrap.appendChild(topRow);
+  controlsWrap.appendChild(middleRow);
+  controlsWrap.appendChild(lowerRow);
+  controlsWrap.appendChild(endRow);
+
+  controls.appendChild(controlsWrap);
 }
 
 function getLiveRoundScore(throws, round) {
