@@ -1,4 +1,13 @@
-import { getState, recordThrow, nextPlayer, undo, isGameOver, getMeta } from "./logic.js";
+import {
+  getState,
+  recordThrow,
+  nextPlayer,
+  undo,
+  isGameOver,
+  getMeta,
+  initGame,
+  getRotatedPlayersForReplay
+} from "./logic.js";
 import { store } from "../../core/store.js";
 import { renderApp } from "../../core/router.js";
 
@@ -52,7 +61,7 @@ export function renderUI(container) {
   const state = getState();
 
   if (isGameOver()) {
-    renderEnd(container, state);
+    (container, state);
     return;
   }
 
@@ -509,51 +518,98 @@ function renderScorecard(state) {
 --------------------------*/
 
 function renderEnd(container, state) {
-  if (state.shanghaiWinner) {
-    container.innerHTML = `
-      <h2>🔥 SHANGHAI 🔥</h2>
-      <h3>🏆 Winner: ${state.shanghaiWinner}</h3>
-      <div id="scorecard"></div>
-      <div style="margin-top:12px;" id="controls"></div>
-    `;
-
-    renderScorecard(state);
-
-    const controls = document.getElementById("controls");
-
-    const undoBtn = document.createElement("div");
-    undoBtn.innerText = "Undo";
-    undoBtn.style = `
-      background:#206a1e;
-      color:#ffffff;
-      border:1px solid #ff4c4c;
-      border-radius:10px;
-      cursor:pointer;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-weight:bold;
-      box-sizing:border-box;
-      padding:10px;
-      font-size:16px;
-      min-height:44px;
-    `;
-    undoBtn.onclick = () => {
-      undo();
-      renderUI(container);
-    };
-
-    controls.appendChild(undoBtn);
-    return;
-  }
-
-  const winner = [...state.players].sort((a, b) => b.total - a.total)[0];
+  const winner = state.shanghaiWinner
+    ? state.shanghaiWinner
+    : [...state.players].sort((a, b) => b.total - a.total)[0].name;
 
   container.innerHTML = `
-    <h2>Game Over</h2>
-    <h3>🏆 Winner: ${winner.name}</h3>
+    <h2>${state.shanghaiWinner ? "🔥 SHANGHAI 🔥" : "Game Over"}</h2>
+    <h3>🏆 Winner: ${winner}</h3>
+
     <div id="scorecard"></div>
+
+    <div style="
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      margin-top:12px;
+    " id="endControls"></div>
+
+    <div id="modal"></div>
   `;
 
   renderScorecard(state);
+
+  const controls = document.getElementById("endControls");
+
+  const leaderboardBtn = document.createElement("div");
+  leaderboardBtn.innerText = "Leaderboard";
+  leaderboardBtn.style = `
+    background:#ffffff;
+    color:#206a1e;
+    border:1px solid #000000;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+    padding:10px;
+    font-size:16px;
+    min-height:44px;
+  `;
+  leaderboardBtn.onclick = () => {
+    renderLeaderboardModal(state);
+  };
+
+  const playAgainBtn = document.createElement("div");
+  playAgainBtn.innerText = "Play Again";
+  playAgainBtn.style = `
+    background:#206a1e;
+    color:#ffffff;
+    border:1px solid #ffffff;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+    padding:10px;
+    font-size:16px;
+    min-height:44px;
+  `;
+  playAgainBtn.onclick = () => {
+    const rotatedPlayers = getRotatedPlayersForReplay();
+    initGame(rotatedPlayers);
+    renderUI(container);
+  };
+
+  const mainMenuBtn = document.createElement("div");
+  mainMenuBtn.innerText = "Main Menu";
+  mainMenuBtn.style = `
+    background:#206a1e;
+    color:#ffffff;
+    border:1px solid #ffffff;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+    padding:10px;
+    font-size:16px;
+    min-height:44px;
+  `;
+  mainMenuBtn.onclick = () => {
+    store.screen = "HOME";
+    store.players = [];
+    renderApp();
+  };
+
+  controls.appendChild(leaderboardBtn);
+  controls.appendChild(playAgainBtn);
+  controls.appendChild(mainMenuBtn);
 }
