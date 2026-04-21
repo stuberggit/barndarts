@@ -21,7 +21,6 @@ export function renderGame(container) {
   container.innerHTML = `
     <h1>${game.name}</h1>
     <div id="gameArea"></div>
-    <div class="button" id="end">End Game</div>
   `;
 
   const gameArea = document.getElementById("gameArea");
@@ -29,9 +28,4 @@ export function renderGame(container) {
   game.start(store.players);
   game.render(gameArea);
 
-  document.getElementById("end").onclick = () => {
-    store.screen = "HOME";
-    store.players = [];
-    renderApp();
-  };
 }
