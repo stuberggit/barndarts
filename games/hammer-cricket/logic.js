@@ -93,7 +93,7 @@ function formatTargetLabel(target) {
 --------------------------*/
 
 function getCurrentRoundConfig() {
-  return gameState.rounds[gameState.currentRound];
+  return gameState.rounds?.[gameState.currentRound] || null;
 }
 
 function getRoundScore(throws, roundConfig) {
@@ -124,8 +124,12 @@ function getRoundLabel(score) {
 }
 
 function finalizeTurn() {
+  if (gameState.currentRound >= gameState.rounds.length) return;
+
   const player = gameState.players[gameState.currentPlayer];
   const roundConfig = getCurrentRoundConfig();
+
+  if (!roundConfig) return;
 
   while (gameState.currentTurnThrows.length < 3) {
     gameState.currentTurnThrows.push(0);
@@ -185,6 +189,11 @@ export function recordThrow(hitValue) {
 
 export function nextPlayer() {
   history.push(cloneState(gameState));
+
+  if (gameState.currentRound >= gameState.rounds.length || gameState.shanghaiWinner) {
+    return;
+  }
+
   finalizeTurn();
 }
 
