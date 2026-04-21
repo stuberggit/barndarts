@@ -11,6 +11,7 @@ export function initGame(players) {
   const rounds = buildRoundOrder();
 
   gameState = {
+     originalPlayers: [...players],
     players: players.map(name => ({
       name,
       roundScores: Array(rounds.length).fill(null),
@@ -206,4 +207,17 @@ export function getMeta(score) {
   }
 
   return { label: "Scored", color: "#22c55e" };
+}
+
+export function getRotatedPlayersForReplay() {
+  if (!gameState.originalPlayers || !gameState.originalPlayers.length) return [];
+
+  if (gameState.originalPlayers.length === 1) {
+    return [...gameState.originalPlayers];
+  }
+
+  return [
+    ...gameState.originalPlayers.slice(1),
+    gameState.originalPlayers[0]
+  ];
 }
