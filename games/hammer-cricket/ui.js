@@ -13,82 +13,62 @@ export function renderUI(container) {
   }
 
   const round = state.rounds[state.currentRound];
+
   const scoreAge = Date.now() - (state.lastScoreTimestamp || 0);
   const showScoreFlash = state.lastScoreMessage && scoreAge < 2500;
 
   const scoreFlashHtml = showScoreFlash
-    ? `
-      <div style="
-        padding: 8px 10px;
-        border-radius: 10px;
-        background: rgba(255,255,255,0.08);
-        color: ${state.lastScoreColor || "#ffffff"};
-        font-weight: bold;
-        text-align: center;
-        opacity: ${scoreAge > 1800 ? 0.35 : 1};
-        transition: opacity 0.6s ease;
+    ? `<div style="
+        padding:8px;
+        border-radius:10px;
+        color:${state.lastScoreColor};
+        font-weight:bold;
+        text-align:center;
       ">
         ${state.lastScoreMessage}
-      </div>
-    `
+      </div>`
     : "";
 
-  const throwsText = formatCurrentThrows(state.currentTurnThrows);
-  const throwsDisplay = throwsText ? ` | Hits ${throwsText}` : "";
-
-  const liveScore =
-    state.dartsThrown > 0 ? getLiveRoundScore(state.currentTurnThrows, round) : null;
-
-  const liveMeta =
-    liveScore !== null ? getMeta(liveScore) : { label: "", color: "#ffffff" };
-
-  const liveLabelHtml =
-    liveScore !== null
-      ? `
-        <div style="
-          padding: 8px 10px;
-          border-radius: 10px;
-          background: rgba(255,255,255,0.08);
-          color: ${liveMeta.color};
-          font-weight: bold;
-          text-align: center;
-        ">
-          ${state.players[state.currentPlayer].name}
-          (${throwsDisplay ? throwsDisplay.replace(" | ", "") + " | " : ""}${liveMeta.label}: ${liveScore > 0 ? "+" : ""}${liveScore})
-        </div>
-      `
-      : "";
-
-  const feedbackHtml = scoreFlashHtml || liveLabelHtml || `<div></div>`;
-
   container.innerHTML = `
-    <h2>${round.label}</h2>
+    <div style="text-align:center;margin-bottom:10px;">
+      <div style="
+        font-size:14px;
+        opacity:0.7;
+      ">TARGET</div>
 
-    <div id="scorecard"></div>
+      <div style="
+        font-size:36px;
+        font-weight:bold;
+      ">
+        ${formatTarget(round.target)}
+      </div>
+    </div>
+
+    <div id="playerTiles"></div>
 
     <div style="
-      min-height: 54px;
-      margin: 8px 0 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      min-height:50px;
+      margin:8px 0;
     ">
-      <div style="width:100%;">
-        ${feedbackHtml}
-      </div>
+      ${scoreFlashHtml || ""}
     </div>
 
     <h3>
       🎯 ${state.players[state.currentPlayer].name}
-      (Dart ${state.dartsThrown + 1}/3 | Target ${formatTarget(round.target)})
+      (Dart ${state.dartsThrown + 1}/3)
     </h3>
 
     <div id="controls"></div>
 
-    <div class="button" id="undoBtn">Undo</div>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <div class="button" id="leaderboard">Leaderboard</div>
+      <div class="button" id="undoBtn">Undo</div>
+    </div>
+
+    <div id="modal"></div>
   `;
 
-  renderScorecard(state);
+  renderPlayerTiles(state);
   renderControls(container);
 
   document.getElementById("undoBtn").onclick = () => {
@@ -96,10 +76,12 @@ export function renderUI(container) {
     renderUI(container);
   };
 
+  document.getElementById("leaderboard").onclick = () => {
+    renderLeaderboardModal(state);
+  };
+
   if (showScoreFlash) {
-    setTimeout(() => {
-      renderUI(container);
-    }, 700);
+    setTimeout(() => renderUI(container), 700);
   }
 }
 
@@ -107,12 +89,26 @@ function renderControls(container) {
   const controls = document.getElementById("controls");
   controls.innerHTML = "";
 
-  const options = [
+  const state = getState();
+
+  const round = state.rounds[state.currentRound];
+
+let options;
+
+if (round.type === "bull") {
+  options = [
+    { label: "❌ MISS", value: 0 },
+    { label: "Single Bull", value: 1 },
+    { label: "Double Bull", value: 2 }
+  ];
+} else {
+  options = [
     { label: "❌ MISS", value: 0 },
     { label: "Single", value: 1 },
     { label: "Double", value: 2 },
     { label: "Triple", value: 3 }
   ];
+}
 
   options.forEach(opt => {
     const btn = document.createElement("div");
@@ -171,6 +167,76 @@ function getLiveRoundScore(throws, round) {
   }
 
   return total;
+}
+
+function renderPlayerTiles(state) {
+  const container = document.getElementById("playerTiles");
+
+  container.innerHTML = "";
+
+  state.players.forEach((p, i) => {
+    const isActive = i === state.currentPlayer;
+
+    const tile = document.createElement("div");
+
+    tile.style = `
+      padding:12px;
+      margin-bottom:6px;
+      border-radius:10px;
+      background:${isActive ? "#1e293b" : "#111"};
+      color:#fff;
+      display:flex;
+      justify-content:space-between;
+      font-size:18px;
+    `;
+
+    tile.innerHTML = `
+      <span>${p.name}</span>
+      <span>${p.total}</span>
+    `;
+
+    container.appendChild(tile);
+  });
+}
+
+function renderLeaderboardModal(state) {
+  const modal = document.getElementById("modal");
+
+  let html = `
+    <div style="
+      position:fixed;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      background:rgba(0,0,0,0.7);
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      z-index:999;
+    ">
+      <div style="
+        background:#fff;
+        color:#000;
+        padding:20px;
+        border-radius:10px;
+        width:90%;
+        max-width:600px;
+      ">
+        <h2>Leaderboard</h2>
+        <div id="scorecard"></div>
+        <div class="button" id="closeModal">Close</div>
+      </div>
+    </div>
+  `;
+
+  modal.innerHTML = html;
+
+  renderScorecard(state);
+
+  document.getElementById("closeModal").onclick = () => {
+    modal.innerHTML = "";
+  };
 }
 
 function renderScorecard(state) {
