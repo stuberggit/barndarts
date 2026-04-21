@@ -61,7 +61,7 @@ export function renderUI(container) {
   const state = getState();
 
   if (isGameOver()) {
-    (container, state);
+    renderEnd(container, state);
     return;
   }
 
@@ -114,7 +114,7 @@ export function renderUI(container) {
         font-size:36px;
         font-weight:bold;
         line-height:1.1;
-        color:${round.type === "bonus" ? "#facc15" : round.type === "bull" ? "#3b82f6" : "#ffffff"};
+        color:${round.type === "bonus" ? "#facc15" : round.target === 25 ? "#3b82f6" : "#ffffff"};
       ">
         ${formatTarget(round.target)}
       </div>
@@ -534,8 +534,6 @@ function renderEnd(container, state) {
       gap:8px;
       margin-top:12px;
     " id="endControls"></div>
-
-    <div id="modal"></div>
   `;
 
   renderScorecard(state);
