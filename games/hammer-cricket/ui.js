@@ -2,9 +2,51 @@ import { getState, recordThrow, nextPlayer, undo, isGameOver, getMeta } from "./
 import { store } from "../../core/store.js";
 import { renderApp } from "../../core/router.js";
 
+/* -------------------------
+   HELPERS
+--------------------------*/
+
 function formatTarget(target) {
   return target === 25 ? "Bull" : String(target);
 }
+
+function formatCurrentThrows(throws = []) {
+  if (!throws.length) return "";
+
+  const map = {
+    0: "Miss",
+    1: "Single",
+    2: "Dub",
+    3: "Trip"
+  };
+
+  return throws.map(v => map[v] || "").join(", ");
+}
+
+function getLiveRoundScore(throws, round) {
+  if (!round || !Array.isArray(throws)) return 0;
+
+  const safeThrows = throws.slice(0, 3);
+  const allMisses = safeThrows.length === 3 && safeThrows.every(v => v === 0);
+
+  if (allMisses) {
+    const penaltyMultiplier = round.type === "bonus" ? 5 : 3;
+    return -(round.target * penaltyMultiplier);
+  }
+
+  let total = 0;
+
+  for (let i = 0; i < safeThrows.length; i++) {
+    const hitValue = Math.max(0, Math.min(3, safeThrows[i]));
+    total += round.target * hitValue * round.multipliers[i];
+  }
+
+  return total;
+}
+
+/* -------------------------
+   MAIN UI
+--------------------------*/
 
 export function renderUI(container) {
   const state = getState();
@@ -15,32 +57,54 @@ export function renderUI(container) {
   }
 
   const round = state.rounds[state.currentRound];
-
   const scoreAge = Date.now() - (state.lastScoreTimestamp || 0);
   const showScoreFlash = state.lastScoreMessage && scoreAge < 2500;
 
   const scoreFlashHtml = showScoreFlash
-    ? `<div style="
-        padding:8px;
+    ? `
+      <div style="
+        padding:8px 10px;
         border-radius:10px;
-        color:${state.lastScoreColor};
+        background: rgba(255,255,255,0.08);
+        color:${state.lastScoreColor || "#ffffff"};
         font-weight:bold;
         text-align:center;
+        opacity:${scoreAge > 1800 ? 0.35 : 1};
+        transition: opacity 0.6s ease;
       ">
         ${state.lastScoreMessage}
-      </div>`
+      </div>
+    `
     : "";
+
+  const throwsText = formatCurrentThrows(state.currentTurnThrows);
+  const throwsDisplay = throwsText ? ` | Hits ${throwsText}` : "";
+
+  const liveScore =
+    state.dartsThrown > 0 ? getLiveRoundScore(state.currentTurnThrows, round) : null;
+
+  const liveMeta =
+    liveScore !== null ? getMeta(liveScore) : { label: "", color: "#ffffff" };
+
+  const liveLabel =
+    state.dartsThrown > 0
+      ? ` | <span style="color:${liveMeta.color};font-weight:bold;">${liveMeta.label}: ${liveScore > 0 ? "+" : ""}${liveScore}</span>`
+      : "";
+
+  const feedbackHtml = scoreFlashHtml || `<div></div>`;
 
   container.innerHTML = `
     <div style="text-align:center;margin-bottom:10px;">
       <div style="
         font-size:14px;
-        opacity:0.7;
-      ">TARGET</div>
+        opacity:0.75;
+        letter-spacing:0.5px;
+      ">TARGET -</div>
 
       <div style="
         font-size:36px;
         font-weight:bold;
+        line-height:1.1;
       ">
         ${formatTarget(round.target)}
       </div>
@@ -49,22 +113,23 @@ export function renderUI(container) {
     <div id="playerTiles"></div>
 
     <div style="
-      min-height:50px;
-      margin:8px 0;
+      min-height:54px;
+      margin:8px 0 12px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
     ">
-      ${scoreFlashHtml || ""}
+      <div style="width:100%;">
+        ${feedbackHtml}
+      </div>
     </div>
 
-    <h3>
+    <h3 style="text-align:center;margin:8px 0 12px;">
       🎯 ${state.players[state.currentPlayer].name}
-      (Dart ${state.dartsThrown + 1}/3)
+      (Dart ${state.dartsThrown + 1}/3${throwsDisplay}${liveLabel})
     </h3>
 
     <div id="controls"></div>
-
-    <div style="display:flex;gap:8px;margin-top:10px;">
-      <div class="button" id="leaderboard">Leaderboard</div>
-    </div>
 
     <div id="modal"></div>
   `;
@@ -72,14 +137,56 @@ export function renderUI(container) {
   renderPlayerTiles(state);
   renderControls(container);
 
-  document.getElementById("leaderboard").onclick = () => {
-    renderLeaderboardModal(state);
-  };
-
   if (showScoreFlash) {
-    setTimeout(() => renderUI(container), 700);
+    setTimeout(() => {
+      renderUI(container);
+    }, 700);
   }
 }
+
+/* -------------------------
+   PLAYER TILES
+--------------------------*/
+
+function renderPlayerTiles(state) {
+  const container = document.getElementById("playerTiles");
+
+  container.innerHTML = "";
+  container.style = `
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
+    gap:8px;
+    margin-bottom:8px;
+  `;
+
+  state.players.forEach((player, index) => {
+    const isActive = index === state.currentPlayer;
+
+    const tile = document.createElement("div");
+    tile.style = `
+      padding:12px 10px;
+      border-radius:10px;
+      background:${isActive ? "#1e293b" : "#111111"};
+      color:#ffffff;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      font-size:18px;
+      border:2px solid #ffffff;
+    `;
+
+    tile.innerHTML = `
+      <span style="font-weight:bold;">${player.name}</span>
+      <span>${player.total}</span>
+    `;
+
+    container.appendChild(tile);
+  });
+}
+
+/* -------------------------
+   CONTROLS
+--------------------------*/
 
 function renderControls(container) {
   const state = getState();
@@ -111,6 +218,19 @@ function renderControls(container) {
     margin-top:8px;
   `;
 
+  const greenButtonStyle = `
+    background:#206a1e;
+    color:#ffffff;
+    border:2px solid #ffffff;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+  `;
+
   // Top row
   const topRow = document.createElement("div");
   topRow.style = `
@@ -121,15 +241,12 @@ function renderControls(container) {
 
   topOptions.forEach(opt => {
     const btn = document.createElement("div");
-    btn.className = "card";
     btn.innerText = opt.label;
     btn.style = `
+      ${greenButtonStyle}
       padding:10px 8px;
       font-size:16px;
       min-height:44px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
     `;
 
     btn.onclick = () => {
@@ -149,15 +266,12 @@ function renderControls(container) {
   `;
 
   const missBtn = document.createElement("div");
-  missBtn.className = "button";
   missBtn.innerText = "❌ Miss";
   missBtn.style = `
+    ${greenButtonStyle}
     padding:8px;
     font-size:15px;
     min-height:40px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
   `;
   missBtn.onclick = () => {
     recordThrow(0);
@@ -165,15 +279,12 @@ function renderControls(container) {
   };
 
   const nextBtn = document.createElement("div");
-  nextBtn.className = "button";
   nextBtn.innerText = "➡️ Next Player";
   nextBtn.style = `
+    ${greenButtonStyle}
     padding:8px;
     font-size:15px;
     min-height:40px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
   `;
   nextBtn.onclick = () => {
     nextPlayer();
@@ -192,34 +303,42 @@ function renderControls(container) {
   `;
 
   const leaderboardBtn = document.createElement("div");
-  leaderboardBtn.className = "button";
   leaderboardBtn.innerText = "Leaderboard";
   leaderboardBtn.style = `
-    padding:8px;
-    font-size:15px;
-    min-height:40px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-  `;
-  leaderboardBtn.onclick = () => {
-    renderLeaderboardModal(state);
-  };
-
-  const undoBtn = document.createElement("div");
-  undoBtn.innerText = "Undo";
-  undoBtn.style = `
-    background:#c62828;
-    color:#ffffff;
-    padding:8px;
-    font-size:15px;
-    min-height:40px;
+    background:#ffffff;
+    color:#206a1e;
+    border:2px solid #000000;
     border-radius:10px;
     cursor:pointer;
     display:flex;
     align-items:center;
     justify-content:center;
     font-weight:bold;
+    box-sizing:border-box;
+    padding:8px;
+    font-size:15px;
+    min-height:40px;
+  `;
+  leaderboardBtn.onclick = () => {
+    renderLeaderboardModal(getState());
+  };
+
+  const undoBtn = document.createElement("div");
+  undoBtn.innerText = "Undo";
+  undoBtn.style = `
+    background:#206a1e;
+    color:#ffffff;
+    border:2px solid #ff4c4c;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+    padding:8px;
+    font-size:15px;
+    min-height:40px;
   `;
   undoBtn.onclick = () => {
     undo();
@@ -238,21 +357,18 @@ function renderControls(container) {
   `;
 
   const endBtn = document.createElement("div");
-  endBtn.className = "button";
   endBtn.innerText = "End Game";
   endBtn.style = `
+    ${greenButtonStyle}
     padding:10px;
     font-size:16px;
     min-height:44px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
   `;
   endBtn.onclick = () => {
-  store.screen = "HOME";
-  store.players = [];
-  renderApp();
-};
+    store.screen = "HOME";
+    store.players = [];
+    renderApp();
+  };
 
   endRow.appendChild(endBtn);
 
@@ -264,61 +380,14 @@ function renderControls(container) {
   controls.appendChild(controlsWrap);
 }
 
-function getLiveRoundScore(throws, round) {
-  if (!round || !Array.isArray(throws)) return 0;
-
-  const safeThrows = throws.slice(0, 3);
-  const allMisses = safeThrows.length === 3 && safeThrows.every(v => v === 0);
-
-  if (allMisses) {
-    const penaltyMultiplier = round.type === "bonus" ? 5 : 3;
-    return -(round.target * penaltyMultiplier);
-  }
-
-  let total = 0;
-
-  for (let i = 0; i < safeThrows.length; i++) {
-    const hitValue = Math.max(0, Math.min(3, safeThrows[i]));
-    total += round.target * hitValue * round.multipliers[i];
-  }
-
-  return total;
-}
-
-function renderPlayerTiles(state) {
-  const container = document.getElementById("playerTiles");
-
-  container.innerHTML = "";
-
-  state.players.forEach((p, i) => {
-    const isActive = i === state.currentPlayer;
-
-    const tile = document.createElement("div");
-
-    tile.style = `
-      padding:12px;
-      margin-bottom:6px;
-      border-radius:10px;
-      background:${isActive ? "#1e293b" : "#111"};
-      color:#fff;
-      display:flex;
-      justify-content:space-between;
-      font-size:18px;
-    `;
-
-    tile.innerHTML = `
-      <span>${p.name}</span>
-      <span>${p.total}</span>
-    `;
-
-    container.appendChild(tile);
-  });
-}
+/* -------------------------
+   LEADERBOARD MODAL
+--------------------------*/
 
 function renderLeaderboardModal(state) {
   const modal = document.getElementById("modal");
 
-  let html = `
+  modal.innerHTML = `
     <div style="
       position:fixed;
       top:0;
@@ -338,15 +407,20 @@ function renderLeaderboardModal(state) {
         border-radius:10px;
         width:90%;
         max-width:600px;
+        max-height:90vh;
+        overflow:auto;
       ">
         <h2>Leaderboard</h2>
         <div id="scorecard"></div>
-        <div class="button" id="closeModal">Close</div>
+        <div class="button" id="closeModal" style="
+          background:#206a1e;
+          color:#ffffff;
+          border:2px solid #ffffff;
+          margin-top:12px;
+        ">Close</div>
       </div>
     </div>
   `;
-
-  modal.innerHTML = html;
 
   renderScorecard(state);
 
@@ -354,6 +428,10 @@ function renderLeaderboardModal(state) {
     modal.innerHTML = "";
   };
 }
+
+/* -------------------------
+   SCORECARD
+--------------------------*/
 
 function renderScorecard(state) {
   const div = document.getElementById("scorecard");
@@ -389,7 +467,12 @@ function renderScorecard(state) {
 
     html += `<tr style="${activePlayer ? "background:#f7fff8;" : "background:#ffffff;"}">`;
 
-    html += `<td style="padding:6px 8px;border:1px solid #d6d6d6;font-weight:bold;text-align:left;">
+    html += `<td style="
+      padding:6px 8px;
+      border:1px solid #d6d6d6;
+      font-weight:bold;
+      text-align:left;
+    ">
       ${player.name}
     </td>`;
 
@@ -405,7 +488,11 @@ function renderScorecard(state) {
       </td>`;
     });
 
-    html += `<td style="padding:6px 4px;border:1px solid #d6d6d6;font-weight:bold;">
+    html += `<td style="
+      padding:6px 4px;
+      border:1px solid #d6d6d6;
+      font-weight:bold;
+    ">
       ${player.total}
     </td>`;
 
@@ -416,15 +503,46 @@ function renderScorecard(state) {
   div.innerHTML = html;
 }
 
+/* -------------------------
+   END GAME
+--------------------------*/
+
 function renderEnd(container, state) {
   if (state.shanghaiWinner) {
     container.innerHTML = `
       <h2>🔥 SHANGHAI 🔥</h2>
       <h3>🏆 Winner: ${state.shanghaiWinner}</h3>
       <div id="scorecard"></div>
+      <div style="margin-top:12px;" id="controls"></div>
     `;
 
     renderScorecard(state);
+
+    const controls = document.getElementById("controls");
+
+    const undoBtn = document.createElement("div");
+    undoBtn.innerText = "Undo";
+    undoBtn.style = `
+      background:#206a1e;
+      color:#ffffff;
+      border:2px solid #ff4c4c;
+      border-radius:10px;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:bold;
+      box-sizing:border-box;
+      padding:10px;
+      font-size:16px;
+      min-height:44px;
+    `;
+    undoBtn.onclick = () => {
+      undo();
+      renderUI(container);
+    };
+
+    controls.appendChild(undoBtn);
     return;
   }
 
