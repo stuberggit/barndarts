@@ -183,12 +183,12 @@ function canKillWithHit(victim, hitType) {
   }
 
   if (remainingLives === 3) {
-    if (hitType === "triple") return true;
+    if (hitType === "triple" || hitType === "redBull") return true;
 
     if (
       activeCount === 2 &&
-      hitType === "single" &&
-      gameState.currentTurnHits.filter(h => h === "single").length >= 3
+      (hitType === "single" || hitType === "greenBull") &&
+      gameState.currentTurnHits.filter(h => h === "single" || h === "greenBull").length >= 3
     ) {
       return true;
     }
@@ -197,12 +197,19 @@ function canKillWithHit(victim, hitType) {
   }
 
   if (remainingLives === 2 || remainingLives === 1) {
-    if (hitType === "double" || hitType === "triple") return true;
+    if (
+      hitType === "double" ||
+      hitType === "triple" ||
+      hitType === "greenBull" ||
+      hitType === "redBull"
+    ) {
+      return true;
+    }
 
     if (
       activeCount === 2 &&
-      hitType === "single" &&
-      gameState.currentTurnHits.filter(h => h === "single").length >= 3
+      (hitType === "single" || hitType === "greenBull") &&
+      gameState.currentTurnHits.filter(h => h === "single" || h === "greenBull").length >= 3
     ) {
       return true;
     }
@@ -428,7 +435,7 @@ export function submitGameThrow(hitType, target) {
   gameState.currentTurnThrows.push(assignment);
   gameState.dartsThrown++;
 
-  if (isNumberHitType(hitType)) {
+  if (isNumberHitType(hitType) || isBullHitType(hitType)) {
     gameState.currentTurnHits.push(hitType);
   }
 
@@ -450,11 +457,8 @@ export function submitGameThrow(hitType, target) {
     }
   }
 
-  // If a dormant player is revived on this dart, that dart only revives them.
-  // It must not also damage them or force Redemski.
   const revivedZombieThisDart = checkZombieRevival(hitType, target);
 
-  // Shanghai only after Killer earned, and only on own target
   if (
     player.isKiller &&
     gameState.currentTurnHitsOnOwnTarget.includes("single") &&
@@ -466,7 +470,6 @@ export function submitGameThrow(hitType, target) {
     return;
   }
 
-  // Hitting own target
   if (hitOwnTarget) {
     if (!player.isKiller && hitValue > 0) {
       player.isKiller = true;
@@ -538,7 +541,6 @@ export function submitRedemskiThrow(hitType, target) {
   gameState.dartsThrown++;
 
   const correctTarget = target === player.target;
-    const correctTarget = target === player.target;
   const validReviveHit =
     correctTarget &&
     (
