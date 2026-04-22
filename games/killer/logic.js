@@ -139,9 +139,18 @@ function assignTargetToPlayer(playerIndex, assignment) {
 
   player.target = assignment.target;
   player.hitType = assignment.hitType;
-  player.isKiller = false;
+  player.isKiller =
+    assignment.hitType === "double" ||
+    assignment.hitType === "triple" ||
+    assignment.hitType === "greenBull" ||
+    assignment.hitType === "redBull";
 
-  updateMessage(`${player.name} claims ${formatTarget(assignment.target, assignment.hitType)}!`, "#22c55e");
+  updateMessage(
+    player.isKiller
+      ? `${player.name} claims ${formatTarget(assignment.target, assignment.hitType)} and starts as a Killer!`
+      : `${player.name} claims ${formatTarget(assignment.target, assignment.hitType)}!`,
+    "#22c55e"
+  );
 }
 
 function bumpPlayerOffTarget(playerIndex) {
@@ -225,10 +234,10 @@ function reviveZombie(playerIndex) {
   player.isActive = true;
   player.isDormantDead = false;
   player.isZombie = true;
-  player.isKiller = false;
+  player.isKiller = true;
   player.isRedemski = false;
 
-  updateMessage(`${player.name} is zombied back in with 1 life!`, "#f97316");
+  updateMessage(`${player.name} is zombied back in with 1 life and Killer status!`, "#f97316");
   return true;
 }
 
