@@ -60,8 +60,8 @@ function formatAssignment(player) {
 
   const labelMap = {
     single: "Single",
-    double: "Double",
-    triple: "Triple"
+    double: "Dub",
+    triple: "Trip"
   };
 
   return `${labelMap[player.hitType]} ${player.target}`;
@@ -69,6 +69,31 @@ function formatAssignment(player) {
 
 function formatTargetNumber(target) {
   return target === 25 ? "Bull" : String(target);
+}
+
+function getTargetOptions(state, currentPlayer) {
+  const seen = new Set();
+  const options = [];
+
+  state.players.forEach(player => {
+    if (!player.isActive || player.target == null) return;
+
+    if (!seen.has(player.target)) {
+      seen.add(player.target);
+      options.push(player.target);
+    }
+  });
+
+  // Safety: ensure own target is included
+  if (currentPlayer.target != null && !seen.has(currentPlayer.target)) {
+    options.unshift(currentPlayer.target);
+  }
+
+  return options.sort((a, b) => {
+    if (a === 25) return 1;
+    if (b === 25) return -1;
+    return a - b;
+  });
 }
 
 /* -------------------------
@@ -175,164 +200,8 @@ function renderAssignmentBoard(state) {
   state.players.forEach((player, index) => {
     const isActive = index === state.currentPlayer;
 
-    const row = document.createElement("div");
-    row.style = `
-      margin-bottom:8px;
-      padding:10px;
-      border-radius:10px;
-      background:${isActive ? "#1e293b" : "#111111"};
-      border:1px solid #ffffff;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      color:#ffffff;
-      font-weight:bold;
-      font-size:14px;
-    `;
-
-    row.innerHTML = `
-      <span>${player.name}</span>
-      <span>${formatAssignment(player)}${player.isKiller ? " | Killer" : ""}</span>
-    `;
-
-    board.appendChild(row);
+    rowForPlayer(board, player, isActive, false);
   });
-}
-
-function renderNDHControls(container) {
-  const controls = document.getElementById("controls");
-  controls.innerHTML = "";
-
-  const hitTypeRow = document.createElement("div");
-  hitTypeRow.style = `
-    display:grid;
-    grid-template-columns:1fr 1fr 1fr;
-    gap:8px;
-    margin-top:8px;
-  `;
-
-  const types = [
-    { label: "Single", value: "single" },
-    { label: "Double", value: "double" },
-    { label: "Triple", value: "triple" }
-  ];
-
-  types.forEach(type => {
-    const btn = document.createElement("div");
-    btn.innerText = type.label;
-    btn.style = `
-      ${buttonStyle()}
-      padding:10px;
-      min-height:44px;
-      font-size:16px;
-    `;
-    btn.onclick = () => {
-      renderNumberPicker(container, type.value, "NDH");
-    };
-    hitTypeRow.appendChild(btn);
-  });
-
-  const bullRow = document.createElement("div");
-  bullRow.style = `
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:8px;
-    margin-top:8px;
-  `;
-
-  const greenBullBtn = document.createElement("div");
-  greenBullBtn.innerText = "Green Bull";
-  greenBullBtn.style = `
-    ${buttonStyle()}
-    padding:10px;
-    min-height:44px;
-    font-size:16px;
-  `;
-  greenBullBtn.onclick = () => {
-    submitNDHThrow("greenBull");
-    renderUI(container);
-  };
-
-  const redBullBtn = document.createElement("div");
-  redBullBtn.innerText = "Red Bull";
-  redBullBtn.style = `
-    ${buttonStyle()}
-    padding:10px;
-    min-height:44px;
-    font-size:16px;
-  `;
-  redBullBtn.onclick = () => {
-    submitNDHThrow("redBull");
-    renderUI(container);
-  };
-
-  bullRow.appendChild(greenBullBtn);
-  bullRow.appendChild(redBullBtn);
-
-  const bottomRow = document.createElement("div");
-  bottomRow.style = `
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:8px;
-    margin-top:8px;
-  `;
-
-  const viewBtn = document.createElement("div");
-  viewBtn.innerText = "Assigned Targets";
-  viewBtn.style = `
-    ${leaderboardButtonStyle()}
-    padding:8px;
-    min-height:40px;
-    font-size:15px;
-  `;
-  viewBtn.onclick = () => {
-    renderTargetsModal(state);
-  };
-
-  const undoBtn = document.createElement("div");
-  undoBtn.innerText = "Undo";
-  undoBtn.style = `
-    ${undoButtonStyle()}
-    padding:8px;
-    min-height:40px;
-    font-size:15px;
-  `;
-  undoBtn.onclick = () => {
-    undo();
-    renderUI(container);
-  };
-
-  bottomRow.appendChild(viewBtn);
-  bottomRow.appendChild(undoBtn);
-
-  const endRow = document.createElement("div");
-  endRow.style = `
-    display:grid;
-    grid-template-columns:1fr;
-    gap:8px;
-    margin-top:8px;
-  `;
-
-  const endBtn = document.createElement("div");
-  endBtn.innerText = "End Game";
-  endBtn.style = `
-    ${buttonStyle()}
-    padding:10px;
-    min-height:44px;
-    font-size:16px;
-  `;
-  endBtn.onclick = () => {
-    store.screen = "HOME";
-    store.players = [];
-    renderApp();
-  };
-
-  endRow.appendChild(endBtn);
-
-  controls.appendChild(hitTypeRow);
-  controls.appendChild(bullRow);
-  controls.appendChild(bottomRow);
-  controls.appendChild(endRow);
 }
 
 /* -------------------------
@@ -395,33 +264,181 @@ function renderPlayerBoard(state) {
   state.players.forEach((player, index) => {
     const isActiveTurn = index === state.currentPlayer;
 
-    const row = document.createElement("div");
-    row.style = `
-      margin-bottom:8px;
-      padding:10px;
-      border-radius:10px;
-      background:${isActiveTurn ? "#1e293b" : "#111111"};
-      border:1px solid #ffffff;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      color:#ffffff;
-      font-weight:bold;
-      font-size:14px;
-      opacity:${player.isActive ? 1 : 0.5};
-    `;
-
-    row.innerHTML = `
-      <span>${player.name}</span>
-      <span>
-        ${formatAssignment(player)} |
-        Lives ${player.lives} |
-        ${player.isKiller ? "Killer" : "Not Killer"}
-      </span>
-    `;
-
-    board.appendChild(row);
+    rowForPlayer(board, player, isActiveTurn, true);
   });
+}
+
+function rowForPlayer(parent, player, isHighlighted, includeLives) {
+  const row = document.createElement("div");
+  row.style = `
+    margin-bottom:8px;
+    padding:10px;
+    border-radius:10px;
+    background:${isHighlighted ? "#1e293b" : "#111111"};
+    border:1px solid #ffffff;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    color:#ffffff;
+    font-weight:bold;
+    font-size:14px;
+    opacity:${player.isActive ? 1 : 0.5};
+  `;
+
+  const killerText = player.isKiller
+    ? ` | <span style="color:#ff4c4c;">Killer</span>`
+    : "";
+
+  const rightSide = includeLives
+    ? `${formatAssignment(player)} | Lives ${player.lives}${killerText}`
+    : `${formatAssignment(player)}${killerText}`;
+
+  row.innerHTML = `
+    <span>${player.name}</span>
+    <span>${rightSide}</span>
+  `;
+
+  parent.appendChild(row);
+}
+
+/* -------------------------
+   CONTROLS
+--------------------------*/
+
+function renderNDHControls(container) {
+  const controls = document.getElementById("controls");
+  controls.innerHTML = "";
+
+  const hitTypeRow = document.createElement("div");
+  hitTypeRow.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:8px;
+    margin-top:8px;
+  `;
+
+  const types = [
+    { label: "Single", value: "single" },
+    { label: "Dub", value: "double" },
+    { label: "Trip", value: "triple" }
+  ];
+
+  types.forEach(type => {
+    const btn = document.createElement("div");
+    btn.innerText = type.label;
+    btn.style = `
+      ${buttonStyle()}
+      padding:10px;
+      min-height:44px;
+      font-size:16px;
+    `;
+    btn.onclick = () => {
+      renderNumberPicker(container, type.value, "NDH", null);
+    };
+    hitTypeRow.appendChild(btn);
+  });
+
+  const bullRow = document.createElement("div");
+  bullRow.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:8px;
+  `;
+
+  const greenBullBtn = document.createElement("div");
+  greenBullBtn.innerText = "Green Bull";
+  greenBullBtn.style = `
+    ${buttonStyle()}
+    padding:10px;
+    min-height:44px;
+    font-size:16px;
+  `;
+  greenBullBtn.onclick = () => {
+    submitNDHThrow("greenBull");
+    renderUI(container);
+  };
+
+  const redBullBtn = document.createElement("div");
+  redBullBtn.innerText = "Red Bull";
+  redBullBtn.style = `
+    ${buttonStyle()}
+    padding:10px;
+    min-height:44px;
+    font-size:16px;
+  `;
+  redBullBtn.onclick = () => {
+    submitNDHThrow("redBull");
+    renderUI(container);
+  };
+
+  bullRow.appendChild(greenBullBtn);
+  bullRow.appendChild(redBullBtn);
+
+  const bottomRow = document.createElement("div");
+  bottomRow.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:8px;
+  `;
+
+  const viewBtn = document.createElement("div");
+  viewBtn.innerText = "Assigned Targets";
+  viewBtn.style = `
+    ${leaderboardButtonStyle()}
+    padding:8px;
+    min-height:40px;
+    font-size:15px;
+  `;
+  viewBtn.onclick = () => {
+    renderTargetsModal(stateSnapshot());
+  };
+
+  const undoBtn = document.createElement("div");
+  undoBtn.innerText = "Undo";
+  undoBtn.style = `
+    ${undoButtonStyle()}
+    padding:8px;
+    min-height:40px;
+    font-size:15px;
+  `;
+  undoBtn.onclick = () => {
+    undo();
+    renderUI(container);
+  };
+
+  bottomRow.appendChild(viewBtn);
+  bottomRow.appendChild(undoBtn);
+
+  const endRow = document.createElement("div");
+  endRow.style = `
+    display:grid;
+    grid-template-columns:1fr;
+    gap:8px;
+    margin-top:8px;
+  `;
+
+  const endBtn = document.createElement("div");
+  endBtn.innerText = "End Game";
+  endBtn.style = `
+    ${buttonStyle()}
+    padding:10px;
+    min-height:44px;
+    font-size:16px;
+  `;
+  endBtn.onclick = () => {
+    store.screen = "HOME";
+    store.players = [];
+    renderApp();
+  };
+
+  endRow.appendChild(endBtn);
+
+  controls.appendChild(hitTypeRow);
+  controls.appendChild(bullRow);
+  controls.appendChild(bottomRow);
+  controls.appendChild(endRow);
 }
 
 function renderGameControls(container) {
@@ -430,14 +447,6 @@ function renderGameControls(container) {
   const controls = document.getElementById("controls");
   controls.innerHTML = "";
 
-  const typeRow = document.createElement("div");
-  typeRow.style = `
-    display:grid;
-    grid-template-columns:${currentPlayer.target === 25 ? "1fr 1fr" : "1fr 1fr 1fr"};
-    gap:8px;
-    margin-top:8px;
-  `;
-
   const types = currentPlayer.target === 25
     ? [
         { label: "Green Bull", value: "greenBull" },
@@ -445,9 +454,17 @@ function renderGameControls(container) {
       ]
     : [
         { label: "Single", value: "single" },
-        { label: "Double", value: "double" },
-        { label: "Triple", value: "triple" }
+        { label: "Dub", value: "double" },
+        { label: "Trip", value: "triple" }
       ];
+
+  const typeRow = document.createElement("div");
+  typeRow.style = `
+    display:grid;
+    grid-template-columns:${currentPlayer.target === 25 ? "1fr 1fr" : "1fr 1fr 1fr"};
+    gap:8px;
+    margin-top:8px;
+  `;
 
   types.forEach(type => {
     const btn = document.createElement("div");
@@ -463,7 +480,7 @@ function renderGameControls(container) {
         submitGameThrow(type.value, 25);
         renderUI(container);
       } else {
-        renderNumberPicker(container, type.value, "GAME");
+        renderTargetPicker(container, type.value, stateSnapshot());
       }
     };
     typeRow.appendChild(btn);
@@ -539,6 +556,10 @@ function renderGameControls(container) {
    MODALS
 --------------------------*/
 
+function stateSnapshot() {
+  return getState();
+}
+
 function renderNumberPicker(container, hitType, mode) {
   const modal = document.getElementById("modal");
 
@@ -566,7 +587,7 @@ function renderNumberPicker(container, hitType, mode) {
         overflow:auto;
         border:1px solid #ffffff;
       ">
-        <h2 style="text-align:center;margin-top:0;">${hitType[0].toUpperCase() + hitType.slice(1)} Target</h2>
+        <h2 style="text-align:center;margin-top:0;">${hitType === "single" ? "Single" : hitType === "double" ? "Dub" : "Trip"} Target</h2>
         <div id="numberGrid"></div>
         <div id="closeModal" style="
           ${buttonStyle()}
@@ -595,16 +616,82 @@ function renderNumberPicker(container, hitType, mode) {
       font-size:16px;
     `;
     btn.onclick = () => {
-      if (mode === "NDH") {
-        submitNDHThrow(hitType, i);
-      } else {
-        submitGameThrow(hitType, i);
-      }
+      submitNDHThrow(hitType, i);
       modal.innerHTML = "";
       renderUI(container);
     };
     grid.appendChild(btn);
   }
+
+  document.getElementById("closeModal").onclick = () => {
+    modal.innerHTML = "";
+  };
+}
+
+function renderTargetPicker(container, hitType, state) {
+  const modal = document.getElementById("modal");
+  const currentPlayer = state.players[state.currentPlayer];
+  const options = getTargetOptions(state, currentPlayer);
+
+  modal.innerHTML = `
+    <div style="
+      position:fixed;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      background:rgba(0,0,0,0.7);
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      z-index:999;
+    ">
+      <div style="
+        background:#111111;
+        color:#ffffff;
+        padding:20px;
+        border-radius:10px;
+        width:90%;
+        max-width:600px;
+        max-height:90vh;
+        overflow:auto;
+        border:1px solid #ffffff;
+      ">
+        <h2 style="text-align:center;margin-top:0;">${hitType === "single" ? "Single" : hitType === "double" ? "Dub" : "Trip"} Target</h2>
+        <div id="targetGrid"></div>
+        <div id="closeModal" style="
+          ${buttonStyle()}
+          padding:10px;
+          min-height:44px;
+          margin-top:12px;
+        ">Close</div>
+      </div>
+    </div>
+  `;
+
+  const grid = document.getElementById("targetGrid");
+  grid.style = `
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:8px;
+  `;
+
+  options.forEach(target => {
+    const btn = document.createElement("div");
+    btn.innerText = formatTargetNumber(target);
+    btn.style = `
+      ${buttonStyle()}
+      padding:10px;
+      min-height:44px;
+      font-size:16px;
+    `;
+    btn.onclick = () => {
+      submitGameThrow(hitType, target);
+      modal.innerHTML = "";
+      renderUI(container);
+    };
+    grid.appendChild(btn);
+  });
 
   document.getElementById("closeModal").onclick = () => {
     modal.innerHTML = "";
@@ -654,23 +741,7 @@ function renderTargetsModal(state) {
   list.innerHTML = "";
 
   state.players.forEach(player => {
-    const row = document.createElement("div");
-    row.style = `
-      margin-bottom:8px;
-      padding:10px;
-      border-radius:10px;
-      background:#1e293b;
-      border:1px solid #ffffff;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      font-weight:bold;
-    `;
-    row.innerHTML = `
-      <span>${player.name}</span>
-      <span>${formatAssignment(player)}${player.isKiller ? " | Killer" : ""}</span>
-    `;
-    list.appendChild(row);
+    rowForPlayer(list, player, false, true);
   });
 
   document.getElementById("closeModal").onclick = () => {
