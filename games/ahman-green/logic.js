@@ -11,12 +11,18 @@ function cloneState(state) {
 
 const COLOR_ORDER = ["Black", "White", "Green", "Red"];
 
-function getNextProgress(progress) {
-  return Math.min(progress + 1, 4);
-}
-
 function getCurrentTargetColor(progress) {
   return COLOR_ORDER[progress] || null;
+}
+
+function advanceTurn() {
+  gameState.dartsThrown = 0;
+
+  gameState.currentPlayer++;
+
+  if (gameState.currentPlayer >= gameState.players.length) {
+    gameState.currentPlayer = 0;
+  }
 }
 
 /* -------------------------
@@ -33,6 +39,7 @@ export function initGame(players) {
     })),
 
     currentPlayer: 0,
+    dartsThrown: 0,
 
     lastMessage: "",
     lastMessageColor: "#ffffff",
@@ -66,7 +73,8 @@ export function advancePlayer(colorClicked) {
     return;
   }
 
-  player.progress = getNextProgress(player.progress);
+  player.progress = Math.min(player.progress + 1, 4);
+  gameState.dartsThrown++;
 
   if (player.progress >= 4) {
     gameState.winner = player.name;
@@ -82,10 +90,8 @@ export function advancePlayer(colorClicked) {
   gameState.lastMessageColor = "#22c55e";
   gameState.lastMessageTimestamp = Date.now();
 
-  gameState.currentPlayer++;
-
-  if (gameState.currentPlayer >= gameState.players.length) {
-    gameState.currentPlayer = 0;
+  if (gameState.dartsThrown >= 3) {
+    advanceTurn();
   }
 }
 
@@ -96,16 +102,13 @@ export function missBoard() {
 
   const player = gameState.players[gameState.currentPlayer];
   player.progress = 0;
+  gameState.dartsThrown = 3;
 
   gameState.lastMessage = `${player.name} resets to Black!`;
   gameState.lastMessageColor = "#ff4c4c";
   gameState.lastMessageTimestamp = Date.now();
 
-  gameState.currentPlayer++;
-
-  if (gameState.currentPlayer >= gameState.players.length) {
-    gameState.currentPlayer = 0;
-  }
+  advanceTurn();
 }
 
 export function partyJump() {
@@ -114,16 +117,33 @@ export function partyJump() {
   history.push(cloneState(gameState));
 
   const player = gameState.players[gameState.currentPlayer];
-  player.progress = 3; // jump to Red target
+  player.progress = 3; // needs Red next
+  gameState.dartsThrown++;
 
   gameState.lastMessage = `${player.name} PARTY! Jump to Red!`;
   gameState.lastMessageColor = "#a855f7";
   gameState.lastMessageTimestamp = Date.now();
 
-  gameState.currentPlayer++;
+  if (gameState.dartsThrown >= 3) {
+    advanceTurn();
+  }
+}
 
-  if (gameState.currentPlayer >= gameState.players.length) {
-    gameState.currentPlayer = 0;
+export function acdcJump() {
+  if (gameState.winner) return;
+
+  history.push(cloneState(gameState));
+
+  const player = gameState.players[gameState.currentPlayer];
+  player.progress = 0;
+  gameState.dartsThrown++;
+
+  gameState.lastMessage = `${player.name} AC/DC! Back to Black!`;
+  gameState.lastMessageColor = "#facc15";
+  gameState.lastMessageTimestamp = Date.now();
+
+  if (gameState.dartsThrown >= 3) {
+    advanceTurn();
   }
 }
 
@@ -131,12 +151,7 @@ export function nextPlayer() {
   if (gameState.winner) return;
 
   history.push(cloneState(gameState));
-
-  gameState.currentPlayer++;
-
-  if (gameState.currentPlayer >= gameState.players.length) {
-    gameState.currentPlayer = 0;
-  }
+  advanceTurn();
 }
 
 export function undo() {
