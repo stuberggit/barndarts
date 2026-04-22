@@ -687,16 +687,19 @@ function renderRedemskiControls(container, player) {
   const controls = document.getElementById("controls");
   controls.innerHTML = "";
 
-  const typeRow = document.createElement("div");
+    const typeRow = document.createElement("div");
   typeRow.style = `
     display:grid;
-    grid-template-columns:${player.target === 25 ? "1fr" : "1fr 1fr"};
+    grid-template-columns:${player.target === 25 ? "1fr 1fr" : "1fr 1fr"};
     gap:8px;
     margin-top:8px;
   `;
 
   const validTypes = player.target === 25
-    ? [{ label: "Red Bull", value: "redBull" }]
+    ? [
+        { label: "Green Bull", value: "greenBull" },
+        { label: "Red Bull", value: "redBull" }
+      ]
     : [
         { label: "Dub", value: "double" },
         { label: "Trip", value: "triple" }
