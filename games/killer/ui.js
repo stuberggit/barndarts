@@ -1,4 +1,4 @@
-import { getState, submitNDHThrow, undo, isGameOver } from "./logic.js";
+import { getState, submitNDHThrow, submitGameThrow, nextPlayer, undo, isGameOver } from "./logic.js";
 import { store } from "../../core/store.js";
 import { renderApp } from "../../core/router.js";
 
@@ -67,6 +67,10 @@ function formatAssignment(player) {
   return `${labelMap[player.hitType]} ${player.target}`;
 }
 
+function formatTargetNumber(target) {
+  return target === 25 ? "Bull" : String(target);
+}
+
 /* -------------------------
    MAIN UI
 --------------------------*/
@@ -84,14 +88,14 @@ export function renderUI(container) {
     return;
   }
 
-  renderGamePlaceholder(container, state);
+  renderGame(container, state);
 }
 
 /* -------------------------
-   NDH SCREEN
+   FEEDBACK
 --------------------------*/
 
-function renderNDH(container, state) {
+function buildFlashHtml(state) {
   const age = Date.now() - (state.lastMessageTimestamp || 0);
   const showFlash = state.lastMessage && age < 2500;
 
@@ -112,6 +116,15 @@ function renderNDH(container, state) {
     `
     : `<div></div>`;
 
+  return { showFlash, flashHtml };
+}
+
+/* -------------------------
+   NDH SCREEN
+--------------------------*/
+
+function renderNDH(container, state) {
+  const { showFlash, flashHtml } = buildFlashHtml(state);
   const currentPlayer = state.players[state.currentPlayer];
 
   container.innerHTML = `
@@ -214,7 +227,7 @@ function renderNDHControls(container) {
       font-size:16px;
     `;
     btn.onclick = () => {
-      renderNumberPicker(container, type.value);
+      renderNumberPicker(container, type.value, "NDH");
     };
     hitTypeRow.appendChild(btn);
   });
@@ -322,7 +335,211 @@ function renderNDHControls(container) {
   controls.appendChild(endRow);
 }
 
-function renderNumberPicker(container, hitType) {
+/* -------------------------
+   GAME SCREEN
+--------------------------*/
+
+function renderGame(container, state) {
+  const { showFlash, flashHtml } = buildFlashHtml(state);
+  const currentPlayer = state.players[state.currentPlayer];
+
+  container.innerHTML = `
+    <h2 style="text-align:center;margin-bottom:8px;">Killer</h2>
+
+    <div style="
+      text-align:center;
+      margin-bottom:12px;
+      font-size:16px;
+      font-weight:bold;
+    ">
+      Current Player: ${currentPlayer.name}
+    </div>
+
+    <div id="playerBoard"></div>
+
+    <div style="
+      min-height:54px;
+      margin:10px 0 12px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    ">
+      <div style="width:100%;">
+        ${flashHtml}
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-bottom:12px;font-size:16px;font-weight:bold;">
+      🎯 Target: ${formatTargetNumber(currentPlayer.target)} | Dart ${state.dartsThrown + 1}/3
+    </div>
+
+    <div id="controls"></div>
+
+    <div id="modal"></div>
+  `;
+
+  renderPlayerBoard(state);
+  renderGameControls(container);
+
+  if (showFlash) {
+    setTimeout(() => {
+      renderUI(container);
+    }, 700);
+  }
+}
+
+function renderPlayerBoard(state) {
+  const board = document.getElementById("playerBoard");
+  board.innerHTML = "";
+
+  state.players.forEach((player, index) => {
+    const isActiveTurn = index === state.currentPlayer;
+
+    const row = document.createElement("div");
+    row.style = `
+      margin-bottom:8px;
+      padding:10px;
+      border-radius:10px;
+      background:${isActiveTurn ? "#1e293b" : "#111111"};
+      border:1px solid #ffffff;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      color:#ffffff;
+      font-weight:bold;
+      font-size:14px;
+      opacity:${player.isActive ? 1 : 0.5};
+    `;
+
+    row.innerHTML = `
+      <span>${player.name}</span>
+      <span>
+        ${formatAssignment(player)} |
+        Lives ${player.lives} |
+        ${player.isKiller ? "Killer" : "Not Killer"}
+      </span>
+    `;
+
+    board.appendChild(row);
+  });
+}
+
+function renderGameControls(container) {
+  const state = getState();
+  const currentPlayer = state.players[state.currentPlayer];
+  const controls = document.getElementById("controls");
+  controls.innerHTML = "";
+
+  const typeRow = document.createElement("div");
+  typeRow.style = `
+    display:grid;
+    grid-template-columns:${currentPlayer.target === 25 ? "1fr 1fr" : "1fr 1fr 1fr"};
+    gap:8px;
+    margin-top:8px;
+  `;
+
+  const types = currentPlayer.target === 25
+    ? [
+        { label: "Green Bull", value: "greenBull" },
+        { label: "Red Bull", value: "redBull" }
+      ]
+    : [
+        { label: "Single", value: "single" },
+        { label: "Double", value: "double" },
+        { label: "Triple", value: "triple" }
+      ];
+
+  types.forEach(type => {
+    const btn = document.createElement("div");
+    btn.innerText = type.label;
+    btn.style = `
+      ${buttonStyle()}
+      padding:10px;
+      min-height:44px;
+      font-size:16px;
+    `;
+    btn.onclick = () => {
+      if (currentPlayer.target === 25) {
+        submitGameThrow(type.value, 25);
+        renderUI(container);
+      } else {
+        renderNumberPicker(container, type.value, "GAME");
+      }
+    };
+    typeRow.appendChild(btn);
+  });
+
+  const bottomRow = document.createElement("div");
+  bottomRow.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:8px;
+  `;
+
+  const nextBtn = document.createElement("div");
+  nextBtn.innerText = "➡️ Next Player";
+  nextBtn.style = `
+    ${buttonStyle()}
+    padding:8px;
+    min-height:40px;
+    font-size:15px;
+  `;
+  nextBtn.onclick = () => {
+    nextPlayer();
+    renderUI(container);
+  };
+
+  const undoBtn = document.createElement("div");
+  undoBtn.innerText = "Undo";
+  undoBtn.style = `
+    ${undoButtonStyle()}
+    padding:8px;
+    min-height:40px;
+    font-size:15px;
+  `;
+  undoBtn.onclick = () => {
+    undo();
+    renderUI(container);
+  };
+
+  bottomRow.appendChild(nextBtn);
+  bottomRow.appendChild(undoBtn);
+
+  const endRow = document.createElement("div");
+  endRow.style = `
+    display:grid;
+    grid-template-columns:1fr;
+    gap:8px;
+    margin-top:8px;
+  `;
+
+  const endBtn = document.createElement("div");
+  endBtn.innerText = "End Game";
+  endBtn.style = `
+    ${buttonStyle()}
+    padding:10px;
+    min-height:44px;
+    font-size:16px;
+  `;
+  endBtn.onclick = () => {
+    store.screen = "HOME";
+    store.players = [];
+    renderApp();
+  };
+
+  endRow.appendChild(endBtn);
+
+  controls.appendChild(typeRow);
+  controls.appendChild(bottomRow);
+  controls.appendChild(endRow);
+}
+
+/* -------------------------
+   MODALS
+--------------------------*/
+
+function renderNumberPicker(container, hitType, mode) {
   const modal = document.getElementById("modal");
 
   modal.innerHTML = `
@@ -378,7 +595,11 @@ function renderNumberPicker(container, hitType) {
       font-size:16px;
     `;
     btn.onclick = () => {
-      submitNDHThrow(hitType, i);
+      if (mode === "NDH") {
+        submitNDHThrow(hitType, i);
+      } else {
+        submitGameThrow(hitType, i);
+      }
       modal.innerHTML = "";
       renderUI(container);
     };
@@ -455,70 +676,6 @@ function renderTargetsModal(state) {
   document.getElementById("closeModal").onclick = () => {
     modal.innerHTML = "";
   };
-}
-
-/* -------------------------
-   GAME PLACEHOLDER
---------------------------*/
-
-function renderGamePlaceholder(container, state) {
-  container.innerHTML = `
-    <h2 style="text-align:center;margin-bottom:8px;">Killer</h2>
-
-    <div style="
-      text-align:center;
-      margin-bottom:12px;
-      font-size:16px;
-      font-weight:bold;
-    ">
-      Phase 1 complete — NDH targets assigned.
-    </div>
-
-    <div id="assignmentBoard"></div>
-
-    <div style="
-      min-height:54px;
-      margin:10px 0 12px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-    ">
-      <div style="width:100%;">
-        <div style="
-          padding:8px 10px;
-          border-radius:10px;
-          background:rgba(255,255,255,0.08);
-          color:#22c55e;
-          font-weight:bold;
-          text-align:center;
-        ">
-          Next: game turns, lives, killer attacks, redemski, zombies
-        </div>
-      </div>
-    </div>
-
-    <div id="controls"></div>
-  `;
-
-  renderAssignmentBoard(state);
-
-  const controls = document.getElementById("controls");
-
-  const mainBtn = document.createElement("div");
-  mainBtn.innerText = "Main Menu";
-  mainBtn.style = `
-    ${buttonStyle()}
-    padding:10px;
-    min-height:44px;
-    font-size:16px;
-  `;
-  mainBtn.onclick = () => {
-    store.screen = "HOME";
-    store.players = [];
-    renderApp();
-  };
-
-  controls.appendChild(mainBtn);
 }
 
 /* -------------------------
