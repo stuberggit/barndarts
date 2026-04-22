@@ -443,9 +443,9 @@ export function submitGameThrow(hitType, target) {
     }
   }
 
-  // Zombie revival can happen on any active player's Dub/Trip hit to a dormant player's target.
-  // This does not interrupt the current turn.
-  checkZombieRevival(hitType, target);
+    // Zombie revival can happen on any active player's Dub/Trip hit to a dormant player's target.
+  // If a dormant player is revived, that same dart should NOT also damage them or trigger Redemski.
+  const revivedZombieThisDart = checkZombieRevival(hitType, target);
 
   // Shanghai only after Killer earned, and only on own target
   if (
@@ -464,7 +464,12 @@ export function submitGameThrow(hitType, target) {
     if (!player.isKiller && hitValue > 0) {
       player.isKiller = true;
       updateMessage(`${player.name} is now a Killer!`, "#22c55e");
-    } else if (player.isKiller && hitValue > 0 && gameState.livesTakenThisTurn < 3) {
+      } else if (
+    player.isKiller &&
+    hitValue > 0 &&
+    gameState.livesTakenThisTurn < 3 &&
+    !revivedZombieThisDart
+  ) {
       const damage = Math.min(hitValue, 3 - gameState.livesTakenThisTurn);
       player.lives = Math.max(0, player.lives - damage);
       gameState.livesTakenThisTurn += damage;
