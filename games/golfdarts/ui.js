@@ -6,8 +6,11 @@ import {
   nextPlayer,
   submitHazards,
   submitHammer,
-  getMeta
+  getMeta,
+  initGame
 } from "./logic.js";
+import { store } from "../../core/store.js";
+import { renderApp } from "../../core/router.js";
 
 /* -------------------------
    HELPERS
@@ -34,6 +37,58 @@ function getPreviewScoreFromHits(hits) {
   return scores[cappedHits - 1] ?? 5;
 }
 
+function getRotatedPlayersForReplay(state) {
+  const currentPlayers = state.players.map(p => p.name);
+
+  if (currentPlayers.length <= 1) return currentPlayers;
+
+  return [...currentPlayers.slice(1), currentPlayers[0]];
+}
+
+function buttonStyle() {
+  return `
+    background:#206a1e;
+    color:#ffffff;
+    border:1px solid #ffffff;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+  `;
+}
+
+function leaderboardButtonStyle() {
+  return `
+    background:#ffffff;
+    color:#206a1e;
+    border:1px solid #000000;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+  `;
+}
+
+function undoButtonStyle() {
+  return `
+    background:#206a1e;
+    color:#ffffff;
+    border:1px solid #ff4c4c;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+  `;
+}
 
 /* -------------------------
    MAIN UI
@@ -72,20 +127,21 @@ export function renderUI(container) {
 
   const previewScore = getPreviewScoreFromHits(previewHits);
   const previewMeta = getMeta(previewScore);
+  const previewLabel = previewScore === 1 ? "Hole in One" : previewMeta.label;
 
   const previewLabelHtml =
     state.dartsThrown > 0
       ? `
         <div style="
-          padding: 8px 10px;
-          border-radius: 10px;
-          background: rgba(255,255,255,0.08);
+          padding:8px 10px;
+          border-radius:10px;
+          background:rgba(255,255,255,0.08);
           color:${previewMeta.color};
           font-weight:bold;
           text-align:center;
         ">
           ${state.players[state.currentPlayer].name}
-          (${hitsDisplay ? hitsDisplay.replace(" | ", "") + " | " : ""}${previewScore === 1 ? "Hole in One" : previewMeta.label})
+          (${hitsDisplay ? hitsDisplay.replace(" | ", "") + " | " : ""}${previewLabel})
         </div>
       `
       : "";
@@ -97,14 +153,14 @@ export function renderUI(container) {
   const scoreFlashHtml = showScoreFlash
     ? `
       <div style="
-        padding: 8px 10px;
-        border-radius: 10px;
-        background: rgba(255,255,255,0.08);
-        color: ${state.lastScoreColor || "#ffffff"};
-        font-weight: bold;
-        text-align: center;
-        opacity: ${flashOpacity};
-        transition: opacity 0.6s ease;
+        padding:8px 10px;
+        border-radius:10px;
+        background:rgba(255,255,255,0.08);
+        color:${state.lastScoreColor || "#ffffff"};
+        font-weight:bold;
+        text-align:center;
+        opacity:${flashOpacity};
+        transition:opacity 0.6s ease;
       ">
         ${state.lastScoreMessage}
       </div>
@@ -114,39 +170,34 @@ export function renderUI(container) {
   const feedbackHtml = scoreFlashHtml || previewLabelHtml || `<div></div>`;
 
   container.innerHTML = `
-    <h2>Hole ${state.currentHole + 1}</h2>
+    <h2 style="text-align:center;margin-bottom:10px;">Hole ${state.currentHole + 1}</h2>
 
     <div id="scorecard"></div>
 
     <div style="
-      min-height: 54px;
-      margin: 8px 0 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      min-height:54px;
+      margin:8px 0 12px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
     ">
       <div style="width:100%;">
         ${feedbackHtml}
       </div>
     </div>
 
-    <h3>
+    <h3 style="text-align:center;margin:8px 0 12px;">
       🎯 ${state.players[state.currentPlayer].name}
       (Dart ${state.dartsThrown + 1}/3${hitsDisplay})
     </h3>
 
     <div id="controls"></div>
 
-    <div class="button" id="undoBtn">Undo</div>
+    <div id="modal"></div>
   `;
 
   renderScorecard(state);
   renderControls(container);
-
-  document.getElementById("undoBtn").onclick = () => {
-    undo();
-    renderUI(container);
-  };
 
   if (showScoreFlash) {
     setTimeout(() => {
@@ -154,15 +205,9 @@ export function renderUI(container) {
     }, 700);
   }
 }
-function getPreviewScore(hits) {
-  if (hits === 0) return 5;
-
-  const scores = [3, 2, 1, 0, -1, -2, -3, -4, -5];
-  return scores[hits - 1] ?? 5;
-}
 
 /* -------------------------
-   HAZARD PROMPT
+   PROMPTS
 --------------------------*/
 
 function renderHazardPrompt(container, state) {
@@ -171,47 +216,64 @@ function renderHazardPrompt(container, state) {
   const hitsDisplay = hitsText ? ` | Hits ${hitsText}` : "";
 
   container.innerHTML = `
-    <h2>Hazard Hole ${state.currentHole + 1}</h2>
+    <h2 style="text-align:center;">Hazard Hole ${state.currentHole + 1}</h2>
 
     <div id="scorecard"></div>
 
-    <h3>
-      🎯 ${player.name}${hitsDisplay}
-    </h3>
+    <div style="
+      min-height:54px;
+      margin:8px 0 12px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    ">
+      <div style="width:100%;">
+        <div style="
+          padding:8px 10px;
+          border-radius:10px;
+          background:rgba(255,255,255,0.08);
+          color:#ffffff;
+          font-weight:bold;
+          text-align:center;
+        ">
+          🎯 ${player.name}${hitsDisplay}
+        </div>
+      </div>
+    </div>
 
-    <p>How many hazards were hit?</p>
+    <p style="text-align:center;">How many hazards were hit?</p>
 
     <div id="hazardControls"></div>
 
-    <div class="button" id="undoBtn">Undo</div>
+    <div id="modal"></div>
   `;
 
   renderScorecard(state);
 
   const hazardControls = document.getElementById("hazardControls");
+  hazardControls.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:8px;
+  `;
 
   [0, 1, 2, 3].forEach(count => {
     const btn = document.createElement("div");
-    btn.className = "card";
     btn.innerText = `${count} Hazard${count === 1 ? "" : "s"}`;
-
+    btn.style = `
+      ${buttonStyle()}
+      padding:10px;
+      min-height:44px;
+      font-size:16px;
+    `;
     btn.onclick = () => {
       submitHazards(count);
       renderUI(container);
     };
-
     hazardControls.appendChild(btn);
   });
-
-  document.getElementById("undoBtn").onclick = () => {
-    undo();
-    renderUI(container);
-  };
 }
-
-/* -------------------------
-   HAMMER PROMPT
---------------------------*/
 
 function renderHammerPrompt(container, state) {
   const player = state.players[state.currentPlayer];
@@ -219,40 +281,76 @@ function renderHammerPrompt(container, state) {
   const hitsDisplay = hitsText ? ` | Hits ${hitsText}` : "";
 
   container.innerHTML = `
-    <h2>Hammer Hole ${state.currentHole + 1}</h2>
+    <h2 style="text-align:center;">Hammer Hole ${state.currentHole + 1}</h2>
 
     <div id="scorecard"></div>
 
-    <h3>
-      🎯 ${player.name}${hitsDisplay}
-    </h3>
+    <div style="
+      min-height:54px;
+      margin:8px 0 12px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    ">
+      <div style="width:100%;">
+        <div style="
+          padding:8px 10px;
+          border-radius:10px;
+          background:rgba(255,255,255,0.08);
+          color:#ffffff;
+          font-weight:bold;
+          text-align:center;
+        ">
+          🎯 ${player.name}${hitsDisplay}
+        </div>
+      </div>
+    </div>
 
-    <p>Hammer scoring uses dart order: 1st ×1, 2nd ×2, 3rd ×3.</p>
+    <p style="text-align:center;">Hammer scoring uses dart order: 1st ×1, 2nd ×2, 3rd ×3.</p>
 
     <div id="hammerControls"></div>
 
-    <div class="button" id="undoBtn">Undo</div>
+    <div id="modal"></div>
   `;
 
   renderScorecard(state);
 
   const hammerControls = document.getElementById("hammerControls");
+  hammerControls.style = `
+    display:grid;
+    grid-template-columns:1fr;
+    gap:8px;
+    margin-top:8px;
+  `;
 
   const applyBtn = document.createElement("div");
-  applyBtn.className = "button";
   applyBtn.innerText = "Apply Hammer Score";
-
+  applyBtn.style = `
+    ${buttonStyle()}
+    padding:10px;
+    min-height:44px;
+    font-size:16px;
+  `;
   applyBtn.onclick = () => {
     submitHammer();
     renderUI(container);
   };
 
-  hammerControls.appendChild(applyBtn);
-
-  document.getElementById("undoBtn").onclick = () => {
+  const undoBtn = document.createElement("div");
+  undoBtn.innerText = "Undo";
+  undoBtn.style = `
+    ${undoButtonStyle()}
+    padding:10px;
+    min-height:44px;
+    font-size:16px;
+  `;
+  undoBtn.onclick = () => {
     undo();
     renderUI(container);
   };
+
+  hammerControls.appendChild(applyBtn);
+  hammerControls.appendChild(undoBtn);
 }
 
 /* -------------------------
@@ -260,39 +358,140 @@ function renderHammerPrompt(container, state) {
 --------------------------*/
 
 function renderControls(container) {
+  const state = getState();
   const controls = document.getElementById("controls");
   controls.innerHTML = "";
 
-  const options = [
-    { label: "❌ MISS", value: 0 },
+  const topRow = document.createElement("div");
+  topRow.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:8px;
+  `;
+
+  const topOptions = [
     { label: "Single", value: 1 },
-    { label: "Double", value: 2 },
-    { label: "Triple", value: 3 }
+    { label: "Dub", value: 2 },
+    { label: "Trip", value: 3 }
   ];
 
-  options.forEach(opt => {
+  topOptions.forEach(opt => {
     const btn = document.createElement("div");
-    btn.className = "card";
     btn.innerText = opt.label;
-
+    btn.style = `
+      ${buttonStyle()}
+      padding:10px 8px;
+      font-size:16px;
+      min-height:44px;
+    `;
     btn.onclick = () => {
       recordThrow(opt.value);
       renderUI(container);
     };
-
-    controls.appendChild(btn);
+    topRow.appendChild(btn);
   });
 
-  const nextBtn = document.createElement("div");
-  nextBtn.className = "button";
-  nextBtn.innerText = "➡️ Next Player";
+  const middleRow = document.createElement("div");
+  middleRow.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:8px;
+  `;
 
+  const missBtn = document.createElement("div");
+  missBtn.innerText = "❌ Miss";
+  missBtn.style = `
+    ${buttonStyle()}
+    padding:8px;
+    font-size:15px;
+    min-height:40px;
+  `;
+  missBtn.onclick = () => {
+    recordThrow(0);
+    renderUI(container);
+  };
+
+  const nextBtn = document.createElement("div");
+  nextBtn.innerText = "➡️ Next Player";
+  nextBtn.style = `
+    ${buttonStyle()}
+    padding:8px;
+    font-size:15px;
+    min-height:40px;
+  `;
   nextBtn.onclick = () => {
     nextPlayer();
     renderUI(container);
   };
 
-  controls.appendChild(nextBtn);
+  middleRow.appendChild(missBtn);
+  middleRow.appendChild(nextBtn);
+
+  const lowerRow = document.createElement("div");
+  lowerRow.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:8px;
+  `;
+
+  const leaderboardBtn = document.createElement("div");
+  leaderboardBtn.innerText = "Leaderboard";
+  leaderboardBtn.style = `
+    ${leaderboardButtonStyle()}
+    padding:8px;
+    font-size:15px;
+    min-height:40px;
+  `;
+  leaderboardBtn.onclick = () => {
+    renderLeaderboardModal(getState());
+  };
+
+  const undoBtn = document.createElement("div");
+  undoBtn.innerText = "Undo";
+  undoBtn.style = `
+    ${undoButtonStyle()}
+    padding:8px;
+    font-size:15px;
+    min-height:40px;
+  `;
+  undoBtn.onclick = () => {
+    undo();
+    renderUI(container);
+  };
+
+  lowerRow.appendChild(leaderboardBtn);
+  lowerRow.appendChild(undoBtn);
+
+  const endRow = document.createElement("div");
+  endRow.style = `
+    display:grid;
+    grid-template-columns:1fr;
+    gap:8px;
+    margin-top:8px;
+  `;
+
+  const endBtn = document.createElement("div");
+  endBtn.innerText = "End Game";
+  endBtn.style = `
+    ${buttonStyle()}
+    padding:10px;
+    font-size:16px;
+    min-height:44px;
+  `;
+  endBtn.onclick = () => {
+    store.screen = "HOME";
+    store.players = [];
+    renderApp();
+  };
+
+  endRow.appendChild(endBtn);
+
+  controls.appendChild(topRow);
+  controls.appendChild(middleRow);
+  controls.appendChild(lowerRow);
+  controls.appendChild(endRow);
 }
 
 /* -------------------------
@@ -372,15 +571,12 @@ function renderScorecard(state) {
 
   state.players.forEach((player, index) => {
     const activePlayer = index === state.currentPlayer;
-
     const frontTotal = player.scores
       .slice(0, 9)
       .reduce((sum, score) => sum + (score ?? 0), 0);
-
     const backTotal = player.scores
       .slice(9, 18)
       .reduce((sum, score) => sum + (score ?? 0), 0);
-
     const subtotal = showingFront ? frontTotal : backTotal;
 
     html += `<tr style="${activePlayer ? "background:#f7fff8;" : "background:#ffffff;"}">`;
@@ -416,8 +612,8 @@ function renderScorecard(state) {
       }
 
       if (active) {
-  cellStyle += "font-weight:bold;";
-}
+        cellStyle += "font-weight:bold;";
+      }
 
       html += `<td style="${cellStyle}">${score ?? ""}</td>`;
     }
@@ -449,24 +645,98 @@ function renderScorecard(state) {
 --------------------------*/
 
 function renderEnd(container, state) {
-  if (state.shanghaiWinner) {
-    container.innerHTML = `
-      <h2>🔥 SHANGHAI 🔥</h2>
-      <h3>🏆 Winner: ${state.shanghaiWinner}</h3>
-      <div id="scorecard"></div>
-    `;
-
-    renderScorecard(state);
-    return;
-  }
-
-  const winner = [...state.players].sort((a, b) => a.total - b.total)[0];
+  const winner = state.shanghaiWinner
+    ? state.shanghaiWinner
+    : [...state.players].sort((a, b) => a.total - b.total)[0].name;
 
   container.innerHTML = `
-    <h2>Game Over</h2>
-    <h3>🏆 Winner: ${winner.name}</h3>
+    <h2>${state.shanghaiWinner ? "🔥 SHANGHAI 🔥" : "Game Over"}</h2>
+    <h3>🏆 Winner: ${winner}</h3>
+
     <div id="scorecard"></div>
+
+    <div style="
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      margin-top:12px;
+    " id="endControls"></div>
+
+    <div id="modal"></div>
   `;
 
   renderScorecard(state);
+
+  const controls = document.getElementById("endControls");
+
+  const leaderboardBtn = document.createElement("div");
+  leaderboardBtn.innerText = "Leaderboard";
+  leaderboardBtn.style = `
+    background:#ffffff;
+    color:#206a1e;
+    border:1px solid #000000;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+    padding:10px;
+    font-size:16px;
+    min-height:44px;
+  `;
+  leaderboardBtn.onclick = () => {
+    renderLeaderboardModal(state);
+  };
+
+  const playAgainBtn = document.createElement("div");
+  playAgainBtn.innerText = "Play Again";
+  playAgainBtn.style = `
+    background:#206a1e;
+    color:#ffffff;
+    border:1px solid #ffffff;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+    padding:10px;
+    font-size:16px;
+    min-height:44px;
+  `;
+  playAgainBtn.onclick = () => {
+    const rotatedPlayers = getRotatedPlayersForReplay();
+    initGame(rotatedPlayers);
+    renderUI(container);
+  };
+
+  const mainMenuBtn = document.createElement("div");
+  mainMenuBtn.innerText = "Main Menu";
+  mainMenuBtn.style = `
+    background:#206a1e;
+    color:#ffffff;
+    border:1px solid #ffffff;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+    padding:10px;
+    font-size:16px;
+    min-height:44px;
+  `;
+  mainMenuBtn.onclick = () => {
+    store.screen = "HOME";
+    store.players = [];
+    renderApp();
+  };
+
+  controls.appendChild(leaderboardBtn);
+  controls.appendChild(playAgainBtn);
+  controls.appendChild(mainMenuBtn);
 }
