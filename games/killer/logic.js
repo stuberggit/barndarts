@@ -39,8 +39,8 @@ function getHitValue(hitType) {
     single: 1,
     double: 2,
     triple: 3,
-    greenBull: 1,
-    redBull: 2
+    greenBull: 2,
+    redBull: 3
   };
 
   return values[hitType] || 0;
@@ -242,8 +242,15 @@ function reviveZombie(playerIndex) {
 }
 
 function checkZombieRevival(hitType, target) {
-  if (target == null) return;
-  if (hitType !== "double" && hitType !== "triple" && hitType !== "redBull") return;
+  if (target == null) return false;
+
+  const validReviveHit =
+    hitType === "double" ||
+    hitType === "triple" ||
+    hitType === "greenBull" ||
+    hitType === "redBull";
+
+  if (!validReviveHit) return false;
 
   const dormantPlayerIndex = gameState.players.findIndex(player => {
     return player.isDormantDead && player.target === target;
@@ -434,17 +441,17 @@ export function submitGameThrow(hitType, target) {
   ) {
     if (player.target === 25) {
       if (hitType === "greenBull") {
-        gameState.currentTurnHitsOnOwnTarget.push("single");
-      } else if (hitType === "redBull") {
         gameState.currentTurnHitsOnOwnTarget.push("double");
+      } else if (hitType === "redBull") {
+        gameState.currentTurnHitsOnOwnTarget.push("triple");
       }
     } else if (isNumberHitType(hitType)) {
       gameState.currentTurnHitsOnOwnTarget.push(hitType);
     }
   }
 
-    // Zombie revival can happen on any active player's Dub/Trip hit to a dormant player's target.
-  // If a dormant player is revived, that same dart should NOT also damage them or trigger Redemski.
+  // If a dormant player is revived on this dart, that dart only revives them.
+  // It must not also damage them or force Redemski.
   const revivedZombieThisDart = checkZombieRevival(hitType, target);
 
   // Shanghai only after Killer earned, and only on own target
@@ -464,12 +471,7 @@ export function submitGameThrow(hitType, target) {
     if (!player.isKiller && hitValue > 0) {
       player.isKiller = true;
       updateMessage(`${player.name} is now a Killer!`, "#22c55e");
-      } else if (
-    player.isKiller &&
-    hitValue > 0 &&
-    gameState.livesTakenThisTurn < 3 &&
-    !revivedZombieThisDart
-  ) {
+    } else if (player.isKiller && hitValue > 0 && gameState.livesTakenThisTurn < 3) {
       const damage = Math.min(hitValue, 3 - gameState.livesTakenThisTurn);
       player.lives = Math.max(0, player.lives - damage);
       gameState.livesTakenThisTurn += damage;
@@ -481,7 +483,12 @@ export function submitGameThrow(hitType, target) {
         updateMessage(`${player.name} hits themselves for ${damage}!`, "#ff4c4c");
       }
     }
-  } else if (player.isKiller && hitValue > 0 && gameState.livesTakenThisTurn < 3) {
+  } else if (
+    player.isKiller &&
+    hitValue > 0 &&
+    gameState.livesTakenThisTurn < 3 &&
+    !revivedZombieThisDart
+  ) {
     const victimIndex = findPlayerByTarget(target);
 
     if (victimIndex !== -1) {
@@ -531,12 +538,13 @@ export function submitRedemskiThrow(hitType, target) {
   gameState.dartsThrown++;
 
   const correctTarget = target === player.target;
+    const correctTarget = target === player.target;
   const validReviveHit =
     correctTarget &&
     (
       hitType === "double" ||
       hitType === "triple" ||
-      (player.target === 25 && hitType === "redBull")
+      (player.target === 25 && (hitType === "greenBull" || hitType === "redBull"))
     );
 
   if (validReviveHit) {
