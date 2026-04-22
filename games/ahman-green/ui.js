@@ -39,6 +39,21 @@ function buttonStyle() {
   `;
 }
 
+function leaderboardButtonStyle() {
+  return `
+    background:#ffffff;
+    color:#206a1e;
+    border:1px solid #000000;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+  `;
+}
+
 function undoButtonStyle() {
   return `
     background:#206a1e;
@@ -58,6 +73,73 @@ function getNeedsColor(progress) {
   return COLORS[progress]?.name || "Done";
 }
 
+function getNeedsColorMeta(progress) {
+  return COLORS[progress] || { name: "Done", bg: "#666666", text: "#ffffff" };
+}
+
+function getProgressCells(player, isInteractive, container) {
+  const colorRow = document.createElement("div");
+  colorRow.style = `
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:8px;
+    width:100%;
+  `;
+
+  COLORS.forEach((color, colorIndex) => {
+    const completed = player.progress > colorIndex;
+    const target = player.progress === colorIndex;
+    const locked = player.progress < colorIndex;
+
+    const cell = document.createElement("div");
+    cell.style = `
+      min-height:56px;
+      border-radius:10px;
+      border:2px solid ${target ? "#a855f7" : "#ffffff"};
+      background:${color.bg};
+      color:${color.text};
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+      font-weight:bold;
+      font-size:14px;
+      opacity:${locked ? 0.45 : 1};
+      cursor:${target && isInteractive ? "pointer" : "default"};
+      user-select:none;
+    `;
+    cell.innerText = color.name;
+
+    if (completed) {
+      const xOverlay = document.createElement("div");
+      xOverlay.innerText = "✕";
+      xOverlay.style = `
+        position:absolute;
+        inset:0;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        color:#a855f7;
+        font-size:34px;
+        font-weight:bold;
+        pointer-events:none;
+      `;
+      cell.appendChild(xOverlay);
+    }
+
+    if (target && isInteractive) {
+      cell.onclick = () => {
+        advancePlayer(color.name);
+        renderUI(container);
+      };
+    }
+
+    colorRow.appendChild(cell);
+  });
+
+  return colorRow;
+}
+
 /* -------------------------
    MAIN UI
 --------------------------*/
@@ -72,6 +154,8 @@ export function renderUI(container) {
 
   const age = Date.now() - (state.lastMessageTimestamp || 0);
   const showFlash = state.lastMessage && age < 2500;
+  const currentPlayer = state.players[state.currentPlayer];
+  const needsMeta = getNeedsColorMeta(currentPlayer.progress);
 
   const flashHtml = showFlash
     ? `
@@ -90,10 +174,24 @@ export function renderUI(container) {
     `
     : `<div></div>`;
 
-  const currentPlayer = state.players[state.currentPlayer];
-
   container.innerHTML = `
-    <div id="playerGrid"></div>
+    <div style="
+      text-align:center;
+      margin:0 0 12px;
+      font-size:16px;
+      font-weight:bold;
+      line-height:1.4;
+    ">
+      <div>Current Player: ${currentPlayer.name}</div>
+      <div>
+        Needs |
+        <span style="color:${needsMeta.bg === "#ffffff" ? "#ffffff" : needsMeta.bg}; font-weight:bold;">
+          ${needsMeta.name}
+        </span>
+      </div>
+    </div>
+
+    <div id="activeColorBlock"></div>
 
     <div style="
       min-height:54px;
@@ -113,9 +211,13 @@ export function renderUI(container) {
     </h3>
 
     <div id="controls"></div>
+
+    <div id="modal"></div>
   `;
 
-  renderPlayerGrid(container, state);
+  const activeColorBlock = document.getElementById("activeColorBlock");
+  activeColorBlock.appendChild(getProgressCells(currentPlayer, true, container));
+
   renderControls(container);
 
   if (showFlash) {
@@ -123,107 +225,6 @@ export function renderUI(container) {
       renderUI(container);
     }, 700);
   }
-}
-
-/* -------------------------
-   PLAYER GRID
---------------------------*/
-
-function renderPlayerGrid(container, state) {
-  const grid = document.getElementById("playerGrid");
-  grid.innerHTML = "";
-
-  state.players.forEach((player, index) => {
-    const isActive = index === state.currentPlayer;
-
-    const row = document.createElement("div");
-    row.style = `
-      margin-bottom:10px;
-      padding:10px;
-      border-radius:10px;
-      background:${isActive ? "#1e293b" : "#111111"};
-      border:1px solid #ffffff;
-    `;
-
-    const header = document.createElement("div");
-    header.style = `
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      margin-bottom:8px;
-      color:#ffffff;
-      font-weight:bold;
-      font-size:14px;
-    `;
-    header.innerHTML = `
-      <span>${player.name}</span>
-      <span>Needs | ${getNeedsColor(player.progress)}</span>
-    `;
-
-    const colorRow = document.createElement("div");
-    colorRow.style = `
-      display:grid;
-      grid-template-columns:repeat(4, 1fr);
-      gap:6px;
-    `;
-
-    COLORS.forEach((color, colorIndex) => {
-      const cell = document.createElement("div");
-
-      const completed = player.progress > colorIndex;
-      const target = player.progress === colorIndex;
-      const locked = player.progress < colorIndex;
-
-      cell.style = `
-        min-height:42px;
-        border-radius:8px;
-        border:2px solid ${target && isActive ? "#a855f7" : "#ffffff"};
-        background:${color.bg};
-        color:${color.text};
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        position:relative;
-        font-weight:bold;
-        font-size:12px;
-        opacity:${locked ? 0.45 : 1};
-        cursor:${target && isActive ? "pointer" : "default"};
-        user-select:none;
-      `;
-
-      cell.innerText = color.name;
-
-      if (completed) {
-        const xOverlay = document.createElement("div");
-        xOverlay.innerText = "✕";
-        xOverlay.style = `
-          position:absolute;
-          inset:0;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          color:#a855f7;
-          font-size:28px;
-          font-weight:bold;
-          pointer-events:none;
-        `;
-        cell.appendChild(xOverlay);
-      }
-
-      if (target && isActive) {
-        cell.onclick = () => {
-          advancePlayer(color.name);
-          renderUI(container);
-        };
-      }
-
-      colorRow.appendChild(cell);
-    });
-
-    row.appendChild(header);
-    row.appendChild(colorRow);
-    grid.appendChild(row);
-  });
 }
 
 /* -------------------------
@@ -239,7 +240,7 @@ function renderControls(container) {
     display:grid;
     grid-template-columns:1fr 1fr;
     gap:8px;
-    margin-top:8px;
+    margin-top:10px;
   `;
 
   const missBtn = document.createElement("div");
@@ -316,6 +317,18 @@ function renderControls(container) {
     margin-top:8px;
   `;
 
+  const leaderboardBtn = document.createElement("div");
+  leaderboardBtn.innerText = "Leaderboard";
+  leaderboardBtn.style = `
+    ${leaderboardButtonStyle()}
+    padding:8px;
+    font-size:15px;
+    min-height:40px;
+  `;
+  leaderboardBtn.onclick = () => {
+    renderLeaderboardModal(container, getState());
+  };
+
   const undoBtn = document.createElement("div");
   undoBtn.innerText = "Undo";
   undoBtn.style = `
@@ -329,13 +342,24 @@ function renderControls(container) {
     renderUI(container);
   };
 
+  row3.appendChild(leaderboardBtn);
+  row3.appendChild(undoBtn);
+
+  const row4 = document.createElement("div");
+  row4.style = `
+    display:grid;
+    grid-template-columns:1fr;
+    gap:8px;
+    margin-top:8px;
+  `;
+
   const endBtn = document.createElement("div");
   endBtn.innerText = "End Game";
   endBtn.style = `
     ${buttonStyle()}
-    padding:8px;
-    font-size:15px;
-    min-height:40px;
+    padding:10px;
+    font-size:16px;
+    min-height:44px;
   `;
   endBtn.onclick = () => {
     store.screen = "HOME";
@@ -343,12 +367,93 @@ function renderControls(container) {
     renderApp();
   };
 
-  row3.appendChild(undoBtn);
-  row3.appendChild(endBtn);
+  row4.appendChild(endBtn);
 
   controls.appendChild(row1);
   controls.appendChild(row2);
   controls.appendChild(row3);
+  controls.appendChild(row4);
+}
+
+/* -------------------------
+   LEADERBOARD MODAL
+--------------------------*/
+
+function renderLeaderboardModal(container, state) {
+  const modal = document.getElementById("modal");
+
+  modal.innerHTML = `
+    <div style="
+      position:fixed;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      background:rgba(0,0,0,0.7);
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      z-index:999;
+    ">
+      <div style="
+        background:#111111;
+        color:#ffffff;
+        padding:20px;
+        border-radius:10px;
+        width:90%;
+        max-width:600px;
+        max-height:90vh;
+        overflow:auto;
+        border:1px solid #ffffff;
+      ">
+        <h2 style="text-align:center;margin-top:0;">Leaderboard</h2>
+        <div id="leaderboardGrid"></div>
+        <div id="closeModal" style="
+          ${buttonStyle()}
+          padding:10px;
+          min-height:44px;
+          margin-top:12px;
+        ">Close</div>
+      </div>
+    </div>
+  `;
+
+  const leaderboardGrid = document.getElementById("leaderboardGrid");
+  leaderboardGrid.innerHTML = "";
+
+  state.players.forEach(player => {
+    const row = document.createElement("div");
+    row.style = `
+      margin-bottom:10px;
+      padding:10px;
+      border-radius:10px;
+      background:#1e293b;
+      border:1px solid #ffffff;
+    `;
+
+    const header = document.createElement("div");
+    header.style = `
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:8px;
+      color:#ffffff;
+      font-weight:bold;
+      font-size:14px;
+    `;
+    header.innerHTML = `
+      <span>${player.name}</span>
+      <span>Needs | ${getNeedsColor(player.progress)}</span>
+    `;
+
+    row.appendChild(header);
+    row.appendChild(getProgressCells(player, false, container));
+    leaderboardGrid.appendChild(row);
+  });
+
+  document.getElementById("closeModal").onclick = () => {
+    modal.innerHTML = "";
+  };
 }
 
 /* -------------------------
@@ -359,7 +464,7 @@ function renderEnd(container, state) {
   container.innerHTML = `
     <h3 style="text-align:center;">🏆 Winner: ${state.winner}</h3>
 
-    <div id="playerGrid"></div>
+    <div id="finalBoard"></div>
 
     <div style="
       display:flex;
@@ -367,9 +472,11 @@ function renderEnd(container, state) {
       gap:8px;
       margin-top:12px;
     " id="endControls"></div>
+
+    <div id="modal"></div>
   `;
 
-  renderPlayerGrid(container, state);
+  renderLeaderboardContent(container, state);
 
   const controls = document.getElementById("endControls");
 
@@ -403,4 +510,39 @@ function renderEnd(container, state) {
 
   controls.appendChild(playAgainBtn);
   controls.appendChild(mainMenuBtn);
+}
+
+function renderLeaderboardContent(container, state) {
+  const finalBoard = document.getElementById("finalBoard");
+  finalBoard.innerHTML = "";
+
+  state.players.forEach(player => {
+    const row = document.createElement("div");
+    row.style = `
+      margin-bottom:10px;
+      padding:10px;
+      border-radius:10px;
+      background:#1e293b;
+      border:1px solid #ffffff;
+    `;
+
+    const header = document.createElement("div");
+    header.style = `
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:8px;
+      color:#ffffff;
+      font-weight:bold;
+      font-size:14px;
+    `;
+    header.innerHTML = `
+      <span>${player.name}</span>
+      <span>${player.progress >= 4 ? "Finished" : `Needs | ${getNeedsColor(player.progress)}`}</span>
+    `;
+
+    row.appendChild(header);
+    row.appendChild(getProgressCells(player, false, container));
+    finalBoard.appendChild(row);
+  });
 }
