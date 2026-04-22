@@ -3,10 +3,12 @@ import { renderApp } from "../core/router.js";
 
 import golfdarts from "../games/golfdarts/index.js";
 import HammerCricket from "../games/hammer-cricket/index.js";
+import AhmanGreen from "../games/ahman-green/index.js";
 
 const gameMap = {
   "GolfDarts": golfdarts,
-  "hammer-cricket": HammerCricket
+  "hammer-cricket": HammerCricket,
+  "ahman-green": AhmanGreen
 };
 
 export function renderGame(container) {
