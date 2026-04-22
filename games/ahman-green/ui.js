@@ -3,6 +3,7 @@ import {
   advancePlayer,
   missBoard,
   partyJump,
+  acdcJump,
   nextPlayer,
   undo,
   isGameOver,
@@ -28,21 +29,6 @@ function buttonStyle() {
     background:#206a1e;
     color:#ffffff;
     border:1px solid #ffffff;
-    border-radius:10px;
-    cursor:pointer;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:bold;
-    box-sizing:border-box;
-  `;
-}
-
-function leaderboardButtonStyle() {
-  return `
-    background:#ffffff;
-    color:#206a1e;
-    border:1px solid #000000;
     border-radius:10px;
     cursor:pointer;
     display:flex;
@@ -107,24 +93,6 @@ export function renderUI(container) {
   const currentPlayer = state.players[state.currentPlayer];
 
   container.innerHTML = `
-    <h2 style="
-      text-align:center;
-      margin-bottom:6px;
-      font-family: Georgia, 'Times New Roman', serif;
-      letter-spacing:0.5px;
-    ">
-      Ahman Green
-    </h2>
-
-    <div style="
-      text-align:center;
-      margin-bottom:12px;
-      font-size:16px;
-      font-weight:bold;
-    ">
-      🎯 ${currentPlayer.name} | Needs ${getNeedsColor(currentPlayer.progress)}
-    </div>
-
     <div id="playerGrid"></div>
 
     <div style="
@@ -138,6 +106,11 @@ export function renderUI(container) {
         ${flashHtml}
       </div>
     </div>
+
+    <h3 style="text-align:center;margin:8px 0 12px;">
+      🎯 ${currentPlayer.name}
+      (Dart ${state.dartsThrown + 1}/3)
+    </h3>
 
     <div id="controls"></div>
   `;
@@ -180,6 +153,7 @@ function renderPlayerGrid(container, state) {
       margin-bottom:8px;
       color:#ffffff;
       font-weight:bold;
+      font-size:14px;
     `;
     header.innerHTML = `
       <span>${player.name}</span>
@@ -190,7 +164,7 @@ function renderPlayerGrid(container, state) {
     colorRow.style = `
       display:grid;
       grid-template-columns:repeat(4, 1fr);
-      gap:8px;
+      gap:6px;
     `;
 
     COLORS.forEach((color, colorIndex) => {
@@ -201,9 +175,9 @@ function renderPlayerGrid(container, state) {
       const locked = player.progress < colorIndex;
 
       cell.style = `
-        min-height:56px;
-        border-radius:10px;
-        border:2px solid ${target ? "#a855f7" : "#ffffff"};
+        min-height:42px;
+        border-radius:8px;
+        border:2px solid ${target && isActive ? "#a855f7" : "#ffffff"};
         background:${color.bg};
         color:${color.text};
         display:flex;
@@ -211,7 +185,7 @@ function renderPlayerGrid(container, state) {
         justify-content:center;
         position:relative;
         font-weight:bold;
-        font-size:14px;
+        font-size:12px;
         opacity:${locked ? 0.45 : 1};
         cursor:${target && isActive ? "pointer" : "default"};
         user-select:none;
@@ -229,7 +203,7 @@ function renderPlayerGrid(container, state) {
           align-items:center;
           justify-content:center;
           color:#a855f7;
-          font-size:34px;
+          font-size:28px;
           font-weight:bold;
           pointer-events:none;
         `;
@@ -260,8 +234,8 @@ function renderControls(container) {
   const controls = document.getElementById("controls");
   controls.innerHTML = "";
 
-  const middleRow = document.createElement("div");
-  middleRow.style = `
+  const row1 = document.createElement("div");
+  row1.style = `
     display:grid;
     grid-template-columns:1fr 1fr;
     gap:8px;
@@ -294,16 +268,29 @@ function renderControls(container) {
     renderUI(container);
   };
 
-  middleRow.appendChild(missBtn);
-  middleRow.appendChild(partyBtn);
+  row1.appendChild(missBtn);
+  row1.appendChild(partyBtn);
 
-  const lowerRow = document.createElement("div");
-  lowerRow.style = `
+  const row2 = document.createElement("div");
+  row2.style = `
     display:grid;
     grid-template-columns:1fr 1fr;
     gap:8px;
     margin-top:8px;
   `;
+
+  const acdcBtn = document.createElement("div");
+  acdcBtn.innerText = "⚡ AC/DC";
+  acdcBtn.style = `
+    ${buttonStyle()}
+    padding:8px;
+    font-size:15px;
+    min-height:40px;
+  `;
+  acdcBtn.onclick = () => {
+    acdcJump();
+    renderUI(container);
+  };
 
   const nextBtn = document.createElement("div");
   nextBtn.innerText = "➡️ Next Player";
@@ -318,6 +305,17 @@ function renderControls(container) {
     renderUI(container);
   };
 
+  row2.appendChild(acdcBtn);
+  row2.appendChild(nextBtn);
+
+  const row3 = document.createElement("div");
+  row3.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:8px;
+  `;
+
   const undoBtn = document.createElement("div");
   undoBtn.innerText = "Undo";
   undoBtn.style = `
@@ -331,24 +329,13 @@ function renderControls(container) {
     renderUI(container);
   };
 
-  lowerRow.appendChild(nextBtn);
-  lowerRow.appendChild(undoBtn);
-
-  const endRow = document.createElement("div");
-  endRow.style = `
-    display:grid;
-    grid-template-columns:1fr;
-    gap:8px;
-    margin-top:8px;
-  `;
-
   const endBtn = document.createElement("div");
-  endBtn.innerText = "Main Menu";
+  endBtn.innerText = "End Game";
   endBtn.style = `
     ${buttonStyle()}
-    padding:10px;
-    font-size:16px;
-    min-height:44px;
+    padding:8px;
+    font-size:15px;
+    min-height:40px;
   `;
   endBtn.onclick = () => {
     store.screen = "HOME";
@@ -356,11 +343,12 @@ function renderControls(container) {
     renderApp();
   };
 
-  endRow.appendChild(endBtn);
+  row3.appendChild(undoBtn);
+  row3.appendChild(endBtn);
 
-  controls.appendChild(middleRow);
-  controls.appendChild(lowerRow);
-  controls.appendChild(endRow);
+  controls.appendChild(row1);
+  controls.appendChild(row2);
+  controls.appendChild(row3);
 }
 
 /* -------------------------
@@ -369,15 +357,6 @@ function renderControls(container) {
 
 function renderEnd(container, state) {
   container.innerHTML = `
-    <h2 style="
-      text-align:center;
-      margin-bottom:6px;
-      font-family: Georgia, 'Times New Roman', serif;
-      letter-spacing:0.5px;
-    ">
-      Ahman Green
-    </h2>
-
     <h3 style="text-align:center;">🏆 Winner: ${state.winner}</h3>
 
     <div id="playerGrid"></div>
