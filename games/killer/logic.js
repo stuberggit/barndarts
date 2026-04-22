@@ -62,22 +62,8 @@ function formatTarget(target, hitType) {
 
   const labelMap = {
     single: "Single",
-    double: "Double",
-    triple: "Triple"
-  };
-
-  return `${labelMap[hitType]} ${target}`;
-}
-
-function formatLiveThrow(target, hitType) {
-  if (target === 25) {
-    return hitType === "redBull" ? "Red Bull" : "Green Bull";
-  }
-
-  const labelMap = {
-    single: "Single",
-    double: "Double",
-    triple: "Triple"
+    double: "Dub",
+    triple: "Trip"
   };
 
   return `${labelMap[hitType]} ${target}`;
@@ -147,6 +133,7 @@ function advanceTurn() {
   gameState.dartsThrown = 0;
   gameState.currentTurnThrows = [];
   gameState.currentTurnHits = [];
+  gameState.livesTakenThisTurn = 0;
 
   let attempts = 0;
   do {
@@ -167,6 +154,12 @@ function updateMessage(message, color) {
   gameState.lastMessage = message;
   gameState.lastMessageColor = color;
   gameState.lastMessageTimestamp = Date.now();
+}
+
+function maybeEliminatePlayer(player) {
+  if (player.lives <= 0) {
+    player.isActive = false;
+  }
 }
 
 /* -------------------------
@@ -194,6 +187,7 @@ export function initGame(players) {
     dartsThrown: 0,
     currentTurnThrows: [],
     currentTurnHits: [],
+    livesTakenThisTurn: 0,
 
     lastMessage: "",
     lastMessageColor: "#ffffff",
@@ -287,10 +281,8 @@ export function submitGameThrow(hitType, target) {
 
   history.push(cloneState(gameState));
 
-  const assignment = {
-    target,
-    hitType
-  };
+  const assignment = { target, hitType };
+  const hitValue = getHitValue(hitType);
 
   gameState.currentTurnThrows.push(assignment);
   gameState.dartsThrown++;
@@ -299,8 +291,9 @@ export function submitGameThrow(hitType, target) {
     gameState.currentTurnHits.push(hitType);
   }
 
-  // Shanghai instant win
+  // Shanghai only after killer status has been earned
   if (
+    player.isKiller &&
     gameState.currentTurnHits.includes("single") &&
     gameState.currentTurnHits.includes("double") &&
     gameState.currentTurnHits.includes("triple")
@@ -310,33 +303,41 @@ export function submitGameThrow(hitType, target) {
     return;
   }
 
-  const hitValue = getHitValue(hitType);
-
-  // Hitting own target unlocks Killer if not already
+  // Hitting own target
   if (target === player.target) {
     if (!player.isKiller && hitValue > 0) {
       player.isKiller = true;
       updateMessage(`${player.name} is now a Killer!`, "#22c55e");
-    } else {
-      updateMessage(`${player.name} hit their own target.`, "#ffffff");
-    }
-  }
+    } else if (player.isKiller && hitValue > 0 && gameState.livesTakenThisTurn < 3) {
+      const damage = Math.min(hitValue, 3 - gameState.livesTakenThisTurn);
+      player.lives = Math.max(0, player.lives - damage);
+      gameState.livesTakenThisTurn += damage;
 
-  // Only killers can attack others
-  if (player.isKiller && target !== player.target) {
+      if (player.lives <= 0) {
+        maybeEliminatePlayer(player);
+        updateMessage(`${player.name} kills themselves!`, "#ff4c4c");
+      } else {
+        updateMessage(`${player.name} hits themselves for ${damage}!`, "#ff4c4c");
+      }
+    }
+  } else if (player.isKiller && hitValue > 0 && gameState.livesTakenThisTurn < 3) {
+    // Attack others only after killer unlocked
     const victimIndex = findPlayerByTarget(target);
 
-    if (victimIndex !== -1 && victimIndex !== gameState.currentPlayer) {
+    if (victimIndex !== -1) {
       const victim = gameState.players[victimIndex];
 
-      if (victim.isActive) {
-        victim.lives = Math.max(0, victim.lives - hitValue);
+      if (victim && victim.isActive) {
+        const damage = Math.min(hitValue, 3 - gameState.livesTakenThisTurn);
+
+        victim.lives = Math.max(0, victim.lives - damage);
+        gameState.livesTakenThisTurn += damage;
 
         if (victim.lives <= 0) {
-          victim.isActive = false;
+          maybeEliminatePlayer(victim);
           updateMessage(`${player.name} kills ${victim.name}!`, "#ff4c4c");
         } else {
-          updateMessage(`${player.name} hits ${victim.name} for ${hitValue}!`, "#ff4c4c");
+          updateMessage(`${player.name} hits ${victim.name} for ${damage}!`, "#ff4c4c");
         }
       }
     }
