@@ -206,7 +206,7 @@ function getPlayerRowBackground(player, isHighlighted) {
 }
 
 function getPlayerRowBorder(player, isHighlighted) {
-  if (isHighlighted) return "2px solid #f0970a";
+  if (isHighlighted) return "3px solid #facc15";
   if (player.isEliminated) return "1px solid #6b7280";
   return "1px solid #ffffff";
 }
@@ -254,7 +254,7 @@ function renderGame(container, state) {
       padding:14px;
       border-radius:12px;
       background:#11361a;
-      border:3px solid #facc15;
+      border:2px solid #f0970a;
       color:#ffffff;
       text-align:center;
       font-weight:bold;
