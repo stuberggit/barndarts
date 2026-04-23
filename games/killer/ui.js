@@ -172,17 +172,28 @@ function getLivesEmoji(player) {
   }
 
   const lives = Math.max(0, Math.min(6, player.lives || 0));
+
+  let heartColor = "#22c55e";
+  if (lives <= 2) {
+    heartColor = "#ef4444";
+  } else if (lives <= 4) {
+    heartColor = "#facc15";
+  }
+
   let html = "";
 
   for (let i = 0; i < 6; i++) {
-    const emoji = i < lives ? "💚" : "⚪";
+    const isFilled = i < lives;
     html += `
       <span style="
         display:inline-block;
         margin-right:${i < 5 ? "5px" : "0"};
-        opacity:${i < lives ? "1" : "0.45"};
+        opacity:${isFilled ? "1" : "0.2"};
+        color:${isFilled ? heartColor : "#ffffff"};
+        font-size:18px;
+        line-height:1;
       ">
-        ${emoji}
+        ❤️
       </span>
     `;
   }
