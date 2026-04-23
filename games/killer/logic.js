@@ -312,6 +312,23 @@ function finishSuccessfulRedemski() {
   advanceTurn();
 }
 
+function isBullShanghai(turnHitsOnOwnTarget) {
+  if (turnHitsOnOwnTarget.length !== 3) return false;
+
+  const greenCount = turnHitsOnOwnTarget.filter(hit => hit === "greenBull").length;
+  const redCount = turnHitsOnOwnTarget.filter(hit => hit === "redBull").length;
+
+  return greenCount === 2 && redCount === 1;
+}
+
+function isStandardShanghai(turnHitsOnOwnTarget) {
+  return (
+    turnHitsOnOwnTarget.includes("single") &&
+    turnHitsOnOwnTarget.includes("double") &&
+    turnHitsOnOwnTarget.includes("triple")
+  );
+}
+
 /* -------------------------
    INIT / STATE
 --------------------------*/
@@ -446,12 +463,8 @@ export function submitGameThrow(hitType, target) {
       (player.target === 25 && isBullHitType(hitType))
     )
   ) {
-    if (player.target === 25) {
-      if (hitType === "greenBull") {
-        gameState.currentTurnHitsOnOwnTarget.push("double");
-      } else if (hitType === "redBull") {
-        gameState.currentTurnHitsOnOwnTarget.push("triple");
-      }
+    if (player.target === 25 && isBullHitType(hitType)) {
+      gameState.currentTurnHitsOnOwnTarget.push(hitType);
     } else if (isNumberHitType(hitType)) {
       gameState.currentTurnHitsOnOwnTarget.push(hitType);
     }
@@ -459,12 +472,14 @@ export function submitGameThrow(hitType, target) {
 
   const revivedZombieThisDart = checkZombieRevival(hitType, target);
 
-  if (
+  const shanghaiHit =
     player.isKiller &&
-    gameState.currentTurnHitsOnOwnTarget.includes("single") &&
-    gameState.currentTurnHitsOnOwnTarget.includes("double") &&
-    gameState.currentTurnHitsOnOwnTarget.includes("triple")
-  ) {
+    (
+      (player.target === 25 && isBullShanghai(gameState.currentTurnHitsOnOwnTarget)) ||
+      (player.target !== 25 && isStandardShanghai(gameState.currentTurnHitsOnOwnTarget))
+    );
+
+  if (shanghaiHit) {
     gameState.shanghaiWinner = player.name;
     updateMessage(`${player.name} hit SHANGHAI!`, "#ffcc00");
     return;
