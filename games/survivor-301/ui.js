@@ -206,7 +206,7 @@ function getPlayerRowBackground(player, isHighlighted) {
 }
 
 function getPlayerRowBorder(player, isHighlighted) {
-  if (isHighlighted) return "3px solid #facc15";
+  if (isHighlighted) return "2px solid #f0970a";
   if (player.isEliminated) return "1px solid #6b7280";
   return "1px solid #ffffff";
 }
@@ -347,11 +347,52 @@ function renderThrowControls(container, state) {
     hitTypeRow.appendChild(btn);
   });
 
+  const bottomRow = document.createElement("div");
+  bottomRow.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:10px;
+  `;
+
+  const missBtn = document.createElement("div");
+  missBtn.innerText = "Miss";
+  missBtn.style = `
+    ${buttonStyle()}
+    padding:12px;
+    min-height:52px;
+    font-size:18px;
+    ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
+  `;
+  attachButtonClick(missBtn, () => {
+    if (!canThrow) return;
+    submitThrow("miss");
+    renderUI(container);
+  });
+
+  const nextBtn = document.createElement("div");
+  nextBtn.innerText = "Next Player";
+  nextBtn.style = `
+    ${buttonStyle()}
+    padding:12px;
+    min-height:52px;
+    font-size:18px;
+  `;
+  attachButtonClick(nextBtn, () => {
+    nextPlayer();
+    renderUI(container);
+  });
+
+  bottomRow.appendChild(missBtn);
+  bottomRow.appendChild(nextBtn);
+
   controls.appendChild(hitTypeRow);
+  controls.appendChild(bottomRow);
 }
 
 function renderPlayerBoard(state) {
   const board = document.getElementById("playerBoard");
+  board.style = "margin-top:18px;";
   board.innerHTML = "";
 
   state.players.forEach((player, index) => {
@@ -533,24 +574,11 @@ function renderNumberPicker(container, hitType) {
         ${isTriple ? "background:#555;color:#bbb;border:1px solid #999;cursor:not-allowed;" : ""}
       ">Bull</div>
 
-      <div id="missBtn" style="
+      <div id="closeModalBtn" style="
         ${buttonStyle()}
         padding:12px;
         min-height:52px;
         font-size:20px;
-      ">Miss</div>
-    </div>
-
-    <div style="
-      display:flex;
-      justify-content:center;
-      margin-top:12px;
-    ">
-      <div id="closeModalBtn" style="
-        ${buttonStyle()}
-        width:110px;
-        min-height:38px;
-        font-size:15px;
         border:1px solid #ff4c4c;
       ">Close</div>
     </div>
@@ -583,7 +611,6 @@ function renderNumberPicker(container, hitType) {
   }
 
   const bullBtn = document.getElementById("bullBtn");
-  const missBtn = document.getElementById("missBtn");
   const closeBtn = document.getElementById("closeModalBtn");
 
   if (!isTriple) {
@@ -593,12 +620,6 @@ function renderNumberPicker(container, hitType) {
       renderUI(container);
     });
   }
-
-  attachButtonClick(missBtn, () => {
-    submitThrow("miss");
-    closeModal();
-    renderUI(container);
-  });
 
   attachButtonClick(closeBtn, closeModal);
 }
