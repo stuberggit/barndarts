@@ -1,544 +1,346 @@
-// Survivor 301 - logic.js
+let gameState = {};
+let history = [];
 
 const STARTING_SCORE = 301;
 const RED_BULL_BONUS = 10;
-const MAX_DARTS_PER_TURN = 3;
 
-const DART_TYPES = {
-  MISS: "miss",
-  SINGLE: "single",
-  DOUBLE: "double",
-  TRIPLE: "triple",
-  GREEN_BULL: "greenBull",
-  RED_BULL: "redBull"
-};
+/* -------------------------
+   HELPERS
+--------------------------*/
 
-let state = createEmptyState();
-const listeners = new Set();
+function cloneState(state) {
+  return JSON.parse(JSON.stringify(state));
+}
 
-function createEmptyState() {
-  return {
-    gameStarted: false,
-    gameOver: false,
-    winnerId: null,
-    currentPlayerIndex: 0,
-    turnNumber: 1,
-    players: [],
-    turnDarts: [],
-    history: [],
-    playerOrderSeed: [],
-    turnStartSnapshot: null
+function normalizePlayerName(player, index) {
+  if (typeof player === "string") return player;
+  if (player && typeof player.name === "string") return player.name;
+  return `Player ${index + 1}`;
+}
+
+function isBullHitType(hitType) {
+  return hitType === "greenBull" || hitType === "redBull";
+}
+
+function isNumberHitType(hitType) {
+  return hitType === "single" || hitType === "double" || hitType === "triple";
+}
+
+function getHitMultiplier(hitType) {
+  const values = {
+    single: 1,
+    double: 2,
+    triple: 3
   };
+
+  return values[hitType] || 0;
 }
 
-function clone(value) {
-  return JSON.parse(JSON.stringify(value));
-}
+function getHitLabel(hitType, target = null) {
+  if (hitType === "miss") return "Miss";
+  if (hitType === "greenBull") return "Green Bull";
+  if (hitType === "redBull") return "Red Bull";
 
-function emitChange() {
-  const snapshot = getState();
-  listeners.forEach((listener) => {
-    try {
-      listener(snapshot);
-    } catch (err) {
-      console.error("Survivor 301 listener error:", err);
-    }
-  });
-}
-
-function normalizePlayers(players) {
-  if (!Array.isArray(players)) return [];
-
-  return players
-    .map((player, index) => {
-      const name =
-        typeof player === "string"
-          ? player.trim()
-          : typeof player?.name === "string"
-          ? player.name.trim()
-          : `Player ${index + 1}`;
-
-      return {
-        id: `p${index + 1}`,
-        name: name || `Player ${index + 1}`,
-        score: STARTING_SCORE,
-        eliminated: false,
-        eliminatedOnTurn: null,
-        eliminatedPlace: null,
-        stats: {
-          turnsTaken: 0,
-          dartsThrown: 0,
-          misses: 0,
-          singles: 0,
-          doubles: 0,
-          triples: 0,
-          greenBulls: 0,
-          redBulls: 0,
-          pointsLost: 0,
-          pointsGained: 0
-        }
-      };
-    })
-    .filter(Boolean);
-}
-
-function getLivingPlayers(players = state.players) {
-  return players.filter((player) => !player.eliminated);
-}
-
-function getPlayerById(playerId) {
-  return state.players.find((player) => player.id === playerId) || null;
-}
-
-function getCurrentPlayer() {
-  if (!state.players.length) return null;
-  return state.players[state.currentPlayerIndex] || null;
-}
-
-function getNextLivingPlayerIndex(fromIndex = state.currentPlayerIndex) {
-  if (!state.players.length) return -1;
-
-  for (let step = 1; step <= state.players.length; step += 1) {
-    const nextIndex = (fromIndex + step) % state.players.length;
-    if (!state.players[nextIndex].eliminated) {
-      return nextIndex;
-    }
-  }
-
-  return -1;
-}
-
-function getEliminationCount() {
-  return state.players.filter((player) => player.eliminated).length;
-}
-
-function computeMultiplier(type) {
-  switch (type) {
-    case DART_TYPES.SINGLE:
-      return 1;
-    case DART_TYPES.DOUBLE:
-      return 2;
-    case DART_TYPES.TRIPLE:
-      return 3;
-    default:
-      return 0;
-  }
-}
-
-function isNumberType(type) {
-  return (
-    type === DART_TYPES.SINGLE ||
-    type === DART_TYPES.DOUBLE ||
-    type === DART_TYPES.TRIPLE
-  );
-}
-
-function isBullType(type) {
-  return type === DART_TYPES.GREEN_BULL || type === DART_TYPES.RED_BULL;
-}
-
-function isValidNumber(number) {
-  return Number.isInteger(number) && number >= 1 && number <= 20;
-}
-
-function resolveDart(scoreBefore, type, number = null) {
-  let scoreAfter = scoreBefore;
-  let label = "";
-  let amount = 0;
-  let pointsLost = 0;
-  let pointsGained = 0;
-
-  if (type === DART_TYPES.MISS) {
-    label = "Miss";
-    scoreAfter = scoreBefore;
-  } else if (type === DART_TYPES.GREEN_BULL) {
-    label = "Green Bull";
-    scoreAfter = scoreBefore;
-  } else if (type === DART_TYPES.RED_BULL) {
-    label = "Red Bull";
-    scoreAfter = scoreBefore + RED_BULL_BONUS;
-    pointsGained = RED_BULL_BONUS;
-  } else if (isNumberType(type)) {
-    const multiplier = computeMultiplier(type);
-    amount = number * multiplier;
-    pointsLost = amount;
-    scoreAfter = scoreBefore - amount;
-
-    if (type === DART_TYPES.SINGLE) label = `Single ${number}`;
-    if (type === DART_TYPES.DOUBLE) label = `Double ${number}`;
-    if (type === DART_TYPES.TRIPLE) label = `Triple ${number}`;
-  }
-
-  return {
-    type,
-    number,
-    label,
-    amount,
-    scoreBefore,
-    scoreAfter,
-    pointsLost,
-    pointsGained,
-    eliminated: scoreAfter <= 0
+  const labels = {
+    single: "Single",
+    double: "Dub",
+    triple: "Trip"
   };
+
+  return `${labels[hitType] || "Hit"} ${target}`;
 }
 
-function applyStatsForDart(stats, dart) {
-  stats.dartsThrown += 1;
+function getScoreChange(hitType, target = null) {
+  if (hitType === "miss") return 0;
+  if (hitType === "greenBull") return 0;
+  if (hitType === "redBull") return RED_BULL_BONUS;
 
-  switch (dart.type) {
-    case DART_TYPES.MISS:
-      stats.misses += 1;
-      break;
-    case DART_TYPES.SINGLE:
-      stats.singles += 1;
-      break;
-    case DART_TYPES.DOUBLE:
-      stats.doubles += 1;
-      break;
-    case DART_TYPES.TRIPLE:
-      stats.triples += 1;
-      break;
-    case DART_TYPES.GREEN_BULL:
-      stats.greenBulls += 1;
-      break;
-    case DART_TYPES.RED_BULL:
-      stats.redBulls += 1;
-      break;
-    default:
-      break;
+  if (isNumberHitType(hitType)) {
+    return -(target * getHitMultiplier(hitType));
   }
 
-  stats.pointsLost += dart.pointsLost;
-  stats.pointsGained += dart.pointsGained;
+  return 0;
 }
 
-function buildCommittedTurn(player, darts) {
-  const scoreBeforeTurn = player.score;
-  const scoreAfterTurn =
-    darts.length > 0 ? darts[darts.length - 1].scoreAfter : player.score;
-  const eliminated = darts.some((dart) => dart.eliminated);
-
-  return {
-    playerId: player.id,
-    playerName: player.name,
-    turnNumber: state.turnNumber,
-    scoreBeforeTurn,
-    scoreAfterTurn,
-    eliminated,
-    darts: clone(darts)
-  };
+function isPlayerActive(player) {
+  return !!player && player.isActive && !player.isEliminated;
 }
 
-function commitCurrentTurn() {
-  const currentPlayer = getCurrentPlayer();
-  if (!currentPlayer || state.turnDarts.length === 0) return null;
-
-  const committedTurn = buildCommittedTurn(currentPlayer, state.turnDarts);
-
-  state.history.push({
-    snapshotBefore: clone(state.turnStartSnapshot || state),
-    committedTurn: clone(committedTurn)
-  });
-
-  currentPlayer.score = committedTurn.scoreAfterTurn;
-  currentPlayer.stats.turnsTaken += 1;
-
-  committedTurn.darts.forEach((dart) => {
-    applyStatsForDart(currentPlayer.stats, dart);
-  });
-
-  if (committedTurn.eliminated) {
-    currentPlayer.eliminated = true;
-    currentPlayer.eliminatedOnTurn = committedTurn.turnNumber;
-    currentPlayer.eliminatedPlace = state.players.length - getEliminationCount();
-  }
-
-  state.turnDarts = [];
-  state.turnStartSnapshot = null;
-
-  const winner = checkForWinner();
-
-  if (!winner && !state.gameOver) {
-    advanceTurn();
-  }
-
-  return committedTurn;
+function getActivePlayers() {
+  return gameState.players.filter(player => isPlayerActive(player));
 }
 
-function checkForWinner() {
-  const livingPlayers = getLivingPlayers();
+function countActivePlayers() {
+  return getActivePlayers().length;
+}
 
-  if (livingPlayers.length === 1) {
-    state.gameOver = true;
-    state.winnerId = livingPlayers[0].id;
-    return livingPlayers[0];
+function updateMessage(message, color = "#ffffff") {
+  gameState.lastMessage = message;
+  gameState.lastMessageColor = color;
+  gameState.lastMessageTimestamp = Date.now();
+}
+
+function resetTurnTracking() {
+  gameState.dartsThrown = 0;
+  gameState.currentTurnThrows = [];
+}
+
+function ensureStats(player) {
+  if (!player.stats) {
+    player.stats = {
+      dartsThrown: 0,
+      turnsTaken: 0,
+      misses: 0,
+      singles: 0,
+      doubles: 0,
+      triples: 0,
+      greenBulls: 0,
+      redBulls: 0,
+      pointsLost: 0,
+      pointsGained: 0
+    };
   }
 
-  if (livingPlayers.length === 0) {
-    state.gameOver = true;
-    state.winnerId = null;
-    return null;
+  return player.stats;
+}
+
+function buildStatsSummary() {
+  return gameState.players.map(player => ({
+    name: player.name,
+    score: player.score,
+    isActive: player.isActive,
+    isEliminated: player.isEliminated,
+    eliminatedOrder: player.eliminatedOrder,
+    stats: { ...ensureStats(player) }
+  }));
+}
+
+function maybeDeclareWinner() {
+  const activePlayers = getActivePlayers();
+
+  if (activePlayers.length === 1) {
+    gameState.winner = activePlayers[0].name;
+    gameState.finalStats = buildStatsSummary();
+    updateMessage(`${activePlayers[0].name} is the last survivor!`, "#facc15");
+    return true;
   }
 
-  return null;
+  if (activePlayers.length === 0) {
+    gameState.winner = "No Survivor";
+    gameState.finalStats = buildStatsSummary();
+    updateMessage("Everybody is out. No survivor remains.", "#ff4c4c");
+    return true;
+  }
+
+  return false;
 }
 
 function advanceTurn() {
-  if (state.gameOver) return;
+  resetTurnTracking();
 
-  const nextIndex = getNextLivingPlayerIndex(state.currentPlayerIndex);
+  let attempts = 0;
 
-  if (nextIndex === -1) {
-    checkForWinner();
-    return;
-  }
+  do {
+    gameState.currentPlayer++;
 
-  const wrapped = nextIndex <= state.currentPlayerIndex;
-  state.currentPlayerIndex = nextIndex;
+    if (gameState.currentPlayer >= gameState.players.length) {
+      gameState.currentPlayer = 0;
+      gameState.turnNumber++;
+    }
 
-  if (wrapped) {
-    state.turnNumber += 1;
-  }
+    attempts++;
+  } while (
+    !isPlayerActive(gameState.players[gameState.currentPlayer]) &&
+    attempts <= gameState.players.length
+  );
+
+  maybeDeclareWinner();
 }
+
+function eliminateCurrentPlayer() {
+  const player = gameState.players[gameState.currentPlayer];
+  if (!player) return;
+
+  player.isActive = false;
+  player.isEliminated = true;
+  player.eliminatedOrder = gameState.players.length - countActivePlayers() + 1;
+
+  updateMessage(`${player.name} is eliminated!`, "#ff4c4c");
+}
+
+/* -------------------------
+   INIT / STATE
+--------------------------*/
 
 export function initGame(players) {
-  const normalizedPlayers = normalizePlayers(players);
+  const playerNames = (players || []).map(normalizePlayerName);
 
-  state = createEmptyState();
-  state.players = normalizedPlayers;
-  state.playerOrderSeed = normalizedPlayers.map((player) => player.name);
-  state.gameStarted = normalizedPlayers.length >= 2;
-  state.currentPlayerIndex = 0;
+  gameState = {
+    originalPlayers: [...playerNames],
 
-  emitChange();
-}
+    players: playerNames.map(name => ({
+      name,
+      score: STARTING_SCORE,
+      isActive: true,
+      isEliminated: false,
+      eliminatedOrder: null,
+      stats: {
+        dartsThrown: 0,
+        turnsTaken: 0,
+        misses: 0,
+        singles: 0,
+        doubles: 0,
+        triples: 0,
+        greenBulls: 0,
+        redBulls: 0,
+        pointsLost: 0,
+        pointsGained: 0
+      }
+    })),
 
-export function subscribe(listener) {
-  if (typeof listener !== "function") {
-    return () => {};
-  }
+    currentPlayer: 0,
+    turnNumber: 1,
+    dartsThrown: 0,
+    currentTurnThrows: [],
 
-  listeners.add(listener);
+    lastMessage: "",
+    lastMessageColor: "#ffffff",
+    lastMessageTimestamp: 0,
 
-  return () => {
-    listeners.delete(listener);
+    winner: null,
+    finalStats: null
   };
+
+  history = [];
+
+  if (playerNames.length < 2) {
+    gameState.winner = "No Survivor";
+    updateMessage("Survivor 301 needs at least 2 players.", "#ff4c4c");
+  }
 }
 
 export function getState() {
-  return clone({
-    ...state,
-    currentPlayer: getCurrentPlayer(),
-    winner: state.winnerId ? getPlayerById(state.winnerId) : null,
-    livingPlayers: getLivingPlayers()
-  });
+  return gameState;
 }
 
-export function getPlayers() {
-  return clone(state.players);
+export function getStats() {
+  return buildStatsSummary();
 }
 
-export function getCurrentPlayerId() {
-  return getCurrentPlayer()?.id || null;
+export function getCurrentTargetDisplay() {
+  return `Dart ${gameState.dartsThrown + 1}/3`;
 }
 
-export function getCurrentPlayerName() {
-  return getCurrentPlayer()?.name || "";
+/* -------------------------
+   GAMEPLAY
+--------------------------*/
+
+export function submitThrow(hitType, target = null) {
+  if (gameState.winner) return;
+
+  const player = gameState.players[gameState.currentPlayer];
+  if (!player || !isPlayerActive(player)) return;
+
+  if (isNumberHitType(hitType)) {
+    if (target == null || target < 1 || target > 20) return;
+  }
+
+  history.push(cloneState(gameState));
+
+  const scoreBefore = player.score;
+  const scoreChange = getScoreChange(hitType, target);
+  const scoreAfter = scoreBefore + scoreChange;
+
+  player.score = scoreAfter;
+  gameState.dartsThrown++;
+
+  const throwRecord = {
+    hitType,
+    target,
+    label: getHitLabel(hitType, target),
+    scoreBefore,
+    scoreChange,
+    scoreAfter
+  };
+
+  gameState.currentTurnThrows.push(throwRecord);
+
+  const stats = ensureStats(player);
+  stats.dartsThrown++;
+
+  if (gameState.dartsThrown === 1) {
+    stats.turnsTaken++;
+  }
+
+  if (hitType === "miss") stats.misses++;
+  if (hitType === "single") stats.singles++;
+  if (hitType === "double") stats.doubles++;
+  if (hitType === "triple") stats.triples++;
+  if (hitType === "greenBull") stats.greenBulls++;
+  if (hitType === "redBull") stats.redBulls++;
+
+  if (scoreChange < 0) stats.pointsLost += Math.abs(scoreChange);
+  if (scoreChange > 0) stats.pointsGained += scoreChange;
+
+  if (hitType === "miss") {
+    updateMessage(`${player.name} misses. No damage.`, "#ffffff");
+  } else if (hitType === "greenBull") {
+    updateMessage(`${player.name} hits Green Bull. Safe throw.`, "#22c55e");
+  } else if (hitType === "redBull") {
+    updateMessage(`${player.name} hits Red Bull and gains ${RED_BULL_BONUS}!`, "#22c55e");
+  } else {
+    updateMessage(`${player.name} hits ${getHitLabel(hitType, target)} for ${Math.abs(scoreChange)} damage.`, "#facc15");
+  }
+
+  if (player.score <= 0) {
+    eliminateCurrentPlayer();
+
+    if (!maybeDeclareWinner()) {
+      advanceTurn();
+    }
+
+    return;
+  }
+
+  if (gameState.dartsThrown >= 3) {
+    advanceTurn();
+  }
 }
 
-export function getTurnDarts() {
-  return clone(state.turnDarts);
+export function nextPlayer() {
+  if (gameState.winner) return;
+
+  history.push(cloneState(gameState));
+  advanceTurn();
 }
 
-export function getWinner() {
-  return state.winnerId ? clone(getPlayerById(state.winnerId)) : null;
+export function endGameEarly() {
+  if (gameState.winner) return;
+
+  history.push(cloneState(gameState));
+
+  const activePlayers = getActivePlayers();
+
+  if (activePlayers.length > 0) {
+    const leader = [...activePlayers].sort((a, b) => b.score - a.score)[0];
+    gameState.winner = leader.name;
+  } else {
+    gameState.winner = "No Survivor";
+  }
+
+  gameState.finalStats = buildStatsSummary();
+  updateMessage("Game ended early.", "#facc15");
 }
 
-export function isGameStarted() {
-  return state.gameStarted;
+/* -------------------------
+   SHARED ACTIONS
+--------------------------*/
+
+export function undo() {
+  if (!history.length) return;
+  gameState = history.pop();
 }
 
 export function isGameOver() {
-  return state.gameOver;
+  return !!gameState.winner;
 }
-
-export function canUndo() {
-  return state.history.length > 0;
-}
-
-export function canSubmitTurn() {
-  if (!state.gameStarted || state.gameOver) return false;
-  return state.turnDarts.length > 0;
-}
-
-export function canThrowDart() {
-  if (!state.gameStarted || state.gameOver) return false;
-
-  const currentPlayer = getCurrentPlayer();
-  if (!currentPlayer || currentPlayer.eliminated) return false;
-
-  if (state.turnDarts.length >= MAX_DARTS_PER_TURN) return false;
-  if (state.turnDarts.some((dart) => dart.eliminated)) return false;
-
-  return true;
-}
-
-export function getTurnPreviewScore() {
-  const currentPlayer = getCurrentPlayer();
-  if (!currentPlayer) return null;
-
-  if (state.turnDarts.length === 0) {
-    return currentPlayer.score;
-  }
-
-  return state.turnDarts[state.turnDarts.length - 1].scoreAfter;
-}
-
-export function getTurnSummary() {
-  const currentPlayer = getCurrentPlayer();
-
-  return {
-    currentPlayer: currentPlayer ? clone(currentPlayer) : null,
-    darts: clone(state.turnDarts),
-    previewScore: getTurnPreviewScore(),
-    canThrow: canThrowDart(),
-    canSubmit: canSubmitTurn()
-  };
-}
-
-export function addDart(type, number = null) {
-  if (!canThrowDart()) return getState();
-
-  if (!Object.values(DART_TYPES).includes(type)) {
-    return getState();
-  }
-
-  if (isNumberType(type) && !isValidNumber(number)) {
-    return getState();
-  }
-
-  if (!isNumberType(type)) {
-    number = null;
-  }
-
-  if (!state.turnStartSnapshot) {
-    state.turnStartSnapshot = clone(state);
-  }
-
-  const currentPlayer = getCurrentPlayer();
-  if (!currentPlayer) return getState();
-
-  const scoreBefore =
-    state.turnDarts.length > 0
-      ? state.turnDarts[state.turnDarts.length - 1].scoreAfter
-      : currentPlayer.score;
-
-  const resolved = resolveDart(scoreBefore, type, number);
-  state.turnDarts.push(resolved);
-
-  if (resolved.eliminated) {
-    commitCurrentTurn();
-    emitChange();
-    return getState();
-  }
-
-  emitChange();
-  return getState();
-}
-
-export function removeLastDart() {
-  if (!state.turnDarts.length || state.gameOver) return getState();
-
-  state.turnDarts.pop();
-
-  if (state.turnDarts.length === 0) {
-    state.turnStartSnapshot = null;
-  }
-
-  emitChange();
-  return getState();
-}
-
-export function clearTurnDarts() {
-  if (state.gameOver) return getState();
-
-  state.turnDarts = [];
-  state.turnStartSnapshot = null;
-  emitChange();
-  return getState();
-}
-
-export function submitTurn() {
-  if (!canSubmitTurn()) return getState();
-
-  commitCurrentTurn();
-  emitChange();
-  return getState();
-}
-
-export function undoLastTurn() {
-  if (!state.history.length) return getState();
-
-  const lastEntry = state.history.pop();
-  state = clone(lastEntry.snapshotBefore);
-
-  emitChange();
-  return getState();
-}
-
-export function restartGame() {
-  const playerNames =
-    state.playerOrderSeed.length > 0
-      ? [...state.playerOrderSeed]
-      : state.players.map((player) => player.name);
-
-  initGame(playerNames);
-  return getState();
-}
-
-export function rotatePlayersForNewGame() {
-  const source =
-    state.playerOrderSeed.length > 0
-      ? [...state.playerOrderSeed]
-      : state.players.map((player) => player.name);
-
-  if (source.length <= 1) {
-    initGame(source);
-    return getState();
-  }
-
-  const rotated = source.slice(1).concat(source[0]);
-  initGame(rotated);
-  state.playerOrderSeed = rotated;
-
-  emitChange();
-  return getState();
-}
-
-export function getScoreboard() {
-  return clone(
-    state.players.map((player) => ({
-      id: player.id,
-      name: player.name,
-      score: player.score,
-      eliminated: player.eliminated,
-      isCurrent: player.id === getCurrentPlayerId(),
-      eliminatedPlace: player.eliminatedPlace
-    }))
-  );
-}
-
-export function getHistory() {
-  return clone(state.history.map((entry) => entry.committedTurn));
-}
-
-export function getConstants() {
-  return {
-    STARTING_SCORE,
-    RED_BULL_BONUS,
-    MAX_DARTS_PER_TURN,
-    DART_TYPES
-  };
-}
-
-export { DART_TYPES };
