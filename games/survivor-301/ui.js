@@ -41,7 +41,7 @@ function draw() {
   rootEl.innerHTML = `
     <div style="${styles.screen}">
       ${renderCurrentPlayer(state)}
-      ${renderThrowArea(state)}
+      ${(state)}
       ${renderPlayers(state)}
       ${renderTurnSummary(state)}
       ${renderBottomActions(state)}
@@ -97,49 +97,156 @@ function renderCurrentPlayer(state) {
   `;
 }
 
-function renderThrowArea(state) {
+function renderThrowArea(container, state) {
+  const controls = document.getElementById("controls");
+  if (!controls) return;
+
+  controls.innerHTML = "";
+
   const canThrow =
     !state.gameOver &&
     state.gameStarted &&
     state.currentPlayer &&
     !state.currentPlayer.eliminated &&
-    state.turnDarts.length < MAX_DARTS_PER_TURN &&
-    !state.turnDarts.some((dart) => dart.eliminated);
+    state.turnDarts.length < 3 &&
+    !state.turnDarts.some(d => d.eliminated);
 
-  return `
-    <div style="${styles.panel}">
-      <div style="${styles.sectionTitleCenter}">Throw</div>
-
-      <div style="${styles.buttonRow}">
-        <button
-          type="button"
-          data-open-throw-modal="${DART_TYPES.SINGLE}"
-          style="${gameButtonStyle(canThrow)}"
-          ${!canThrow ? "disabled" : ""}
-        >
-          Single
-        </button>
-
-        <button
-          type="button"
-          data-open-throw-modal="${DART_TYPES.DOUBLE}"
-          style="${gameButtonStyle(canThrow)}"
-          ${!canThrow ? "disabled" : ""}
-        >
-          Dub
-        </button>
-
-        <button
-          type="button"
-          data-open-throw-modal="${DART_TYPES.TRIPLE}"
-          style="${gameButtonStyle(canThrow)}"
-          ${!canThrow ? "disabled" : ""}
-        >
-          Trip
-        </button>
-      </div>
-    </div>
+  const row = document.createElement("div");
+  row.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:8px;
+    margin-top:8px;
   `;
+
+  const types = [
+    { label: "Single", value: "single" },
+    { label: "Dub", value: "double" },
+    { label: "Trip", value: "triple" }
+  ];
+
+  types.forEach(type => {
+    const btn = document.createElement("div");
+    btn.innerText = type.label;
+
+    btn.style = `
+      ${buttonStyle()}
+      padding:12px;
+      min-height:52px;
+      font-size:18px;
+      ${!canThrow ? "opacity:0.45;" : ""}
+    `;
+
+    attachButtonClick(btn, () => {
+      if (!canThrow) return;
+      renderSurvivorNumberPicker(container, type.value);
+    });
+
+    row.appendChild(btn);
+  });
+
+  controls.appendChild(row);
+}
+
+function renderSurvivorNumberPicker(container, hitType) {
+  const isTriple = hitType === "triple";
+
+  renderModalShell(`
+    <h2 style="text-align:center;margin-top:0;">
+      ${hitType === "single" ? "Single" : hitType === "double" ? "Dub" : "Trip"}
+    </h2>
+
+    <div id="numberGrid"></div>
+
+    <div style="
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+      margin-top:12px;
+    ">
+      <div id="bullBtn" style="
+        ${buttonStyle()}
+        padding:12px;
+        min-height:52px;
+        font-size:20px;
+        ${isTriple ? "background:#555;color:#bbb;border:1px solid #999;cursor:not-allowed;" : ""}
+      ">Bull</div>
+
+      <div id="missBtn" style="
+        ${buttonStyle()}
+        padding:12px;
+        min-height:52px;
+        font-size:20px;
+      ">Miss</div>
+    </div>
+
+    <div style="
+      display:flex;
+      justify-content:center;
+      margin-top:12px;
+    ">
+      <div id="closeModalBtn" style="
+        ${buttonStyle()}
+        width:110px;
+        min-height:38px;
+        font-size:15px;
+        border:1px solid #ff4c4c;
+      ">Close</div>
+    </div>
+  `);
+
+  const grid = document.getElementById("numberGrid");
+
+  grid.style = `
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:8px;
+  `;
+
+  for (let i = 1; i <= 20; i++) {
+    const btn = document.createElement("div");
+    btn.innerText = i;
+
+    btn.style = `
+      ${buttonStyle()}
+      padding:12px;
+      min-height:52px;
+      font-size:20px;
+    `;
+
+    attachButtonClick(btn, () => {
+      addDart(hitType, i);
+      closeModal();
+      renderUI(container);
+    });
+
+    grid.appendChild(btn);
+  }
+
+  const bullBtn = document.getElementById("bullBtn");
+  const missBtn = document.getElementById("missBtn");
+  const closeBtn = document.getElementById("closeModalBtn");
+
+  // Bull behavior (matches Killer logic style)
+  if (!isTriple) {
+    attachButtonClick(bullBtn, () => {
+      if (hitType === "single") {
+        addDart("greenBull");
+      } else if (hitType === "double") {
+        addDart("redBull");
+      }
+      closeModal();
+      renderUI(container);
+    });
+  }
+
+  attachButtonClick(missBtn, () => {
+    addDart("miss");
+    closeModal();
+    renderUI(container);
+  });
+
+  attachButtonClick(closeBtn, closeModal);
 }
 
 function renderPlayers(state) {
