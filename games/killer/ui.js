@@ -211,14 +211,7 @@ function renderNDH(container, state) {
   const currentPlayer = state.players[state.currentPlayer];
 
   container.innerHTML = `
-    <h2 style="text-align:center;margin-bottom:8px;">Killer</h2>
-
-    <div style="
-      text-align:center;
-      margin-bottom:12px;
-      font-size:16px;
-      font-weight:bold;
-    ">
+    
       NDH Throw: ${currentPlayer.name}
     </div>
 
@@ -270,14 +263,7 @@ function renderGame(container, state) {
   const currentPlayer = state.players[state.currentPlayer];
 
   container.innerHTML = `
-    <h2 style="text-align:center;margin-bottom:8px;">Killer</h2>
-
-    <div style="
-      text-align:center;
-      margin-bottom:12px;
-      font-size:16px;
-      font-weight:bold;
-    ">
+    
       Current Player: ${currentPlayer.name}
     </div>
 
@@ -323,15 +309,6 @@ function renderRedemski(container, state) {
   const redemskiPlayer = state.players[state.redemskiPlayerIndex];
 
   container.innerHTML = `
-    <h2 style="text-align:center;margin-bottom:8px;">Killer</h2>
-
-    <div style="
-      text-align:center;
-      margin-bottom:12px;
-      font-size:18px;
-      font-weight:bold;
-      color:#facc15;
-    ">
       ⚡ Redemski: ${redemskiPlayer.name}
     </div>
 
