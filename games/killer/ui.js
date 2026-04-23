@@ -588,9 +588,20 @@ function renderGameControls(container, state) {
       font-size:20px;
       flex-direction:column;
     `;
+
     attachButtonClick(btn, () => {
+      const isOwnTarget = target === currentPlayer.target;
+
+      if (!currentPlayer.isKiller && isOwnTarget) {
+        const autoHitType = target === 25 ? "greenBull" : "single";
+        submitGameThrow(autoHitType, target);
+        renderUI(container);
+        return;
+      }
+
       renderGameHitTypePicker(container, state, target);
     });
+
     targetRow.appendChild(btn);
   });
 
@@ -622,7 +633,15 @@ function renderGameControls(container, state) {
     min-height:52px;
     font-size:18px;
   `;
+
   attachButtonClick(selfBtn, () => {
+    if (!currentPlayer.isKiller) {
+      const autoHitType = currentPlayer.target === 25 ? "greenBull" : "single";
+      submitGameThrow(autoHitType, currentPlayer.target);
+      renderUI(container);
+      return;
+    }
+
     renderGameHitTypePicker(container, state, currentPlayer.target);
   });
 
@@ -876,7 +895,6 @@ function renderRedemskiControls(container, player) {
 function renderNumberPicker(container, hitType) {
   const allowSingleBull = hitType === "single";
   const allowDoubleBull = hitType === "double";
-  const allowTripleBull = false;
 
   renderModalShell(`
     <h2 style="text-align:center;margin-top:0;">
@@ -884,25 +902,23 @@ function renderNumberPicker(container, hitType) {
     </h2>
     <div id="numberGrid"></div>
     <div style="
-      display:flex;
-      justify-content:center;
-      gap:10px;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
       margin-top:12px;
     ">
       <div id="bullBtn" style="
         ${buttonStyle()}
-        width:110px;
-        min-height:38px;
-        font-size:15px;
-        ${allowTripleBull ? "" : ""}
+        padding:12px;
+        min-height:52px;
+        font-size:20px;
         ${hitType === "triple" ? "background:#555;color:#bbb;border:1px solid #999;cursor:not-allowed;" : ""}
       ">Bull</div>
       <div id="closeModalBtn" style="
         ${buttonStyle()}
-        width:110px;
-        min-height:38px;
-        font-size:15px;
-        background:#206a1e;
+        padding:12px;
+        min-height:52px;
+        font-size:20px;
         border:1px solid #ff4c4c;
       ">Close</div>
     </div>
