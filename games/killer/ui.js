@@ -88,10 +88,6 @@ function dangerButtonStyle() {
   `;
 }
 
-function isPlayerSelectableTarget(player) {
-  return !!player && player.target != null && (player.isActive || player.isDormantDead);
-}
-
 function formatAssignment(player) {
   if (!player.target) return "Unassigned";
 
@@ -222,6 +218,67 @@ function attachButtonClick(el, handler) {
   };
 }
 
+function closeModal() {
+  const modal = document.getElementById("modal");
+  if (modal) modal.innerHTML = "";
+}
+
+function renderModalShell(innerHtml) {
+  const modal = document.getElementById("modal");
+  if (!modal) return;
+
+  modal.innerHTML = `
+    <div id="overlayModal" style="
+      position:fixed;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      background:rgba(0,0,0,0.7);
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      z-index:999;
+      padding:16px;
+      box-sizing:border-box;
+    ">
+      <div id="overlayCard" style="
+        background:#111111;
+        color:#ffffff;
+        padding:20px;
+        border-radius:12px;
+        width:100%;
+        max-width:700px;
+        max-height:90vh;
+        overflow:auto;
+        border:1px solid #ffffff;
+      ">
+        ${innerHtml}
+      </div>
+    </div>
+  `;
+
+  const overlay = document.getElementById("overlayModal");
+  const card = document.getElementById("overlayCard");
+
+  overlay.onclick = e => {
+    if (e.target === overlay) {
+      closeModal();
+    }
+  };
+
+  card.onclick = e => {
+    e.stopPropagation();
+  };
+}
+
+function getHitTypeLabel(hitType) {
+  if (hitType === "single" || hitType === "greenBull") return "Single";
+  if (hitType === "double" || hitType === "redBull") return "Dub";
+  if (hitType === "triple") return "Trip";
+  return "";
+}
+
 /* -------------------------
    MAIN UI
 --------------------------*/
@@ -257,11 +314,11 @@ function renderPlayerBoard(state, activeIndex) {
 
   state.players.forEach((player, index) => {
     const isHighlighted = index === activeIndex;
-    rowForPlayer(board, player, isHighlighted);
+    rowForPlayer(board, player, isHighlighted, state.phase === "NDH");
   });
 }
 
-function rowForPlayer(parent, player, isHighlighted) {
+function rowForPlayer(parent, player, isHighlighted, showTargetInNdh = false) {
   const row = document.createElement("div");
   row.style = `
     margin-bottom:10px;
@@ -280,13 +337,29 @@ function rowForPlayer(parent, player, isHighlighted) {
   `;
 
   const leftMeta = getPlayerStatusHtml(player);
+  const targetHtml = showTargetInNdh && player.target
+    ? `
+      <div style="
+        font-size:18px;
+        line-height:1.1;
+        margin-top:2px;
+        color:#facc15;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      ">
+        ${formatAssignment(player)}
+      </div>
+    `
+    : "";
 
   row.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:4px;min-width:0;">
+    <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;">
       <div style="font-size:18px;line-height:1.2;word-break:break-word;">
         ${player.name}
         ${leftMeta ? `<span style="font-size:15px;margin-left:8px;">${leftMeta}</span>` : ""}
       </div>
+      ${targetHtml}
     </div>
     <div style="text-align:right;flex-shrink:0;">
       <div style="font-size:16px;line-height:1.2;">${getLivesEmoji(player)}</div>
@@ -370,43 +443,6 @@ function renderNDHControls(container) {
     hitTypeRow.appendChild(btn);
   });
 
-  const bullRow = document.createElement("div");
-  bullRow.style = `
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:8px;
-    margin-top:8px;
-  `;
-
-  const greenBullBtn = document.createElement("div");
-  greenBullBtn.innerText = "Green Bull";
-  greenBullBtn.style = `
-    ${buttonStyle()}
-    padding:12px;
-    min-height:52px;
-    font-size:18px;
-  `;
-  attachButtonClick(greenBullBtn, () => {
-    submitNDHThrow("greenBull");
-    renderUI(container);
-  });
-
-  const redBullBtn = document.createElement("div");
-  redBullBtn.innerText = "Red Bull";
-  redBullBtn.style = `
-    ${buttonStyle()}
-    padding:12px;
-    min-height:52px;
-    font-size:18px;
-  `;
-  attachButtonClick(redBullBtn, () => {
-    submitNDHThrow("redBull");
-    renderUI(container);
-  });
-
-  bullRow.appendChild(greenBullBtn);
-  bullRow.appendChild(redBullBtn);
-
   const utilityRow = document.createElement("div");
   utilityRow.style = `
     display:grid;
@@ -457,7 +493,6 @@ function renderNDHControls(container) {
   utilityRow.appendChild(endBtn);
 
   controls.appendChild(hitTypeRow);
-  controls.appendChild(bullRow);
   controls.appendChild(utilityRow);
 }
 
@@ -506,6 +541,23 @@ function renderGame(container, state) {
   }
 }
 
+function getTileInfoForTarget(state, target) {
+  const currentPlayer = state.players[state.currentPlayer];
+
+  if (target === currentPlayer.target) {
+    return {
+      number: formatTargetNumber(target),
+      name: currentPlayer.name
+    };
+  }
+
+  const targetPlayer = state.players.find(player => player.target === target);
+  return {
+    number: formatTargetNumber(target),
+    name: targetPlayer?.name || ""
+  };
+}
+
 function renderGameControls(container, state) {
   const controls = document.getElementById("controls");
   controls.innerHTML = "";
@@ -522,9 +574,12 @@ function renderGameControls(container, state) {
   `;
 
   targets.forEach(target => {
+    const info = getTileInfoForTarget(state, target);
+
     const btn = document.createElement("div");
     btn.innerHTML = `
-      <div style="font-size:34px;line-height:1;">${formatTargetNumber(target)}</div>
+      <div style="font-size:34px;line-height:1;">${info.number}</div>
+      <div style="font-size:12px;line-height:1.1;margin-top:6px;opacity:0.9;">${info.name}</div>
     `;
     btn.style = `
       ${buttonStyle()}
@@ -534,9 +589,7 @@ function renderGameControls(container, state) {
       flex-direction:column;
     `;
     attachButtonClick(btn, () => {
-      const hitType = target === 25 ? "greenBull" : "single";
-      submitGameThrow(hitType, target);
-      renderUI(container);
+      renderGameHitTypePicker(container, state, target);
     });
     targetRow.appendChild(btn);
   });
@@ -570,9 +623,7 @@ function renderGameControls(container, state) {
     font-size:18px;
   `;
   attachButtonClick(selfBtn, () => {
-    const hitType = currentPlayer.target === 25 ? "greenBull" : "single";
-    submitGameThrow(hitType, currentPlayer.target);
-    renderUI(container);
+    renderGameHitTypePicker(container, state, currentPlayer.target);
   });
 
   const shanghaiBtn = document.createElement("div");
@@ -822,72 +873,39 @@ function renderRedemskiControls(container, player) {
    MODALS
 --------------------------*/
 
-function renderModalShell(innerHtml) {
-  const modal = document.getElementById("modal");
-  if (!modal) return;
-
-  modal.innerHTML = `
-    <div id="overlayModal" style="
-      position:fixed;
-      top:0;
-      left:0;
-      width:100%;
-      height:100%;
-      background:rgba(0,0,0,0.7);
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      z-index:999;
-      padding:16px;
-      box-sizing:border-box;
-    ">
-      <div id="overlayCard" style="
-        background:#111111;
-        color:#ffffff;
-        padding:20px;
-        border-radius:12px;
-        width:100%;
-        max-width:700px;
-        max-height:90vh;
-        overflow:auto;
-        border:1px solid #ffffff;
-      ">
-        ${innerHtml}
-      </div>
-    </div>
-  `;
-
-  const overlay = document.getElementById("overlayModal");
-  const card = document.getElementById("overlayCard");
-
-  overlay.onclick = e => {
-    if (e.target === overlay) {
-      modal.innerHTML = "";
-    }
-  };
-
-  card.onclick = e => {
-    e.stopPropagation();
-  };
-}
-
-function closeModal() {
-  const modal = document.getElementById("modal");
-  if (modal) modal.innerHTML = "";
-}
-
 function renderNumberPicker(container, hitType) {
+  const allowSingleBull = hitType === "single";
+  const allowDoubleBull = hitType === "double";
+  const allowTripleBull = false;
+
   renderModalShell(`
     <h2 style="text-align:center;margin-top:0;">
       ${hitType === "single" ? "Single" : hitType === "double" ? "Dub" : "Trip"} Target
     </h2>
     <div id="numberGrid"></div>
-    <div id="closeModalBtn" style="
-      ${buttonStyle()}
-      padding:12px;
-      min-height:48px;
+    <div style="
+      display:flex;
+      justify-content:center;
+      gap:10px;
       margin-top:12px;
-    ">Close</div>
+    ">
+      <div id="bullBtn" style="
+        ${buttonStyle()}
+        width:110px;
+        min-height:38px;
+        font-size:15px;
+        ${allowTripleBull ? "" : ""}
+        ${hitType === "triple" ? "background:#555;color:#bbb;border:1px solid #999;cursor:not-allowed;" : ""}
+      ">Bull</div>
+      <div id="closeModalBtn" style="
+        ${buttonStyle()}
+        width:110px;
+        min-height:38px;
+        font-size:15px;
+        background:#206a1e;
+        border:1px solid #ff4c4c;
+      ">Close</div>
+    </div>
   `);
 
   const grid = document.getElementById("numberGrid");
@@ -914,6 +932,89 @@ function renderNumberPicker(container, hitType) {
     grid.appendChild(btn);
   }
 
+  const bullBtn = document.getElementById("bullBtn");
+  const closeBtn = document.getElementById("closeModalBtn");
+
+  if (allowSingleBull) {
+    attachButtonClick(bullBtn, () => {
+      submitNDHThrow("greenBull");
+      closeModal();
+      renderUI(container);
+    });
+  } else if (allowDoubleBull) {
+    attachButtonClick(bullBtn, () => {
+      submitNDHThrow("redBull");
+      closeModal();
+      renderUI(container);
+    });
+  }
+
+  attachButtonClick(closeBtn, closeModal);
+}
+
+function renderGameHitTypePicker(container, state, target) {
+  const currentPlayer = state.players[state.currentPlayer];
+  const isSelfTarget = target === currentPlayer.target;
+  const isBull = target === 25;
+
+  const options = isBull
+    ? [
+        { label: "Single Bull", value: "greenBull" },
+        { label: "Dub Bull", value: "redBull" }
+      ]
+    : [
+        { label: "Single", value: "single" },
+        { label: "Dub", value: "double" },
+        { label: "Trip", value: "triple" }
+      ];
+
+  renderModalShell(`
+    <h2 style="text-align:center;margin-top:0;">
+      ${isSelfTarget ? currentPlayer.name : formatTargetNumber(target)} Target
+    </h2>
+    <div style="text-align:center;margin-bottom:12px;opacity:0.85;">
+      Choose hit type
+    </div>
+    <div id="hitTypeGrid"></div>
+    <div style="
+      display:flex;
+      justify-content:center;
+      margin-top:12px;
+    ">
+      <div id="closeModalBtn" style="
+        ${buttonStyle()}
+        width:110px;
+        min-height:38px;
+        font-size:15px;
+        border:1px solid #ff4c4c;
+      ">Close</div>
+    </div>
+  `);
+
+  const grid = document.getElementById("hitTypeGrid");
+  grid.style = `
+    display:grid;
+    grid-template-columns:repeat(${options.length}, 1fr);
+    gap:8px;
+  `;
+
+  options.forEach(option => {
+    const btn = document.createElement("div");
+    btn.innerText = option.label;
+    btn.style = `
+      ${buttonStyle()}
+      padding:14px;
+      min-height:62px;
+      font-size:20px;
+    `;
+    attachButtonClick(btn, () => {
+      submitGameThrow(option.value, target);
+      closeModal();
+      renderUI(container);
+    });
+    grid.appendChild(btn);
+  });
+
   const closeBtn = document.getElementById("closeModalBtn");
   attachButtonClick(closeBtn, closeModal);
 }
@@ -924,12 +1025,19 @@ function renderTargetsModal() {
   renderModalShell(`
     <h2 style="text-align:center;margin-top:0;">Assigned Targets</h2>
     <div id="targetsList"></div>
-    <div id="closeModalBtn" style="
-      ${buttonStyle()}
-      padding:12px;
-      min-height:48px;
+    <div style="
+      display:flex;
+      justify-content:center;
       margin-top:12px;
-    ">Close</div>
+    ">
+      <div id="closeModalBtn" style="
+        ${buttonStyle()}
+        width:110px;
+        min-height:38px;
+        font-size:15px;
+        border:1px solid #ff4c4c;
+      ">Close</div>
+    </div>
   `);
 
   const list = document.getElementById("targetsList");
@@ -966,12 +1074,19 @@ function renderStatsModal(stats) {
   renderModalShell(`
     <h2 style="text-align:center;margin-top:0;">Game Stats</h2>
     <div id="statsList"></div>
-    <div id="closeModalBtn" style="
-      ${buttonStyle()}
-      padding:12px;
-      min-height:48px;
+    <div style="
+      display:flex;
+      justify-content:center;
       margin-top:12px;
-    ">Close</div>
+    ">
+      <div id="closeModalBtn" style="
+        ${buttonStyle()}
+        width:110px;
+        min-height:38px;
+        font-size:15px;
+        border:1px solid #ff4c4c;
+      ">Close</div>
+    </div>
   `);
 
   const list = document.getElementById("statsList");
