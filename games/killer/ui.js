@@ -147,7 +147,7 @@ function getRowBackground(player, isHighlighted) {
 
 function getRowBorder(player, isHighlighted) {
   if (isHighlighted) {
-    return "3px solid #39ff14";
+    return "3px solid #facc15";
   }
 
   if (player.isDormantDead) {
@@ -168,13 +168,26 @@ function getRowOpacity(player) {
 
 function getLivesEmoji(player) {
   if (player.isDormantDead) {
-    return "💀";
+    return `<span style="font-size:18px;">💀</span>`;
   }
 
   const lives = Math.max(0, Math.min(6, player.lives || 0));
-  const hearts = "💚".repeat(lives);
-  const empties = "⚪".repeat(6 - lives);
-  return hearts + empties;
+  let html = "";
+
+  for (let i = 0; i < 6; i++) {
+    const emoji = i < lives ? "💚" : "⚪";
+    html += `
+      <span style="
+        display:inline-block;
+        margin-right:${i < 5 ? "5px" : "0"};
+        opacity:${i < lives ? "1" : "0.45"};
+      ">
+        ${emoji}
+      </span>
+    `;
+  }
+
+  return html;
 }
 
 function buildFlashHtml(state) {
@@ -547,14 +560,17 @@ function getTileInfoForTarget(state, target) {
   if (target === currentPlayer.target) {
     return {
       number: formatTargetNumber(target),
-      name: currentPlayer.name
+      name: currentPlayer.name,
+      isDormantDead: false
     };
   }
 
   const targetPlayer = state.players.find(player => player.target === target);
+
   return {
     number: formatTargetNumber(target),
-    name: targetPlayer?.name || ""
+    name: targetPlayer?.name || "",
+    isDormantDead: !!targetPlayer?.isDormantDead
   };
 }
 
@@ -578,15 +594,75 @@ function renderGameControls(container, state) {
 
     const btn = document.createElement("div");
     btn.innerHTML = `
-      <div style="font-size:34px;line-height:1;">${info.number}</div>
-      <div style="font-size:12px;line-height:1.1;margin-top:6px;opacity:0.9;">${info.name}</div>
+      <div style="
+        position:relative;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        width:100%;
+        height:100%;
+      ">
+        <div style="
+          font-size:34px;
+          line-height:1;
+          ${info.isDormantDead ? "color:#d4d4d8;" : ""}
+        ">
+          ${info.number}
+        </div>
+
+        ${
+          info.isDormantDead
+            ? `
+              <div style="
+                position:absolute;
+                top:18px;
+                left:50%;
+                transform:translateX(-50%) rotate(-10deg);
+                background:rgba(55,65,81,0.95);
+                color:#e5e7eb;
+                border:1px solid #9ca3af;
+                border-radius:6px;
+                padding:2px 8px;
+                font-size:13px;
+                font-weight:bold;
+                letter-spacing:1px;
+              ">
+                DEAD
+              </div>
+            `
+            : ""
+        }
+
+        <div style="
+          font-size:12px;
+          line-height:1.1;
+          margin-top:6px;
+          opacity:0.9;
+          ${info.isDormantDead ? "color:#d4d4d8;" : ""}
+        ">
+          ${info.name}
+        </div>
+      </div>
     `;
+
     btn.style = `
       ${buttonStyle()}
       padding:14px 10px;
       min-height:88px;
       font-size:20px;
       flex-direction:column;
+      position:relative;
+      overflow:hidden;
+      ${
+        info.isDormantDead
+          ? `
+            background:#3f3f46;
+            color:#d4d4d8;
+            border:2px solid #9ca3af;
+          `
+          : ""
+      }
     `;
 
     attachButtonClick(btn, () => {
@@ -1220,37 +1296,147 @@ function renderEnd(container, state) {
   const stats = state.finalStats || getStats();
 
   container.innerHTML = `
-    <h2 style="text-align:center;margin-bottom:6px;">Game Over</h2>
-    <h3 style="text-align:center;margin-top:0;">
-      ${isShanghai ? "🏆 SHANGHAI Winner:" : "🏆 Winner:"} ${winnerName}
-    </h3>
+    <style>
+      @keyframes zombieGlow {
+        0% { box-shadow: 0 0 0 rgba(250,204,21,0.0), 0 0 0 rgba(34,197,94,0.0); }
+        50% { box-shadow: 0 0 20px rgba(250,204,21,0.45), 0 0 36px rgba(34,197,94,0.25); }
+        100% { box-shadow: 0 0 0 rgba(250,204,21,0.0), 0 0 0 rgba(34,197,94,0.0); }
+      }
+
+      @keyframes survivorFloat {
+        0% { transform: translateY(0px) rotate(0deg); }
+        50% { transform: translateY(-6px) rotate(2deg); }
+        100% { transform: translateY(0px) rotate(0deg); }
+      }
+
+      @keyframes tapeFlash {
+        0% { opacity: 0.8; }
+        50% { opacity: 1; }
+        100% { opacity: 0.8; }
+      }
+
+      @keyframes trophyPulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.08); }
+        100% { transform: scale(1); }
+      }
+    </style>
 
     <div style="
-      display:grid;
-      grid-template-columns:1fr;
-      gap:10px;
-      margin-top:16px;
+      position:relative;
+      overflow:hidden;
+      border-radius:18px;
+      padding:18px 16px 20px;
+      background:
+        radial-gradient(circle at top, rgba(250,204,21,0.18), transparent 35%),
+        linear-gradient(180deg, #102417 0%, #0b0f0c 100%);
+      border:2px solid #facc15;
+      animation:zombieGlow 2.8s infinite ease-in-out;
     ">
-      <div id="playAgainBtn" style="
-        ${buttonStyle()}
-        padding:14px;
-        min-height:52px;
-        font-size:18px;
-      ">Play Again</div>
+      <div style="
+        position:absolute;
+        top:10px;
+        left:-24px;
+        right:-24px;
+        display:flex;
+        justify-content:space-between;
+        pointer-events:none;
+        font-size:26px;
+        opacity:0.15;
+      ">
+        <span style="animation:survivorFloat 2.2s infinite ease-in-out;">🧟</span>
+        <span style="animation:survivorFloat 2.6s infinite ease-in-out;">💀</span>
+        <span style="animation:survivorFloat 2.1s infinite ease-in-out;">🧟</span>
+        <span style="animation:survivorFloat 2.8s infinite ease-in-out;">☣️</span>
+      </div>
 
-      <div id="statsBtn" style="
-        ${lightButtonStyle()}
-        padding:14px;
-        min-height:52px;
-        font-size:18px;
-      ">Stats</div>
+      <div style="
+        text-align:center;
+        margin:0 auto 12px;
+        max-width:340px;
+        background:#facc15;
+        color:#111111;
+        font-weight:bold;
+        font-size:15px;
+        padding:8px 12px;
+        border-radius:999px;
+        animation:tapeFlash 1.5s infinite ease-in-out;
+      ">
+        ⚠️ LAST HUMAN STANDING ⚠️
+      </div>
 
-      <div id="mainMenuBtn" style="
-        ${buttonStyle()}
-        padding:14px;
-        min-height:52px;
+      <div style="
+        text-align:center;
+        font-size:54px;
+        line-height:1;
+        margin-bottom:8px;
+        animation:trophyPulse 1.7s infinite ease-in-out;
+      ">
+        ${isShanghai ? "🏆💥🧟" : "🏆🧟‍♂️🏆"}
+      </div>
+
+      <h2 style="
+        text-align:center;
+        margin:0 0 6px;
+        font-size:28px;
+        color:#ffffff;
+      ">
+        ${winnerName} Survived the Horde!
+      </h2>
+
+      <div style="
+        text-align:center;
         font-size:18px;
-      ">Main Menu</div>
+        color:#facc15;
+        font-weight:bold;
+        margin-bottom:10px;
+      ">
+        ${isShanghai ? "Shanghai headshot! The undead never stood a chance." : "Brains protected. Zombies defeated. Glory secured."}
+      </div>
+
+      <div style="
+        text-align:center;
+        font-size:15px;
+        color:#d1fae5;
+        background:rgba(255,255,255,0.06);
+        border:1px solid rgba(255,255,255,0.12);
+        border-radius:14px;
+        padding:12px;
+        margin-bottom:16px;
+      ">
+        ${
+          isShanghai
+            ? "A perfect zombie-slaying turn ended it in style. That’s not just a win — that’s a survivor legend."
+            : "Against skulls, zombies, and Redemskis, one survivor outlasted the apocalypse and claimed the crown."
+        }
+      </div>
+
+      <div style="
+        display:grid;
+        grid-template-columns:1fr;
+        gap:10px;
+      ">
+        <div id="playAgainBtn" style="
+          ${buttonStyle()}
+          padding:14px;
+          min-height:52px;
+          font-size:18px;
+        ">Play Again</div>
+
+        <div id="statsBtn" style="
+          ${lightButtonStyle()}
+          padding:14px;
+          min-height:52px;
+          font-size:18px;
+        ">Stats</div>
+
+        <div id="mainMenuBtn" style="
+          ${buttonStyle()}
+          padding:14px;
+          min-height:52px;
+          font-size:18px;
+        ">Main Menu</div>
+      </div>
     </div>
 
     <div id="modal"></div>
