@@ -5,12 +5,14 @@ import golfdarts from "../games/golfdarts/index.js";
 import HammerCricket from "../games/hammer-cricket/index.js";
 import AhmanGreen from "../games/ahman-green/index.js";
 import Killer from "../games/killer/index.js";
+import Survivor301 from "../games/survivor-301/index.js";
 
 const gameMap = {
   "GolfDarts": golfdarts,
   "hammer-cricket": HammerCricket,
   "ahman-green": AhmanGreen,
-  "killer": Killer
+  "killer": Killer,
+  "survivor-301": Survivor301
 };
 
 export function renderGame(container) {
