@@ -173,27 +173,29 @@ function getLivesEmoji(player) {
 
   const lives = Math.max(0, Math.min(6, player.lives || 0));
 
-  let heartColor = "#22c55e";
+  let heartColor = "#22c55e"; // green
   if (lives <= 2) {
-    heartColor = "#ef4444";
+    heartColor = "#ef4444"; // red
   } else if (lives <= 4) {
-    heartColor = "#facc15";
+    heartColor = "#facc15"; // yellow
   }
 
   let html = "";
 
   for (let i = 0; i < 6; i++) {
     const isFilled = i < lives;
+
     html += `
       <span style="
         display:inline-block;
         margin-right:${i < 5 ? "5px" : "0"};
-        opacity:${isFilled ? "1" : "0.2"};
+        opacity:${isFilled ? "1" : "0.18"};
         color:${isFilled ? heartColor : "#ffffff"};
-        font-size:18px;
+        font-size:20px;
         line-height:1;
+        font-weight:bold;
       ">
-        ❤️
+        ♥
       </span>
     `;
   }
