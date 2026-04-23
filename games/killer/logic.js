@@ -31,9 +31,10 @@ function getHitValue(hitType) {
     single: 1,
     double: 2,
     triple: 3,
-    greenBull: 2,
-    redBull: 3
+    greenBull: 1,
+    redBull: 2
   };
+
   return values[hitType] || 0;
 }
 
@@ -181,7 +182,6 @@ function assignTargetToPlayer(playerIndex, assignment) {
   player.isKiller =
     assignment.hitType === "double" ||
     assignment.hitType === "triple" ||
-    assignment.hitType === "greenBull" ||
     assignment.hitType === "redBull";
 
   ensureStats(player).targetClaim = formatTarget(assignment.target, assignment.hitType);
@@ -225,12 +225,12 @@ function canKillWithHit(victim, hitType) {
   }
 
   if (remainingLives === 3) {
-    if (hitType === "triple" || hitType === "redBull") return true;
+    if (hitType === "triple") return true;
 
     if (
       activeCount === 2 &&
-      (hitType === "single" || hitType === "greenBull") &&
-      gameState.currentTurnHits.filter(h => h === "single" || h === "greenBull").length >= 3
+      hitType === "single" &&
+      gameState.currentTurnHits.filter(h => h === "single").length >= 3
     ) {
       return true;
     }
@@ -239,19 +239,14 @@ function canKillWithHit(victim, hitType) {
   }
 
   if (remainingLives === 2 || remainingLives === 1) {
-    if (
-      hitType === "double" ||
-      hitType === "triple" ||
-      hitType === "greenBull" ||
-      hitType === "redBull"
-    ) {
+    if (hitType === "double" || hitType === "triple" || hitType === "redBull") {
       return true;
     }
 
     if (
       activeCount === 2 &&
-      (hitType === "single" || hitType === "greenBull") &&
-      gameState.currentTurnHits.filter(h => h === "single" || h === "greenBull").length >= 3
+      hitType === "single" &&
+      gameState.currentTurnHits.filter(h => h === "single").length >= 3
     ) {
       return true;
     }
@@ -301,7 +296,6 @@ function checkZombieRevival(hitType, target, throwerIndex) {
   const validReviveHit =
     hitType === "double" ||
     hitType === "triple" ||
-    hitType === "greenBull" ||
     hitType === "redBull";
 
   if (!validReviveHit) return false;
@@ -433,13 +427,17 @@ function finishShanghaiWin(playerName) {
   updateMessage(`${playerName} hit SHANGHAI!`, "#ffcc00");
 }
 
-function consumeTurnLifeEvent() {
-  if (gameState.livesTakenThisTurn >= 3) return false;
-  gameState.livesTakenThisTurn += 1;
+function canConsumeTurnEvents(amount) {
+  return gameState.livesTakenThisTurn + amount <= 3;
+}
+
+function consumeTurnEvents(amount) {
+  if (!canConsumeTurnEvents(amount)) return false;
+  gameState.livesTakenThisTurn += amount;
   return true;
 }
 
-function dealSelfHit(player, damage = 1) {
+function dealSelfHit(player, damage) {
   ensureStats(player).selfHits += damage;
   player.lives = Math.max(0, player.lives - damage);
 
@@ -452,7 +450,7 @@ function dealSelfHit(player, damage = 1) {
   return false;
 }
 
-function dealHitToVictim(attacker, victimIndex, hitType, damage = 1) {
+function dealHitToVictim(attacker, victimIndex, hitType, damage) {
   const victim = gameState.players[victimIndex];
   if (!victim || !isPlayerActive(victim)) return false;
 
@@ -503,7 +501,7 @@ export function initGame(players) {
       }
     })),
 
-    phase: "NDH", // NDH | GAME | REDEMSKI
+    phase: "NDH",
     currentPlayer: 0,
     redemskiPlayerIndex: null,
 
@@ -650,17 +648,20 @@ export function submitGameThrow(hitType, target) {
 
   if (hitOwnTarget) {
     if (!player.isKiller && hitValue > 0) {
-      if (!consumeTurnLifeEvent()) {
-        updateMessage(`${player.name} has already used 3 life events this turn.`, "#facc15");
+      if (!consumeTurnEvents(1)) {
+        updateMessage(`${player.name} has already used 3 total turn events.`, "#facc15");
       } else {
         player.isKiller = true;
         updateMessage(`${player.name} is now a Killer!`, "#22c55e");
       }
     } else if (player.isKiller && hitValue > 0) {
-      if (!consumeTurnLifeEvent()) {
-        updateMessage(`${player.name} has already used 3 life events this turn.`, "#facc15");
+      const damage = Math.min(hitValue, 3 - gameState.livesTakenThisTurn);
+
+      if (damage <= 0) {
+        updateMessage(`${player.name} has already used 3 total turn events.`, "#facc15");
       } else {
-        const endedTurn = dealSelfHit(player, 1);
+        consumeTurnEvents(damage);
+        const endedTurn = dealSelfHit(player, damage);
         if (endedTurn) return;
       }
     }
@@ -671,10 +672,13 @@ export function submitGameThrow(hitType, target) {
       const victim = gameState.players[victimIndex];
 
       if (victim && isPlayerActive(victim)) {
-        if (!consumeTurnLifeEvent()) {
-          updateMessage(`${player.name} has already used 3 life events this turn.`, "#facc15");
+        const damage = Math.min(hitValue, 3 - gameState.livesTakenThisTurn);
+
+        if (damage <= 0) {
+          updateMessage(`${player.name} has already used 3 total turn events.`, "#facc15");
         } else {
-          const endedTurn = dealHitToVictim(player, victimIndex, hitType, 1);
+          consumeTurnEvents(damage);
+          const endedTurn = dealHitToVictim(player, victimIndex, hitType, damage);
           if (endedTurn) return;
         }
       }
@@ -719,7 +723,7 @@ export function submitRedemskiThrow(hitType, target) {
     (
       hitType === "double" ||
       hitType === "triple" ||
-      (player.target === 25 && (hitType === "greenBull" || hitType === "redBull"))
+      (player.target === 25 && (hitType === "redBull" || hitType === "greenBull"))
     );
 
   if (validReviveHit) {
