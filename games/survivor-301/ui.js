@@ -1,7 +1,4 @@
-// Survivor 301 - ui.js
-
 import {
-  initGame,
   subscribe,
   getState,
   addDart,
@@ -19,6 +16,7 @@ const { DART_TYPES, MAX_DARTS_PER_TURN, STARTING_SCORE, RED_BULL_BONUS } = getCo
 let rootEl = null;
 let unsubscribe = null;
 let selectedType = null;
+let rulesOpen = false;
 
 export function renderUI(container) {
   rootEl = container;
@@ -41,16 +39,19 @@ function draw() {
   const state = getState();
 
   rootEl.innerHTML = `
-    <div class="survivor301-app" style="${styles.app}">
+    <div style="${styles.app}">
       <div style="${styles.headerRow}">
         <div>
           <div style="${styles.title}">☣️ Survivor 301</div>
           <div style="${styles.subtitle}">
-            Stay alive. Everything hurts except the bull.
+            Everybody starts at ${STARTING_SCORE}. Survive longer than everyone else.
           </div>
         </div>
+
         <div style="${styles.headerButtons}">
-          <button type="button" data-action="rules" style="${styles.secondaryButton}">Rules</button>
+          <button type="button" data-action="rules" style="${styles.secondaryButton}">
+            Rules
+          </button>
           <button
             type="button"
             data-action="undo"
@@ -62,64 +63,25 @@ function draw() {
         </div>
       </div>
 
-      ${
-        !state.gameStarted
-          ? renderStartScreen()
-          : `
-            <div style="${styles.mainGrid}">
-              <div style="${styles.leftColumn}">
-                ${renderScoreboard(state)}
-                ${renderWinnerPanel(state)}
-              </div>
+      <div style="${styles.mainGrid}">
+        <div style="${styles.leftColumn}">
+          ${renderScoreboard(state)}
+          ${renderWinnerPanel(state)}
+        </div>
 
-              <div style="${styles.rightColumn}">
-                ${renderActivePlayerPanel(state)}
-                ${renderTurnPanel(state)}
-                ${renderControlsPanel(state)}
-              </div>
-            </div>
-          `
-      }
+        <div style="${styles.rightColumn}">
+          ${renderActivePlayerPanel(state)}
+          ${renderTurnPanel(state)}
+          ${renderControlsPanel(state)}
+        </div>
+      </div>
 
       ${renderRulesModal()}
     </div>
   `;
 
   bindEvents();
-  updateRulesVisibility();
-}
-
-function renderStartScreen() {
-  return `
-    <div style="${styles.card}">
-      <div style="${styles.sectionTitle}">Start Game</div>
-      <div style="${styles.helpText}">
-        Enter at least 2 players. Everyone starts at <strong>${STARTING_SCORE}</strong>.
-        Green Bull costs nothing. Red Bull adds <strong>+${RED_BULL_BONUS}</strong>.
-        Hit 0 or lower and you are out.
-      </div>
-
-      <div style="${styles.startGrid}">
-        ${[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `
-          <label style="${styles.playerField}">
-            <span style="${styles.playerFieldLabel}">Player ${n}</span>
-            <input
-              type="text"
-              data-player-input="${n}"
-              placeholder="Player ${n}"
-              style="${styles.input}"
-            />
-          </label>
-        `).join("")}
-      </div>
-
-      <div style="${styles.startActions}">
-        <button type="button" data-action="start-game" style="${styles.primaryButton}">
-          Start Survivor 301
-        </button>
-      </div>
-    </div>
-  `;
+  syncRulesVisibility();
 }
 
 function renderScoreboard(state) {
@@ -128,31 +90,35 @@ function renderScoreboard(state) {
   return `
     <div style="${styles.card}">
       <div style="${styles.sectionTitle}">Scoreboard</div>
-      <div style="${styles.scoreboardList}">
-        ${players.map((player) => {
-          const isCurrent = state.currentPlayer?.id === player.id && !state.gameOver;
-          const isOut = player.eliminated;
 
-          return `
-            <div style="${scoreRowStyle(isCurrent, isOut)}">
-              <div style="${styles.playerNameBlock}">
-                <div style="${styles.playerName}">${escapeHtml(player.name)}</div>
-                <div style="${styles.playerStatus}">
-                  ${
-                    isOut
-                      ? `☠️ OUT${player.eliminatedPlace ? ` · ${ordinal(player.eliminatedPlace)} out` : ""}`
-                      : isCurrent
-                      ? "ACTIVE"
-                      : "ALIVE"
-                  }
+      <div style="${styles.scoreboardList}">
+        ${players
+          .map((player) => {
+            const isCurrent = state.currentPlayer?.id === player.id && !state.gameOver;
+            const isOut = player.eliminated;
+
+            return `
+              <div style="${scoreRowStyle(isCurrent, isOut)}">
+                <div style="${styles.playerNameBlock}">
+                  <div style="${styles.playerName}">${escapeHtml(player.name)}</div>
+                  <div style="${styles.playerStatus}">
+                    ${
+                      isOut
+                        ? `☠️ OUT${player.eliminatedPlace ? ` · ${ordinal(player.eliminatedPlace)} out` : ""}`
+                        : isCurrent
+                        ? "ACTIVE"
+                        : "ALIVE"
+                    }
+                  </div>
+                </div>
+
+                <div style="${scoreValueStyle(isOut)}">
+                  ${player.score}
                 </div>
               </div>
-              <div style="${scoreValueStyle(isOut)}">
-                ${isOut ? player.score : player.score}
-              </div>
-            </div>
-          `;
-        }).join("")}
+            `;
+          })
+          .join("")}
       </div>
     </div>
   `;
@@ -166,11 +132,15 @@ function renderWinnerPanel(state) {
       <div style="${styles.winnerCard}">
         <div style="${styles.winnerTitle}">No Survivor</div>
         <div style="${styles.winnerCopy}">
-          Somehow everybody is gone.
+          Everybody is out.
         </div>
         <div style="${styles.endButtons}">
-          <button type="button" data-action="new-game" style="${styles.primaryButton}">New Game</button>
-          <button type="button" data-action="rotate-game" style="${styles.secondaryButton}">Rotate Order</button>
+          <button type="button" data-action="new-game" style="${styles.primaryButton}">
+            New Game
+          </button>
+          <button type="button" data-action="rotate-game" style="${styles.secondaryButton}">
+            Rotate Order
+          </button>
         </div>
       </div>
     `;
@@ -184,8 +154,12 @@ function renderWinnerPanel(state) {
         Everyone else ran out of points. ${escapeHtml(state.winner.name)} is the last one standing.
       </div>
       <div style="${styles.endButtons}">
-        <button type="button" data-action="new-game" style="${styles.primaryButton}">New Game</button>
-        <button type="button" data-action="rotate-game" style="${styles.secondaryButton}">Rotate Order</button>
+        <button type="button" data-action="new-game" style="${styles.primaryButton}">
+          New Game
+        </button>
+        <button type="button" data-action="rotate-game" style="${styles.secondaryButton}">
+          Rotate Order
+        </button>
       </div>
     </div>
   `;
@@ -211,6 +185,7 @@ function renderActivePlayerPanel(state) {
   return `
     <div style="${styles.card}">
       <div style="${styles.sectionTitle}">Current Player</div>
+
       <div style="${styles.activePlayerWrap}">
         <div>
           <div style="${styles.activePlayerName}">${escapeHtml(player.name)}</div>
@@ -222,11 +197,9 @@ function renderActivePlayerPanel(state) {
         <div style="${styles.scorePreviewBox}">
           <div style="${styles.scorePreviewLabel}">Score</div>
           <div style="${styles.scorePreviewValue}">${player.score}</div>
-          ${
-            previewScore !== player.score
-              ? `<div style="${styles.scorePreviewSub}">Preview: ${previewScore}</div>`
-              : `<div style="${styles.scorePreviewSub}">Still breathing</div>`
-          }
+          <div style="${styles.scorePreviewSub}">
+            ${previewScore !== player.score ? `Preview: ${previewScore}` : "Still alive"}
+          </div>
         </div>
       </div>
     </div>
@@ -250,22 +223,27 @@ function renderTurnPanel(state) {
           ? `<div style="${styles.helpText}">No darts entered yet.</div>`
           : `
             <div style="${styles.turnList}">
-              ${darts.map((dart, index) => `
-                <div style="${styles.turnRow}">
-                  <div style="${styles.turnLeft}">
-                    <div style="${styles.turnDartIndex}">Dart ${index + 1}</div>
-                    <div style="${styles.turnDartLabel}">${escapeHtml(dart.label)}</div>
-                  </div>
-                  <div style="${styles.turnRight}">
-                    <div style="${styles.turnDelta}">
-                      ${formatDelta(dart)}
+              ${darts
+                .map(
+                  (dart, index) => `
+                    <div style="${styles.turnRow}">
+                      <div style="${styles.turnLeft}">
+                        <div style="${styles.turnDartIndex}">Dart ${index + 1}</div>
+                        <div style="${styles.turnDartLabel}">${escapeHtml(dart.label)}</div>
+                      </div>
+
+                      <div style="${styles.turnRight}">
+                        <div style="${styles.turnDelta}">
+                          ${formatDelta(dart)}
+                        </div>
+                        <div style="${styles.turnAfter}">
+                          ${dart.scoreBefore} → ${dart.scoreAfter}
+                        </div>
+                      </div>
                     </div>
-                    <div style="${styles.turnAfter}>
-                      ${dart.scoreBefore} → ${dart.scoreAfter}
-                    </div>
-                  </div>
-                </div>
-              `).join("")}
+                  `
+                )
+                .join("")}
             </div>
           `
       }
@@ -289,6 +267,7 @@ function renderTurnPanel(state) {
           >
             Remove Last
           </button>
+
           <button
             type="button"
             data-action="clear-turn"
@@ -304,12 +283,13 @@ function renderTurnPanel(state) {
 }
 
 function renderControlsPanel(state) {
-  const canThrow = !state.gameOver
-    && state.gameStarted
-    && state.currentPlayer
-    && !state.currentPlayer.eliminated
-    && state.turnDarts.length < MAX_DARTS_PER_TURN
-    && !state.turnDarts.some((dart) => dart.eliminated);
+  const canThrow =
+    !state.gameOver &&
+    state.gameStarted &&
+    state.currentPlayer &&
+    !state.currentPlayer.eliminated &&
+    state.turnDarts.length < MAX_DARTS_PER_TURN &&
+    !state.turnDarts.some((dart) => dart.eliminated);
 
   const canSubmit = state.turnDarts.length > 0 && !state.gameOver;
 
@@ -322,7 +302,7 @@ function renderControlsPanel(state) {
         <button
           type="button"
           data-throw-type="${DART_TYPES.MISS}"
-          style="${throwButtonStyle(canThrow, selectedType === DART_TYPES.MISS)}"
+          style="${throwButtonStyle(canThrow, false)}"
           ${!canThrow ? "disabled" : ""}
         >
           Miss
@@ -331,7 +311,7 @@ function renderControlsPanel(state) {
         <button
           type="button"
           data-throw-type="${DART_TYPES.GREEN_BULL}"
-          style="${throwButtonStyle(canThrow, selectedType === DART_TYPES.GREEN_BULL)}"
+          style="${throwButtonStyle(canThrow, false)}"
           ${!canThrow ? "disabled" : ""}
         >
           Green Bull
@@ -340,7 +320,7 @@ function renderControlsPanel(state) {
         <button
           type="button"
           data-throw-type="${DART_TYPES.RED_BULL}"
-          style="${throwButtonStyle(canThrow, selectedType === DART_TYPES.RED_BULL)}"
+          style="${throwButtonStyle(canThrow, false)}"
           ${!canThrow ? "disabled" : ""}
         >
           Red Bull
@@ -384,16 +364,21 @@ function renderControlsPanel(state) {
               <div style="${styles.numberPrompt}">
                 Choose a number for <strong>${labelForType(selectedType)}</strong>
               </div>
+
               <div style="${styles.numberGrid}">
-                ${Array.from({ length: 20 }, (_, i) => i + 1).map((n) => `
-                  <button
-                    type="button"
-                    data-throw-number="${n}"
-                    style="${styles.numberButton}"
-                  >
-                    ${n}
-                  </button>
-                `).join("")}
+                ${Array.from({ length: 20 }, (_, i) => i + 1)
+                  .map(
+                    (n) => `
+                      <button
+                        type="button"
+                        data-throw-number="${n}"
+                        style="${styles.numberButton}"
+                      >
+                        ${n}
+                      </button>
+                    `
+                  )
+                  .join("")}
               </div>
             </div>
           `
@@ -416,18 +401,19 @@ function renderControlsPanel(state) {
 
 function renderRulesModal() {
   return `
-    <div id="survivor301-rules-overlay" style="${styles.rulesOverlayHidden}">
+    <div id="survivor301-rules-overlay" style="${styles.rulesOverlay}">
       <div style="${styles.rulesModal}">
         <div style="${styles.rulesTitle}">Survivor 301 Rules</div>
+
         <div style="${styles.rulesBody}">
           <p style="${styles.ruleP}">
             Every player starts with <strong>${STARTING_SCORE}</strong>.
           </p>
           <p style="${styles.ruleP}">
-            Your goal is to <strong>avoid running out of points</strong>.
+            The goal is to <strong>not</strong> run out of points.
           </p>
           <p style="${styles.ruleP}">
-            <strong>Single / Double / Triple</strong> subtract their normal dart values.
+            <strong>Single / Double / Triple</strong> subtract normal dart values.
           </p>
           <p style="${styles.ruleP}">
             <strong>Green Bull</strong> subtracts <strong>0</strong>.
@@ -442,8 +428,11 @@ function renderRulesModal() {
             Last player standing wins.
           </p>
         </div>
+
         <div style="${styles.rulesActions}">
-          <button type="button" data-action="close-rules" style="${styles.primaryButton}">Close</button>
+          <button type="button" data-action="close-rules" style="${styles.primaryButton}">
+            Close
+          </button>
         </div>
       </div>
     </div>
@@ -451,10 +440,6 @@ function renderRulesModal() {
 }
 
 function bindEvents() {
-  rootEl.querySelectorAll("[data-action='start-game']").forEach((btn) => {
-    btn.addEventListener("click", handleStartGameClick);
-  });
-
   rootEl.querySelectorAll("[data-action='submit-turn']").forEach((btn) => {
     btn.addEventListener("click", () => {
       selectedType = null;
@@ -497,11 +482,17 @@ function bindEvents() {
   });
 
   rootEl.querySelectorAll("[data-action='rules']").forEach((btn) => {
-    btn.addEventListener("click", openRules);
+    btn.addEventListener("click", () => {
+      rulesOpen = true;
+      syncRulesVisibility();
+    });
   });
 
   rootEl.querySelectorAll("[data-action='close-rules']").forEach((btn) => {
-    btn.addEventListener("click", closeRules);
+    btn.addEventListener("click", () => {
+      rulesOpen = false;
+      syncRulesVisibility();
+    });
   });
 
   rootEl.querySelectorAll("[data-throw-type]").forEach((btn) => {
@@ -533,45 +524,17 @@ function bindEvents() {
   if (overlay) {
     overlay.addEventListener("click", (event) => {
       if (event.target === overlay) {
-        closeRules();
+        rulesOpen = false;
+        syncRulesVisibility();
       }
     });
   }
 }
 
-function handleStartGameClick() {
-  const inputs = Array.from(rootEl.querySelectorAll("[data-player-input]"));
-  const names = inputs
-    .map((input) => input.value.trim())
-    .filter(Boolean);
-
-  if (names.length < 2) {
-    window.alert("Enter at least 2 players to start Survivor 301.");
-    return;
-  }
-
-  selectedType = null;
-  initGame(names);
-}
-
-function openRules() {
+function syncRulesVisibility() {
   const overlay = rootEl.querySelector("#survivor301-rules-overlay");
   if (!overlay) return;
-  overlay.style.display = "flex";
-}
-
-function closeRules() {
-  const overlay = rootEl.querySelector("#survivor301-rules-overlay");
-  if (!overlay) return;
-  overlay.style.display = "none";
-}
-
-function updateRulesVisibility() {
-  const overlay = rootEl.querySelector("#survivor301-rules-overlay");
-  if (!overlay) return;
-  if (!overlay.dataset.open) {
-    overlay.style.display = "none";
-  }
+  overlay.style.display = rulesOpen ? "flex" : "none";
 }
 
 function isNumberType(type) {
@@ -617,8 +580,7 @@ function escapeHtml(value) {
 
 function buttonStyle(enabled, primary = false) {
   const base = primary ? styles.primaryButton : styles.secondaryButton;
-  const disabled = enabled ? "" : "opacity:0.45;cursor:not-allowed;";
-  return `${base}${disabled}`;
+  return `${base}${enabled ? "" : "opacity:0.45;cursor:not-allowed;"}`;
 }
 
 function throwButtonStyle(enabled, selected) {
@@ -706,38 +668,6 @@ const styles = {
     font-size:14px;
     line-height:1.45;
     opacity:0.92;
-  `,
-  startGrid: `
-    display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
-    gap:12px;
-    margin-top:16px;
-  `,
-  playerField: `
-    display:flex;
-    flex-direction:column;
-    gap:6px;
-  `,
-  playerFieldLabel: `
-    font-size:13px;
-    font-weight:700;
-    opacity:0.92;
-  `,
-  input: `
-    box-sizing:border-box;
-    width:100%;
-    border-radius:10px;
-    border:1px solid rgba(255,255,255,0.2);
-    padding:10px 12px;
-    font-size:15px;
-    background:rgba(255,255,255,0.08);
-    color:#fff;
-    outline:none;
-  `,
-  startActions: `
-    margin-top:16px;
-    display:flex;
-    justify-content:flex-start;
   `,
   primaryButton: `
     border:none;
@@ -986,7 +916,7 @@ const styles = {
     display:flex;
     justify-content:flex-start;
   `,
-  rulesOverlayHidden: `
+  rulesOverlay: `
     display:none;
     position:fixed;
     inset:0;
