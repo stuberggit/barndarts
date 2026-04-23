@@ -9,13 +9,6 @@ function cloneState(state) {
   return JSON.parse(JSON.stringify(state));
 }
 
-function getUnassignedPlayerIndexes() {
-  return gameState.players
-    .map((player, index) => ({ player, index }))
-    .filter(({ player }) => !player.target)
-    .map(({ index }) => index);
-}
-
 function isBullHitType(hitType) {
   return hitType === "greenBull" || hitType === "redBull";
 }
@@ -30,7 +23,6 @@ function getNumberRank(hitType) {
     double: 2,
     triple: 3
   };
-
   return rank[hitType] || 0;
 }
 
@@ -42,7 +34,6 @@ function getHitValue(hitType) {
     greenBull: 2,
     redBull: 3
   };
-
   return values[hitType] || 0;
 }
 
@@ -60,6 +51,10 @@ function formatTarget(target, hitType) {
   return `${labelMap[hitType]} ${target}`;
 }
 
+function formatTargetNumber(target) {
+  return target === 25 ? "Bull" : String(target);
+}
+
 function canOverride(existingAssignment, incomingAssignment) {
   if (!existingAssignment) return true;
   if (existingAssignment.target !== incomingAssignment.target) return false;
@@ -71,11 +66,21 @@ function canOverride(existingAssignment, incomingAssignment) {
     );
   }
 
-  if (!isNumberHitType(existingAssignment.hitType) || !isNumberHitType(incomingAssignment.hitType)) {
+  if (
+    !isNumberHitType(existingAssignment.hitType) ||
+    !isNumberHitType(incomingAssignment.hitType)
+  ) {
     return false;
   }
 
   return getNumberRank(incomingAssignment.hitType) > getNumberRank(existingAssignment.hitType);
+}
+
+function getUnassignedPlayerIndexes() {
+  return gameState.players
+    .map((player, index) => ({ player, index }))
+    .filter(({ player }) => !player.target)
+    .map(({ index }) => index);
 }
 
 function findPlayerByTarget(target) {
@@ -94,7 +99,7 @@ function countActivePlayers() {
   return getActivePlayers().length;
 }
 
-function updateMessage(message, color) {
+function updateMessage(message, color = "#ffffff") {
   gameState.lastMessage = message;
   gameState.lastMessageColor = color;
   gameState.lastMessageTimestamp = Date.now();
@@ -108,11 +113,42 @@ function resetTurnTracking() {
   gameState.livesTakenThisTurn = 0;
 }
 
+function ensureStats(player) {
+  if (!player.stats) {
+    player.stats = {
+      targetClaim: null,
+      totalKills: 0,
+      selfHits: 0,
+      redemskis: 0,
+      revives: 0,
+      zombied: 0
+    };
+  }
+
+  return player.stats;
+}
+
+function buildStatsSummary() {
+  return gameState.players.map(player => ({
+    name: player.name,
+    target: player.target,
+    hitType: player.hitType,
+    lives: player.lives,
+    isKiller: player.isKiller,
+    isZombie: player.isZombie,
+    isDormantDead: player.isDormantDead,
+    isRedemski: player.isRedemski,
+    redemskiCount: player.redemskiCount || 0,
+    stats: { ...ensureStats(player) }
+  }));
+}
+
 function maybeDeclareWinner() {
   const activePlayers = getActivePlayers();
 
   if (activePlayers.length === 1) {
     gameState.winner = activePlayers[0].name;
+    gameState.finalStats = buildStatsSummary();
     return true;
   }
 
@@ -129,7 +165,10 @@ function advanceTurn() {
       gameState.currentPlayer = 0;
     }
     attempts++;
-  } while (!isPlayerActive(gameState.players[gameState.currentPlayer]) && attempts <= gameState.players.length);
+  } while (
+    !isPlayerActive(gameState.players[gameState.currentPlayer]) &&
+    attempts <= gameState.players.length
+  );
 
   maybeDeclareWinner();
 }
@@ -145,6 +184,8 @@ function assignTargetToPlayer(playerIndex, assignment) {
     assignment.hitType === "greenBull" ||
     assignment.hitType === "redBull";
 
+  ensureStats(player).targetClaim = formatTarget(assignment.target, assignment.hitType);
+
   updateMessage(
     player.isKiller
       ? `${player.name} claims ${formatTarget(assignment.target, assignment.hitType)} and starts as a Killer!`
@@ -159,6 +200,7 @@ function bumpPlayerOffTarget(playerIndex) {
   player.target = null;
   player.hitType = null;
   player.isKiller = false;
+  ensureStats(player).targetClaim = null;
 }
 
 function maybeAdvancePhase() {
@@ -232,7 +274,7 @@ function setDormantDead(playerIndex) {
   player.isRedemski = false;
 }
 
-function reviveZombie(playerIndex) {
+function reviveZombie(playerIndex, revivedByIndex = null) {
   const player = gameState.players[playerIndex];
   if (!player) return false;
   if (!player.isDormantDead) return false;
@@ -243,12 +285,17 @@ function reviveZombie(playerIndex) {
   player.isZombie = true;
   player.isKiller = true;
   player.isRedemski = false;
+  ensureStats(player).zombied += 1;
 
-  updateMessage(`${player.name} is zombied back in with 1 life and Killer status!`, "#f97316");
+  if (revivedByIndex != null && gameState.players[revivedByIndex]) {
+    ensureStats(gameState.players[revivedByIndex]).revives += 1;
+  }
+
+  updateMessage(`${player.name} is zombied back in with 1 life and Killer status!`, "#84cc16");
   return true;
 }
 
-function checkZombieRevival(hitType, target) {
+function checkZombieRevival(hitType, target, throwerIndex) {
   if (target == null) return false;
 
   const validReviveHit =
@@ -265,7 +312,7 @@ function checkZombieRevival(hitType, target) {
 
   if (dormantPlayerIndex === -1) return false;
 
-  return reviveZombie(dormantPlayerIndex);
+  return reviveZombie(dormantPlayerIndex, throwerIndex);
 }
 
 function startRedemski(playerIndex) {
@@ -304,6 +351,8 @@ function finishSuccessfulRedemski() {
   player.isActive = true;
   player.isDormantDead = false;
   player.isRedemski = true;
+  player.redemskiCount = (player.redemskiCount || 0) + 1;
+  ensureStats(player).redemskis = player.redemskiCount;
 
   gameState.phase = "GAME";
   gameState.redemskiPlayerIndex = null;
@@ -329,6 +378,102 @@ function isStandardShanghai(turnHitsOnOwnTarget) {
   );
 }
 
+function getVisibleTargetNumbersForPlayer(playerIndex) {
+  const player = gameState.players[playerIndex];
+  if (!player) return [];
+
+  if (!player.isKiller) {
+    return player.target != null ? [player.target] : [];
+  }
+
+  return gameState.players
+    .filter((other, index) => {
+      if (index === playerIndex) return false;
+      if (other.target == null) return false;
+      return other.isActive || other.isDormantDead;
+    })
+    .map(other => other.target)
+    .sort((a, b) => {
+      if (a === 25) return 1;
+      if (b === 25) return -1;
+      return a - b;
+    });
+}
+
+function getCurrentTargetText() {
+  const player = gameState.players[gameState.currentPlayer];
+  if (!player) return "";
+
+  const targets = getVisibleTargetNumbersForPlayer(gameState.currentPlayer);
+
+  if (!targets.length) {
+    return player.target != null ? formatTargetNumber(player.target) : "—";
+  }
+
+  return targets.map(formatTargetNumber).join(", ");
+}
+
+function recordOwnTargetHitForShanghai(player, hitType, target) {
+  const hitOwnTarget = target === player.target;
+
+  if (
+    hitOwnTarget &&
+    (
+      (player.target === 25 && isBullHitType(hitType)) ||
+      (player.target !== 25 && isNumberHitType(hitType))
+    )
+  ) {
+    gameState.currentTurnHitsOnOwnTarget.push(hitType);
+  }
+}
+
+function finishShanghaiWin(playerName) {
+  gameState.shanghaiWinner = playerName;
+  gameState.finalStats = buildStatsSummary();
+  updateMessage(`${playerName} hit SHANGHAI!`, "#ffcc00");
+}
+
+function consumeTurnLifeEvent() {
+  if (gameState.livesTakenThisTurn >= 3) return false;
+  gameState.livesTakenThisTurn += 1;
+  return true;
+}
+
+function dealSelfHit(player, damage = 1) {
+  ensureStats(player).selfHits += damage;
+  player.lives = Math.max(0, player.lives - damage);
+
+  if (player.lives <= 0) {
+    startRedemski(gameState.currentPlayer);
+    return true;
+  }
+
+  updateMessage(`${player.name} hits themselves for ${damage}!`, "#ff4c4c");
+  return false;
+}
+
+function dealHitToVictim(attacker, victimIndex, hitType, damage = 1) {
+  const victim = gameState.players[victimIndex];
+  if (!victim || !isPlayerActive(victim)) return false;
+
+  if (victim.lives > damage) {
+    victim.lives -= damage;
+    ensureStats(attacker).totalKills += damage;
+    updateMessage(`${attacker.name} hits ${victim.name} for ${damage}!`, "#ff4c4c");
+    return false;
+  }
+
+  if (canKillWithHit(victim, hitType)) {
+    victim.lives = 0;
+    ensureStats(attacker).totalKills += damage;
+    startRedemski(victimIndex);
+    return true;
+  }
+
+  updateMessage(`${victim.name} is not in kill range for that hit.`, "#facc15");
+  return false;
+}
+
 /* -------------------------
    INIT / STATE
 --------------------------*/
@@ -345,8 +490,17 @@ export function initGame(players) {
       isKiller: false,
       isZombie: false,
       isRedemski: false,
+      redemskiCount: 0,
       isActive: true,
-      isDormantDead: false
+      isDormantDead: false,
+      stats: {
+        targetClaim: null,
+        totalKills: 0,
+        selfHits: 0,
+        redemskis: 0,
+        revives: 0,
+        zombied: 0
+      }
     })),
 
     phase: "NDH", // NDH | GAME | REDEMSKI
@@ -364,7 +518,8 @@ export function initGame(players) {
     lastMessageTimestamp: 0,
 
     winner: null,
-    shanghaiWinner: null
+    shanghaiWinner: null,
+    finalStats: null
   };
 
   history = [];
@@ -374,6 +529,20 @@ export function getState() {
   return gameState;
 }
 
+export function getStats() {
+  return buildStatsSummary();
+}
+
+export function getCurrentTargetDisplay() {
+  return getCurrentTargetText();
+}
+
+export function getCurrentTargetOptions() {
+  const player = gameState.players[gameState.currentPlayer];
+  if (!player) return [];
+  return getVisibleTargetNumbersForPlayer(gameState.currentPlayer);
+}
+
 /* -------------------------
    NDH ASSIGNMENT
 --------------------------*/
@@ -381,12 +550,12 @@ export function getState() {
 export function submitNDHThrow(hitType, target = null) {
   if (gameState.phase !== "NDH") return;
 
-  history.push(cloneState(gameState));
-
   const playerIndex = gameState.currentPlayer;
   const player = gameState.players[playerIndex];
 
   if (!player || player.target) return;
+
+  history.push(cloneState(gameState));
 
   let assignment;
 
@@ -425,12 +594,18 @@ export function submitNDHThrow(hitType, target = null) {
   if (canOverride(existingAssignment, assignment)) {
     bumpPlayerOffTarget(existingIndex);
     assignTargetToPlayer(playerIndex, assignment);
-    updateMessage(`${player.name} takes ${formatTarget(assignment.target, assignment.hitType)} from ${existingPlayer.name}!`, "#facc15");
+    updateMessage(
+      `${player.name} takes ${formatTarget(assignment.target, assignment.hitType)} from ${existingPlayer.name}!`,
+      "#facc15"
+    );
     maybeAdvancePhase();
     return;
   }
 
-  updateMessage(`${formatTarget(assignment.target, assignment.hitType)} is already locked. ${player.name} throws again.`, "#ff4c4c");
+  updateMessage(
+    `${formatTarget(assignment.target, assignment.hitType)} is already locked. ${player.name} throws again.`,
+    "#ff4c4c"
+  );
 }
 
 /* -------------------------
@@ -440,7 +615,8 @@ export function submitNDHThrow(hitType, target = null) {
 export function submitGameThrow(hitType, target) {
   if (gameState.phase !== "GAME" || gameState.winner || gameState.shanghaiWinner) return;
 
-  const player = gameState.players[gameState.currentPlayer];
+  const playerIndex = gameState.currentPlayer;
+  const player = gameState.players[playerIndex];
   if (!player || !isPlayerActive(player)) return;
 
   history.push(cloneState(gameState));
@@ -456,21 +632,9 @@ export function submitGameThrow(hitType, target) {
     gameState.currentTurnHits.push(hitType);
   }
 
-  if (
-    hitOwnTarget &&
-    (
-      isNumberHitType(hitType) ||
-      (player.target === 25 && isBullHitType(hitType))
-    )
-  ) {
-    if (player.target === 25 && isBullHitType(hitType)) {
-      gameState.currentTurnHitsOnOwnTarget.push(hitType);
-    } else if (isNumberHitType(hitType)) {
-      gameState.currentTurnHitsOnOwnTarget.push(hitType);
-    }
-  }
+  recordOwnTargetHitForShanghai(player, hitType, target);
 
-  const revivedZombieThisDart = checkZombieRevival(hitType, target);
+  const revivedZombieThisDart = checkZombieRevival(hitType, target, playerIndex);
 
   const shanghaiHit =
     player.isKiller &&
@@ -480,54 +644,38 @@ export function submitGameThrow(hitType, target) {
     );
 
   if (shanghaiHit) {
-    gameState.shanghaiWinner = player.name;
-    updateMessage(`${player.name} hit SHANGHAI!`, "#ffcc00");
+    finishShanghaiWin(player.name);
     return;
   }
 
   if (hitOwnTarget) {
     if (!player.isKiller && hitValue > 0) {
-      player.isKiller = true;
-      updateMessage(`${player.name} is now a Killer!`, "#22c55e");
-    } else if (player.isKiller && hitValue > 0 && gameState.livesTakenThisTurn < 3) {
-      const damage = Math.min(hitValue, 3 - gameState.livesTakenThisTurn);
-      player.lives = Math.max(0, player.lives - damage);
-      gameState.livesTakenThisTurn += damage;
-
-      if (player.lives <= 0) {
-        startRedemski(gameState.currentPlayer);
-        return;
+      if (!consumeTurnLifeEvent()) {
+        updateMessage(`${player.name} has already used 3 life events this turn.`, "#facc15");
       } else {
-        updateMessage(`${player.name} hits themselves for ${damage}!`, "#ff4c4c");
+        player.isKiller = true;
+        updateMessage(`${player.name} is now a Killer!`, "#22c55e");
+      }
+    } else if (player.isKiller && hitValue > 0) {
+      if (!consumeTurnLifeEvent()) {
+        updateMessage(`${player.name} has already used 3 life events this turn.`, "#facc15");
+      } else {
+        const endedTurn = dealSelfHit(player, 1);
+        if (endedTurn) return;
       }
     }
-  } else if (
-    player.isKiller &&
-    hitValue > 0 &&
-    gameState.livesTakenThisTurn < 3 &&
-    !revivedZombieThisDart
-  ) {
+  } else if (player.isKiller && hitValue > 0 && !revivedZombieThisDart) {
     const victimIndex = findPlayerByTarget(target);
 
     if (victimIndex !== -1) {
       const victim = gameState.players[victimIndex];
 
       if (victim && isPlayerActive(victim)) {
-        const potentialDamage = Math.min(hitValue, 3 - gameState.livesTakenThisTurn);
-
-        if (victim.lives > potentialDamage) {
-          victim.lives -= potentialDamage;
-          gameState.livesTakenThisTurn += potentialDamage;
-          updateMessage(`${player.name} hits ${victim.name} for ${potentialDamage}!`, "#ff4c4c");
+        if (!consumeTurnLifeEvent()) {
+          updateMessage(`${player.name} has already used 3 life events this turn.`, "#facc15");
         } else {
-          if (canKillWithHit(victim, hitType)) {
-            gameState.livesTakenThisTurn += potentialDamage;
-            victim.lives = 0;
-            startRedemski(victimIndex);
-            return;
-          } else {
-            updateMessage(`${victim.name} is not in kill range for that hit.`, "#facc15");
-          }
+          const endedTurn = dealHitToVictim(player, victimIndex, hitType, 1);
+          if (endedTurn) return;
         }
       }
     }
@@ -538,6 +686,16 @@ export function submitGameThrow(hitType, target) {
   if (gameState.dartsThrown >= 3) {
     advanceTurn();
   }
+}
+
+export function submitShanghai() {
+  if (gameState.phase !== "GAME" || gameState.winner || gameState.shanghaiWinner) return;
+
+  const player = gameState.players[gameState.currentPlayer];
+  if (!player || !isPlayerActive(player) || !player.isKiller) return;
+
+  history.push(cloneState(gameState));
+  finishShanghaiWin(player.name);
 }
 
 /* -------------------------
@@ -587,6 +745,23 @@ export function nextPlayer() {
   if (gameState.phase === "REDEMSKI") {
     finishFailedRedemski();
   }
+}
+
+export function endGameEarly() {
+  if (gameState.winner || gameState.shanghaiWinner) return;
+
+  history.push(cloneState(gameState));
+
+  const activePlayers = getActivePlayers();
+  if (activePlayers.length > 0) {
+    const leader = [...activePlayers].sort((a, b) => b.lives - a.lives)[0];
+    gameState.winner = leader.name;
+  } else {
+    gameState.winner = "No Winner";
+  }
+
+  gameState.finalStats = buildStatsSummary();
+  updateMessage("Game ended early.", "#facc15");
 }
 
 /* -------------------------
