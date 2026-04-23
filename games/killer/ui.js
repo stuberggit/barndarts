@@ -174,9 +174,9 @@ function getLivesEmoji(player) {
   const lives = Math.max(0, Math.min(6, player.lives || 0));
 
   let heartColor = "#22c55e"; // green
-  if (lives <= 2) {
+  if (lives === 1) {
     heartColor = "#ef4444"; // red
-  } else if (lives <= 4) {
+  } else if (lives === 2 || lives === 3) {
     heartColor = "#facc15"; // yellow
   }
 
