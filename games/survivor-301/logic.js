@@ -26,7 +26,8 @@ function createEmptyState() {
     players: [],
     turnDarts: [],
     history: [],
-    playerOrderSeed: []
+    playerOrderSeed: [],
+    turnStartSnapshot: null
   };
 }
 
@@ -228,6 +229,42 @@ function buildCommittedTurn(player, darts) {
   };
 }
 
+function commitCurrentTurn() {
+  const currentPlayer = getCurrentPlayer();
+  if (!currentPlayer || state.turnDarts.length === 0) return null;
+
+  const committedTurn = buildCommittedTurn(currentPlayer, state.turnDarts);
+
+  state.history.push({
+    snapshotBefore: clone(state.turnStartSnapshot || state),
+    committedTurn: clone(committedTurn)
+  });
+
+  currentPlayer.score = committedTurn.scoreAfterTurn;
+  currentPlayer.stats.turnsTaken += 1;
+
+  committedTurn.darts.forEach((dart) => {
+    applyStatsForDart(currentPlayer.stats, dart);
+  });
+
+  if (committedTurn.eliminated) {
+    currentPlayer.eliminated = true;
+    currentPlayer.eliminatedOnTurn = committedTurn.turnNumber;
+    currentPlayer.eliminatedPlace = state.players.length - getEliminationCount();
+  }
+
+  state.turnDarts = [];
+  state.turnStartSnapshot = null;
+
+  const winner = checkForWinner();
+
+  if (!winner && !state.gameOver) {
+    advanceTurn();
+  }
+
+  return committedTurn;
+}
+
 function checkForWinner() {
   const livingPlayers = getLivingPlayers();
 
@@ -384,6 +421,10 @@ export function addDart(type, number = null) {
     number = null;
   }
 
+  if (!state.turnStartSnapshot) {
+    state.turnStartSnapshot = clone(state);
+  }
+
   const currentPlayer = getCurrentPlayer();
   if (!currentPlayer) return getState();
 
@@ -395,6 +436,12 @@ export function addDart(type, number = null) {
   const resolved = resolveDart(scoreBefore, type, number);
   state.turnDarts.push(resolved);
 
+  if (resolved.eliminated) {
+    commitCurrentTurn();
+    emitChange();
+    return getState();
+  }
+
   emitChange();
   return getState();
 }
@@ -403,6 +450,11 @@ export function removeLastDart() {
   if (!state.turnDarts.length || state.gameOver) return getState();
 
   state.turnDarts.pop();
+
+  if (state.turnDarts.length === 0) {
+    state.turnStartSnapshot = null;
+  }
+
   emitChange();
   return getState();
 }
@@ -411,6 +463,7 @@ export function clearTurnDarts() {
   if (state.gameOver) return getState();
 
   state.turnDarts = [];
+  state.turnStartSnapshot = null;
   emitChange();
   return getState();
 }
@@ -418,37 +471,7 @@ export function clearTurnDarts() {
 export function submitTurn() {
   if (!canSubmitTurn()) return getState();
 
-  const currentPlayer = getCurrentPlayer();
-  if (!currentPlayer) return getState();
-
-  const committedTurn = buildCommittedTurn(currentPlayer, state.turnDarts);
-
-  state.history.push({
-    snapshotBefore: clone(state),
-    committedTurn: clone(committedTurn)
-  });
-
-  currentPlayer.score = committedTurn.scoreAfterTurn;
-  currentPlayer.stats.turnsTaken += 1;
-
-  committedTurn.darts.forEach((dart) => {
-    applyStatsForDart(currentPlayer.stats, dart);
-  });
-
-  if (committedTurn.eliminated) {
-    currentPlayer.eliminated = true;
-    currentPlayer.eliminatedOnTurn = committedTurn.turnNumber;
-    currentPlayer.eliminatedPlace = state.players.length - getEliminationCount();
-  }
-
-  state.turnDarts = [];
-
-  const winner = checkForWinner();
-
-  if (!winner && !state.gameOver) {
-    advanceTurn();
-  }
-
+  commitCurrentTurn();
   emitChange();
   return getState();
 }
