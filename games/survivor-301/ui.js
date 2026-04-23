@@ -40,9 +40,7 @@ function draw() {
 
   rootEl.innerHTML = `
     <div style="${styles.screen}">
-      <div style="${styles.titleWrap}">
-        <h1 style="${styles.title}">☣️ Survivor 301 ☣️</h1>
-      </div>
+      
 
       ${renderCurrentPlayer(state)}
       ${renderPlayers(state)}
@@ -64,7 +62,7 @@ function renderCurrentPlayer(state) {
   if (!player) {
     return `
       <div style="${styles.panel}">
-        <div style="${styles.sectionTitle}">Current Player</div>
+        <div style="${styles.sectionTitleCenter}">☣️ Current Player ☣️</div>
         <div style="${styles.emptyText}">No active player.</div>
       </div>
     `;
@@ -574,17 +572,7 @@ const styles = {
     color:#ffffff;
     font-family:Arial, Helvetica, sans-serif;
   `,
-  titleWrap: `
-    text-align:center;
-    margin-bottom:14px;
-  `,
-  title: `
-    margin:0;
-    font-size:32px;
-    line-height:1.1;
-    font-weight:900;
-    color:#ffffff;
-  `,
+  
   panel: `
     background:#0b4f12;
     border:2px solid #ffffff22;
