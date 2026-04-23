@@ -15,8 +15,8 @@ const { DART_TYPES, MAX_DARTS_PER_TURN, STARTING_SCORE, RED_BULL_BONUS } = getCo
 
 let rootEl = null;
 let unsubscribe = null;
-let selectedType = null;
 let rulesOpen = false;
+let throwModalType = null;
 
 export function renderUI(container) {
   rootEl = container;
@@ -40,20 +40,19 @@ function draw() {
 
   rootEl.innerHTML = `
     <div style="${styles.screen}">
-      
-
       ${renderCurrentPlayer(state)}
-      ${renderPlayers(state)}
       ${renderThrowArea(state)}
+      ${renderPlayers(state)}
       ${renderTurnSummary(state)}
       ${renderBottomActions(state)}
       ${renderWinner(state)}
+      ${renderThrowModal(state)}
       ${renderRulesModal()}
     </div>
   `;
 
   bindEvents();
-  syncRulesVisibility();
+  syncOverlayVisibility();
 }
 
 function renderCurrentPlayer(state) {
@@ -75,57 +74,24 @@ function renderCurrentPlayer(state) {
 
   return `
     <div style="${styles.currentPlayerPanel}">
-      <div style="${styles.sectionTitleCenter}">Current Player</div>
+      <div style="${styles.sectionTitleCenter}">☣️ Current Player ☣️</div>
       <div style="${styles.currentPlayerName}">${escapeHtml(player.name)}</div>
+
       <div style="${styles.currentMetaRow}">
         <div style="${styles.scoreBox}">
           <div style="${styles.scoreLabel}">Score</div>
           <div style="${styles.scoreValue}">${player.score}</div>
         </div>
+
         <div style="${styles.scoreBox}">
           <div style="${styles.scoreLabel}">Turn</div>
           <div style="${styles.turnValue}">${state.turnDarts.length} / ${MAX_DARTS_PER_TURN}</div>
         </div>
+
         <div style="${styles.scoreBox}">
           <div style="${styles.scoreLabel}">Preview</div>
           <div style="${styles.previewValue}">${previewScore}</div>
         </div>
-      </div>
-    </div>
-  `;
-}
-
-function renderPlayers(state) {
-  const players = state.players || [];
-
-  return `
-    <div style="${styles.panel}">
-      <div style="${styles.sectionTitleCenter}">Players</div>
-      <div style="${styles.playersList}">
-        ${players
-          .map((player) => {
-            const isCurrent = state.currentPlayer?.id === player.id && !state.gameOver;
-            const isOut = player.eliminated;
-
-            return `
-              <div style="${playerRowStyle(isCurrent, isOut)}">
-                <div style="${styles.playerLeft}">
-                  <div style="${styles.playerName}">${escapeHtml(player.name)}</div>
-                  <div style="${styles.playerStatus}">
-                    ${
-                      isOut
-                        ? "☠️ OUT"
-                        : isCurrent
-                        ? "ACTIVE"
-                        : "ALIVE"
-                    }
-                  </div>
-                </div>
-                <div style="${playerScoreStyle(isOut)}">${player.score}</div>
-              </div>
-            `;
-          })
-          .join("")}
       </div>
     </div>
   `;
@@ -147,17 +113,8 @@ function renderThrowArea(state) {
       <div style="${styles.buttonRow}">
         <button
           type="button"
-          data-throw-type="${DART_TYPES.MISS}"
-          style="${throwButtonStyle(canThrow, false)}"
-          ${!canThrow ? "disabled" : ""}
-        >
-          Miss
-        </button>
-
-        <button
-          type="button"
-          data-select-type="${DART_TYPES.SINGLE}"
-          style="${throwButtonStyle(canThrow, selectedType === DART_TYPES.SINGLE)}"
+          data-open-throw-modal="${DART_TYPES.SINGLE}"
+          style="${gameButtonStyle(canThrow)}"
           ${!canThrow ? "disabled" : ""}
         >
           Single
@@ -165,8 +122,8 @@ function renderThrowArea(state) {
 
         <button
           type="button"
-          data-select-type="${DART_TYPES.DOUBLE}"
-          style="${throwButtonStyle(canThrow, selectedType === DART_TYPES.DOUBLE)}"
+          data-open-throw-modal="${DART_TYPES.DOUBLE}"
+          style="${gameButtonStyle(canThrow)}"
           ${!canThrow ? "disabled" : ""}
         >
           Dub
@@ -174,61 +131,45 @@ function renderThrowArea(state) {
 
         <button
           type="button"
-          data-select-type="${DART_TYPES.TRIPLE}"
-          style="${throwButtonStyle(canThrow, selectedType === DART_TYPES.TRIPLE)}"
+          data-open-throw-modal="${DART_TYPES.TRIPLE}"
+          style="${gameButtonStyle(canThrow)}"
           ${!canThrow ? "disabled" : ""}
         >
           Trip
         </button>
       </div>
+    </div>
+  `;
+}
 
-      <div style="${styles.buttonRow}">
-        <button
-          type="button"
-          data-throw-type="${DART_TYPES.GREEN_BULL}"
-          style="${throwButtonStyle(canThrow, false)}"
-          ${!canThrow ? "disabled" : ""}
-        >
-          Green Bull
-        </button>
+function renderPlayers(state) {
+  const players = state.players || [];
 
-        <button
-          type="button"
-          data-throw-type="${DART_TYPES.RED_BULL}"
-          style="${throwButtonStyle(canThrow, false)}"
-          ${!canThrow ? "disabled" : ""}
-        >
-          Red Bull
-        </button>
+  return `
+    <div style="${styles.panel}">
+      <div style="${styles.sectionTitleCenter}">Players</div>
+
+      <div style="${styles.playersList}">
+        ${players
+          .map((player) => {
+            const isCurrent = state.currentPlayer?.id === player.id && !state.gameOver;
+            const isOut = player.eliminated;
+
+            return `
+              <div style="${playerRowStyle(isCurrent, isOut)}">
+                <div style="${styles.playerLeft}">
+                  <div style="${styles.playerName}">${escapeHtml(player.name)}</div>
+                  <div style="${styles.playerStatus}">
+                    ${isOut ? "☠️ OUT" : isCurrent ? "ACTIVE" : "ALIVE"}
+                  </div>
+                </div>
+
+                <div style="${playerScoreStyle(isOut)}">${player.score}</div>
+              </div>
+            `;
+          })
+          .join("")}
       </div>
-
-      ${
-        selectedType && isNumberType(selectedType) && canThrow
-          ? `
-            <div style="${styles.numberWrap}">
-              <div style="${styles.numberPrompt}">
-                ${labelForType(selectedType)}
-              </div>
-
-              <div style="${styles.numberGrid}">
-                ${Array.from({ length: 20 }, (_, i) => i + 1)
-                  .map(
-                    (n) => `
-                      <button
-                        type="button"
-                        data-throw-number="${n}"
-                        style="${styles.numberButton}"
-                      >
-                        ${n}
-                      </button>
-                    `
-                  )
-                  .join("")}
-              </div>
-            </div>
-          `
-          : ""
-      }
     </div>
   `;
 }
@@ -340,6 +281,7 @@ function renderWinner(state) {
       <div style="${styles.winnerPanel}">
         <div style="${styles.winnerTitle}">No Survivor</div>
         <div style="${styles.winnerCopy}">Everybody is out.</div>
+
         <div style="${styles.bottomActions}">
           <button type="button" data-action="new-game" style="${buttonStyle(true, true)}">
             New Game
@@ -357,6 +299,7 @@ function renderWinner(state) {
       <div style="${styles.winnerTitle}">🏆 SURVIVOR</div>
       <div style="${styles.winnerName}">${escapeHtml(state.winner.name)} Wins!</div>
       <div style="${styles.winnerCopy}">Last player standing.</div>
+
       <div style="${styles.bottomActions}">
         <button type="button" data-action="new-game" style="${buttonStyle(true, true)}">
           New Game
@@ -364,6 +307,74 @@ function renderWinner(state) {
         <button type="button" data-action="rotate-game" style="${buttonStyle(true, false)}">
           Rotate Order
         </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderThrowModal(state) {
+  const open = Boolean(throwModalType);
+  const isTrip = throwModalType === DART_TYPES.TRIPLE;
+  const label = throwModalLabel(throwModalType);
+
+  return `
+    <div id="survivor301-throw-overlay" style="${styles.modalOverlay}">
+      <div style="${styles.modalContent}">
+        <h2 style="${styles.modalTitle}">${label || "Throw"}</h2>
+
+        <div style="${styles.modalBody}">
+          <div style="${styles.modalNumberGrid}">
+            ${Array.from({ length: 20 }, (_, i) => i + 1)
+              .map(
+                (n) => `
+                  <button
+                    type="button"
+                    data-modal-number="${n}"
+                    style="${styles.modalGameButton}"
+                    ${!open ? "disabled" : ""}
+                  >
+                    ${n}
+                  </button>
+                `
+              )
+              .join("")}
+          </div>
+
+          <div style="${styles.modalSpecialRow}">
+            <button
+              type="button"
+              data-modal-bull="green"
+              style="${specialBullButtonStyle(!isTrip && open)}"
+              ${!open || isTrip ? "disabled" : ""}
+            >
+              Green Bull
+            </button>
+
+            <button
+              type="button"
+              data-modal-bull="red"
+              style="${specialBullButtonStyle(!isTrip && open)}"
+              ${!open || isTrip ? "disabled" : ""}
+            >
+              Red Bull
+            </button>
+
+            <button
+              type="button"
+              data-modal-miss="true"
+              style="${buttonStyle(open, false)}"
+              ${!open ? "disabled" : ""}
+            >
+              Miss
+            </button>
+          </div>
+        </div>
+
+        <div style="${styles.modalActions}">
+          <button type="button" data-action="close-throw-modal" style="${buttonStyle(true, true)}">
+            Close
+          </button>
+        </div>
       </div>
     </div>
   `;
@@ -398,14 +409,13 @@ function renderRulesModal() {
 function bindEvents() {
   rootEl.querySelectorAll("[data-action='submit-turn']").forEach((btn) => {
     btn.addEventListener("click", () => {
-      selectedType = null;
       submitTurn();
     });
   });
 
   rootEl.querySelectorAll("[data-action='undo']").forEach((btn) => {
     btn.addEventListener("click", () => {
-      selectedType = null;
+      closeThrowModal();
       undoLastTurn();
     });
   });
@@ -418,7 +428,7 @@ function bindEvents() {
 
   rootEl.querySelectorAll("[data-action='clear-turn']").forEach((btn) => {
     btn.addEventListener("click", () => {
-      selectedType = null;
+      closeThrowModal();
       clearTurnDarts();
     });
   });
@@ -426,82 +436,114 @@ function bindEvents() {
   rootEl.querySelectorAll("[data-action='rules']").forEach((btn) => {
     btn.addEventListener("click", () => {
       rulesOpen = true;
-      syncRulesVisibility();
+      syncOverlayVisibility();
     });
   });
 
   rootEl.querySelectorAll("[data-action='close-rules']").forEach((btn) => {
     btn.addEventListener("click", () => {
       rulesOpen = false;
-      syncRulesVisibility();
+      syncOverlayVisibility();
     });
   });
 
   rootEl.querySelectorAll("[data-action='new-game']").forEach((btn) => {
     btn.addEventListener("click", () => {
-      selectedType = null;
+      closeThrowModal();
       restartGame();
     });
   });
 
   rootEl.querySelectorAll("[data-action='rotate-game']").forEach((btn) => {
     btn.addEventListener("click", () => {
-      selectedType = null;
+      closeThrowModal();
       rotatePlayersForNewGame();
     });
   });
 
-  rootEl.querySelectorAll("[data-throw-type]").forEach((btn) => {
+  rootEl.querySelectorAll("[data-open-throw-modal]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const type = btn.getAttribute("data-throw-type");
-      selectedType = null;
-      addDart(type);
+      throwModalType = btn.getAttribute("data-open-throw-modal");
+      syncOverlayVisibility();
     });
   });
 
-  rootEl.querySelectorAll("[data-select-type]").forEach((btn) => {
+  rootEl.querySelectorAll("[data-action='close-throw-modal']").forEach((btn) => {
     btn.addEventListener("click", () => {
-      selectedType = btn.getAttribute("data-select-type");
-      draw();
+      closeThrowModal();
     });
   });
 
-  rootEl.querySelectorAll("[data-throw-number]").forEach((btn) => {
+  rootEl.querySelectorAll("[data-modal-number]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const number = Number(btn.getAttribute("data-throw-number"));
-      if (!selectedType) return;
-      addDart(selectedType, number);
-      selectedType = null;
-      draw();
+      const number = Number(btn.getAttribute("data-modal-number"));
+      if (!throwModalType) return;
+      addDart(throwModalType, number);
+      closeThrowModal();
     });
   });
 
-  const overlay = rootEl.querySelector("#survivor301-rules-overlay");
-  if (overlay) {
-    overlay.addEventListener("click", (event) => {
-      if (event.target === overlay) {
+  rootEl.querySelectorAll("[data-modal-bull='green']").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (throwModalType === DART_TYPES.TRIPLE) return;
+      addDart(DART_TYPES.GREEN_BULL);
+      closeThrowModal();
+    });
+  });
+
+  rootEl.querySelectorAll("[data-modal-bull='red']").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (throwModalType === DART_TYPES.TRIPLE) return;
+      addDart(DART_TYPES.RED_BULL);
+      closeThrowModal();
+    });
+  });
+
+  rootEl.querySelectorAll("[data-modal-miss='true']").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      addDart(DART_TYPES.MISS);
+      closeThrowModal();
+    });
+  });
+
+  const rulesOverlay = rootEl.querySelector("#survivor301-rules-overlay");
+  if (rulesOverlay) {
+    rulesOverlay.addEventListener("click", (event) => {
+      if (event.target === rulesOverlay) {
         rulesOpen = false;
-        syncRulesVisibility();
+        syncOverlayVisibility();
+      }
+    });
+  }
+
+  const throwOverlay = rootEl.querySelector("#survivor301-throw-overlay");
+  if (throwOverlay) {
+    throwOverlay.addEventListener("click", (event) => {
+      if (event.target === throwOverlay) {
+        closeThrowModal();
       }
     });
   }
 }
 
-function syncRulesVisibility() {
-  const overlay = rootEl.querySelector("#survivor301-rules-overlay");
-  if (!overlay) return;
-  overlay.style.display = rulesOpen ? "flex" : "none";
+function closeThrowModal() {
+  throwModalType = null;
+  syncOverlayVisibility();
 }
 
-function isNumberType(type) {
-  return (
-    type === DART_TYPES.SINGLE ||
-    type === DART_TYPES.DOUBLE ||
-    type === DART_TYPES.TRIPLE
-  );
+function syncOverlayVisibility() {
+  const rulesOverlay = rootEl.querySelector("#survivor301-rules-overlay");
+  if (rulesOverlay) {
+    rulesOverlay.style.display = rulesOpen ? "flex" : "none";
+  }
+
+  const throwOverlay = rootEl.querySelector("#survivor301-throw-overlay");
+  if (throwOverlay) {
+    throwOverlay.style.display = throwModalType ? "flex" : "none";
+  }
 }
 
-function labelForType(type) {
+function throwModalLabel(type) {
   if (type === DART_TYPES.SINGLE) return "Single";
   if (type === DART_TYPES.DOUBLE) return "Dub";
   if (type === DART_TYPES.TRIPLE) return "Trip";
@@ -539,12 +581,12 @@ function buttonStyle(enabled, primary = false) {
   return `${base}${enabled ? "" : "opacity:0.45;cursor:not-allowed;"}`;
 }
 
-function throwButtonStyle(enabled, selected) {
-  return `
-    ${styles.gameButton}
-    ${selected ? styles.selectedButton : ""}
-    ${enabled ? "" : "opacity:0.45;cursor:not-allowed;"}
-  `;
+function gameButtonStyle(enabled) {
+  return `${styles.gameButton}${enabled ? "" : "opacity:0.45;cursor:not-allowed;"}`;
+}
+
+function specialBullButtonStyle(enabled) {
+  return `${styles.secondaryButton}${enabled ? "" : "opacity:0.45;cursor:not-allowed;background:#666666;color:#dddddd;"}`;
 }
 
 function playerRowStyle(isCurrent, isOut) {
@@ -572,7 +614,6 @@ const styles = {
     color:#ffffff;
     font-family:Arial, Helvetica, sans-serif;
   `,
-  
   panel: `
     background:#0b4f12;
     border:2px solid #ffffff22;
@@ -592,12 +633,6 @@ const styles = {
   `,
   sectionTitleCenter: `
     text-align:center;
-    font-size:18px;
-    font-weight:800;
-    margin-bottom:10px;
-    color:#ffffff;
-  `,
-  sectionTitle: `
     font-size:18px;
     font-weight:800;
     margin-bottom:10px;
@@ -687,44 +722,16 @@ const styles = {
   buttonRow: `
     display:flex;
     flex-wrap:wrap;
-    gap:8px;
+    gap:10px;
     justify-content:center;
-    margin-bottom:10px;
   `,
   gameButton: `
     border:none;
     border-radius:10px;
-    padding:10px 14px;
+    padding:10px 16px;
     background:#1f8f3a;
     color:#ffffff;
     font-size:15px;
-    font-weight:800;
-    cursor:pointer;
-  `,
-  selectedButton: `
-    box-shadow:0 0 0 3px #f2dc5d inset;
-  `,
-  numberWrap: `
-    margin-top:6px;
-  `,
-  numberPrompt: `
-    text-align:center;
-    font-size:15px;
-    font-weight:800;
-    margin-bottom:10px;
-  `,
-  numberGrid: `
-    display:grid;
-    grid-template-columns:repeat(5, minmax(0, 1fr));
-    gap:8px;
-  `,
-  numberButton: `
-    border:none;
-    border-radius:10px;
-    padding:12px 0;
-    background:#1f8f3a;
-    color:#ffffff;
-    font-size:16px;
     font-weight:800;
     cursor:pointer;
   `,
@@ -846,6 +853,28 @@ const styles = {
   modalBody: `
     font-size:15px;
     line-height:1.5;
+  `,
+  modalNumberGrid: `
+    display:grid;
+    grid-template-columns:repeat(5, minmax(0, 1fr));
+    gap:8px;
+    margin-bottom:14px;
+  `,
+  modalGameButton: `
+    border:none;
+    border-radius:10px;
+    padding:12px 0;
+    background:#1f8f3a;
+    color:#ffffff;
+    font-size:16px;
+    font-weight:800;
+    cursor:pointer;
+  `,
+  modalSpecialRow: `
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    justify-content:center;
   `,
   ruleP: `
     margin:0 0 10px 0;
