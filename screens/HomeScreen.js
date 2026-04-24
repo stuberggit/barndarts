@@ -10,6 +10,7 @@ export function renderHome(container) {
     <div class="card" id="fun" style="border:1px solid #9ca3af;">FUN!</div>
     <div class="card" id="x01" style="border:1px solid #9ca3af;">X01</div>
     <div class="card" id="cricket" style="border:1px solid #9ca3af;">Cricket</div>
+    <div class="card" id="history" style="border:1px solid #9ca3af;">History</div>
   `;
 
   document.getElementById("fun").onclick = () => {
@@ -30,3 +31,8 @@ export function renderHome(container) {
     renderApp();
   };
 }
+
+document.getElementById("history").onclick = () => {
+  store.screen = "HISTORY";
+  renderApp();
+};
