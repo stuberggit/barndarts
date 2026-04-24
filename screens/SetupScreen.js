@@ -3,7 +3,11 @@ import { renderApp } from "../core/router.js";
 
 const PLAYER_PROFILES_KEY = "barndarts_player_profiles";
 
-const AVATAR_OPTIONS = ["🎯", "🍺", "🔥", "☣️", "🏌️", "🧟", "⚡", "🏆", "🎸", "🐐"];
+const AVATAR_OPTIONS = [
+  "🎯", "🍺", "🔥", "☣️", "🏌️",
+  "🧟", "⚡", "🏆", "🎸", "🐐",
+  "🦆", "🦖", "👽", "🤘", "🕺"
+];
 
 function loadProfiles() {
   try {
@@ -307,124 +311,100 @@ export function renderSetup(container) {
     });
   }
 
-  function renderEditPlayer(profileId) {
-    const profile = profiles.find(p => p.id === profileId);
-    if (!profile) return;
+  function renderEditPlayer(profileId, avatarOverride = null) {
+  const profile = profiles.find(p => p.id === profileId);
+  if (!profile) return;
 
-    playersDiv.innerHTML = `
+  let selectedAvatar = avatarOverride || profile.avatar || "🎯";
+
+  playersDiv.innerHTML = `
+    <div style="
+      background:#111111;
+      color:#ffffff;
+      border:1px solid #9ca3af;
+      border-radius:12px;
+      padding:12px;
+      margin-bottom:8px;
+    ">
       <div style="
-        background:#111111;
-        color:#ffffff;
-        border:1px solid #9ca3af;
-        border-radius:12px;
-        padding:12px;
+        text-align:center;
+        font-weight:bold;
+        font-size:18px;
+        margin-bottom:10px;
+      ">
+        Edit Player
+      </div>
+
+      <input
+        id="editPlayerName"
+        value="${profile.name}"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:10px;
+          border-radius:10px;
+          border:1px solid #9ca3af;
+          margin-bottom:10px;
+          font-size:16px;
+        "
+      />
+
+      <div style="
+        text-align:center;
+        font-weight:bold;
         margin-bottom:8px;
       ">
-        <div style="
-          text-align:center;
-          font-weight:bold;
-          font-size:18px;
-          margin-bottom:10px;
-        ">
-          Edit Player
-        </div>
-
-        <input
-          id="editPlayerName"
-          value="${profile.name}"
-          style="
-            width:100%;
-            box-sizing:border-box;
-            padding:10px;
-            border-radius:10px;
-            border:1px solid #9ca3af;
-            margin-bottom:10px;
-            font-size:16px;
-          "
-        />
-
-        <div style="
-          text-align:center;
-          font-weight:bold;
-          margin-bottom:8px;
-        ">
-          Avatar
-        </div>
-
-        <div id="avatarGrid" style="
-          display:grid;
-          grid-template-columns:repeat(5, 1fr);
-          gap:8px;
-          margin-bottom:10px;
-        "></div>
-
-        <div style="
-          display:grid;
-          grid-template-columns:1fr 1fr;
-          gap:8px;
-        ">
-          <div id="cancelEdit" style="${lightButtonStyle()}">Cancel</div>
-          <div id="saveEdit" style="${buttonStyle()}">Save</div>
-        </div>
+        Avatar
       </div>
+
+      <div id="avatarGrid" style="
+        display:grid;
+        grid-template-columns:repeat(5, 1fr);
+        gap:8px;
+        margin-bottom:10px;
+      "></div>
+
+      <div style="
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:8px;
+      ">
+        <div id="cancelEdit" style="${lightButtonStyle()}">Cancel</div>
+        <div id="saveEdit" style="${buttonStyle()}">Save</div>
+      </div>
+    </div>
+  `;
+
+  const avatarGrid = document.getElementById("avatarGrid");
+
+  AVATAR_OPTIONS.forEach(avatar => {
+    const btn = document.createElement("div");
+    btn.innerText = avatar;
+    btn.style = `
+      ${avatarStyle(profile.color)}
+      width:auto;
+      height:44px;
+      border:${selectedAvatar === avatar ? "3px solid #f0970a" : "1px solid #ffffff"};
+      cursor:pointer;
     `;
 
-    let selectedAvatar = profile.avatar || "🎯";
-    const avatarGrid = document.getElementById("avatarGrid");
-
-    AVATAR_OPTIONS.forEach(avatar => {
-      const btn = document.createElement("div");
-      btn.innerText = avatar;
-      btn.style = `
-        ${avatarStyle(profile.color)}
-        width:auto;
-        height:44px;
-        border:${selectedAvatar === avatar ? "3px solid #f0970a" : "1px solid #ffffff"};
-        cursor:pointer;
-      `;
-
-      btn.onclick = () => {
-        selectedAvatar = avatar;
-        renderEditPlayer(profileId);
-      };
-
-      avatarGrid.appendChild(btn);
-    });
-
-    document.getElementById("cancelEdit").onclick = () => {
-      renderPlayers();
+    btn.onclick = () => {
+      renderEditPlayer(profileId, avatar);
     };
 
-    document.getElementById("saveEdit").onclick = () => {
-      const newName = document.getElementById("editPlayerName").value.trim();
-      if (!newName) return;
+    avatarGrid.appendChild(btn);
+  });
 
-      const duplicate = profiles.some(
-        p => p.id !== profileId && p.name.toLowerCase() === newName.toLowerCase()
-      );
+  document.getElementById("cancelEdit").onclick = () => {
+    renderPlayers();
+  };
 
-      if (duplicate) {
-        alert("That player already exists.");
-        return;
-      }
-
-      profile.name = newName;
-      profile.avatar = selectedAvatar;
-      profile.updatedAt = new Date().toISOString();
-
-      saveProfiles(profiles);
-      renderPlayers();
-    };
-  }
-
-  document.getElementById("addPlayer").onclick = () => {
-    const input = document.getElementById("playerName");
-    const name = input.value.trim();
-
-    if (!name) return;
+  document.getElementById("saveEdit").onclick = () => {
+    const newName = document.getElementById("editPlayerName").value.trim();
+    if (!newName) return;
 
     const duplicate = profiles.some(
-      profile => profile.name.toLowerCase() === name.toLowerCase()
+      p => p.id !== profileId && p.name.toLowerCase() === newName.toLowerCase()
     );
 
     if (duplicate) {
@@ -432,35 +412,11 @@ export function renderSetup(container) {
       return;
     }
 
-    const newProfile = createPlayerProfile(name);
-    profiles.push(newProfile);
+    profile.name = newName;
+    profile.avatar = selectedAvatar;
+    profile.updatedAt = new Date().toISOString();
+
     saveProfiles(profiles);
-
-    selectedIds.add(newProfile.id);
-    input.value = "";
-
     renderPlayers();
   };
-
-  document.getElementById("start").onclick = () => {
-    const selectedPlayers = profiles
-      .filter(profile => selectedIds.has(profile.id))
-      .map(profile => profile.name);
-
-    if (selectedPlayers.length < 2) {
-      alert("Select at least two players.");
-      return;
-    }
-
-    store.players = selectedPlayers;
-    store.screen = "GAME";
-    renderApp();
-  };
-
-  document.getElementById("back").onclick = () => {
-    store.screen = "CATEGORY";
-    renderApp();
-  };
-
-  renderPlayers();
 }
