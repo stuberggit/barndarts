@@ -60,6 +60,83 @@ function buttonStyle() {
   `;
 }
 
+function renderLeaderboardModal(state) {
+  const modal = document.getElementById("modal");
+  if (!modal) return;
+
+  const rankedPlayers = [...state.players].sort((a, b) => a.total - b.total);
+
+  modal.innerHTML = `
+    <div style="
+      position:fixed;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      background:rgba(0,0,0,0.7);
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      z-index:999;
+      padding:16px;
+      box-sizing:border-box;
+    ">
+      <div style="
+        background:#111111;
+        color:#ffffff;
+        padding:20px;
+        border-radius:10px;
+        width:90%;
+        max-width:600px;
+        max-height:90vh;
+        overflow:auto;
+        border:1px solid #ffffff;
+      ">
+        <h2 style="text-align:center;margin-top:0;">Leaderboard</h2>
+
+        <div id="leaderboardList"></div>
+
+        <div id="closeModal" style="
+          ${buttonStyle()}
+          padding:10px;
+          min-height:44px;
+          margin-top:12px;
+        ">Close</div>
+      </div>
+    </div>
+  `;
+
+  const list = document.getElementById("leaderboardList");
+  list.innerHTML = "";
+
+  rankedPlayers.forEach((player, index) => {
+    const row = document.createElement("div");
+    row.style = `
+      margin-bottom:10px;
+      padding:10px;
+      border-radius:10px;
+      background:#1e293b;
+      border:1px solid #ffffff;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      font-weight:bold;
+    `;
+
+    row.innerHTML = `
+      <span>${index + 1}. ${player.name}</span>
+      <span>${player.total}</span>
+    `;
+
+    list.appendChild(row);
+  });
+
+  document.getElementById("closeModal").onclick = () => {
+    modal.innerHTML = "";
+  };
+}
+
 function renderEndGameConfirm(container) {
   const modal = document.getElementById("modal");
 
