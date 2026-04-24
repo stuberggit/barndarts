@@ -60,6 +60,72 @@ function buttonStyle() {
   `;
 }
 
+function renderEndGameConfirm(container) {
+  const modal = document.getElementById("modal");
+
+  modal.innerHTML = `
+    <div style="
+      position:fixed;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      background:rgba(0,0,0,0.7);
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      z-index:999;
+    ">
+      <div style="
+        background:#111111;
+        color:#ffffff;
+        padding:20px;
+        border-radius:10px;
+        width:90%;
+        max-width:600px;
+        max-height:90vh;
+        overflow:auto;
+        border:1px solid #ffffff;
+      ">
+        <h2 style="text-align:center;margin-top:0;color:#facc15;">End Game?</h2>
+
+        <div style="text-align:center;margin-bottom:14px;">
+          Are you sure you want to end this game early?
+        </div>
+
+        <div style="
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:10px;
+        ">
+          <div id="cancelEndBtn" style="
+            ${leaderboardButtonStyle()}
+            padding:12px;
+            min-height:48px;
+          ">Cancel</div>
+
+          <div id="confirmEndBtn" style="
+            ${dangerButtonStyle()}
+            padding:12px;
+            min-height:48px;
+          ">End Game</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("cancelEndBtn").onclick = () => {
+    modal.innerHTML = "";
+  };
+
+  document.getElementById("confirmEndBtn").onclick = () => {
+    modal.innerHTML = "";
+    store.screen = "HOME";
+    store.players = [];
+    renderApp();
+  };
+}
+
 function leaderboardButtonStyle() {
   return `
     background:#ffffff;
@@ -80,6 +146,21 @@ function undoButtonStyle() {
     background:#206a1e;
     color:#ffffff;
     border:1px solid #ff4c4c;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+  `;
+}
+
+function dangerButtonStyle() {
+  return `
+    background:#7f1d1d;
+    color:#ffffff;
+    border:1px solid #fca5a5;
     border-radius:10px;
     cursor:pointer;
     display:flex;
@@ -431,7 +512,7 @@ function renderControls(container) {
   const lowerRow = document.createElement("div");
   lowerRow.style = `
     display:grid;
-    grid-template-columns:1fr 1fr;
+    grid-template-columns:1fr 1fr 1fr;
     gap:8px;
     margin-top:8px;
   `;
@@ -440,9 +521,9 @@ function renderControls(container) {
   leaderboardBtn.innerText = "Leaderboard";
   leaderboardBtn.style = `
     ${leaderboardButtonStyle()}
-    padding:8px;
+    padding:10px;
+    min-height:42px;
     font-size:15px;
-    min-height:40px;
   `;
   leaderboardBtn.onclick = () => {
     renderLeaderboardModal(getState());
@@ -452,48 +533,35 @@ function renderControls(container) {
   undoBtn.innerText = "Undo";
   undoBtn.style = `
     ${undoButtonStyle()}
-    padding:8px;
+    padding:10px;
+    min-height:42px;
     font-size:15px;
-    min-height:40px;
   `;
   undoBtn.onclick = () => {
     undo();
     renderUI(container);
   };
 
-  lowerRow.appendChild(leaderboardBtn);
-  lowerRow.appendChild(undoBtn);
-
-  const endRow = document.createElement("div");
-  endRow.style = `
-    display:grid;
-    grid-template-columns:1fr;
-    gap:8px;
-    margin-top:8px;
-  `;
-
   const endBtn = document.createElement("div");
-  endBtn.innerText = "End Game";
+  endBtn.innerText = "End";
   endBtn.style = `
-    ${buttonStyle()}
+    ${dangerButtonStyle()}
     padding:10px;
-    font-size:16px;
-    min-height:44px;
+    min-height:42px;
+    font-size:15px;
   `;
   endBtn.onclick = () => {
-    store.screen = "HOME";
-    store.players = [];
-    renderApp();
+    renderEndGameConfirm(container);
   };
 
-  endRow.appendChild(endBtn);
+  lowerRow.appendChild(leaderboardBtn);
+  lowerRow.appendChild(undoBtn);
+  lowerRow.appendChild(endBtn);
 
   controls.appendChild(topRow);
   controls.appendChild(middleRow);
   controls.appendChild(lowerRow);
-  controls.appendChild(endRow);
 }
-
 /* -------------------------
    SCORECARD
 --------------------------*/
