@@ -31,8 +31,8 @@ function getHitValue(hitType) {
     single: 1,
     double: 2,
     triple: 3,
-    greenBull: 1,
-    redBull: 2
+    greenBull: 2,
+    redBull: 3
   };
 
   return values[hitType] || 0;
@@ -40,7 +40,7 @@ function getHitValue(hitType) {
 
 function formatTarget(target, hitType) {
   if (target === 25) {
-    return hitType === "redBull" ? "Red Bull" : "Green Bull";
+    return hitType === "redBull" ? "Dub Bull" : "Sing Bull";
   }
 
   const labelMap = {
@@ -182,6 +182,7 @@ function assignTargetToPlayer(playerIndex, assignment) {
   player.isKiller =
     assignment.hitType === "double" ||
     assignment.hitType === "triple" ||
+    assignment.hitType === "greenBull" ||
     assignment.hitType === "redBull";
 
   ensureStats(player).targetClaim = formatTarget(assignment.target, assignment.hitType);
@@ -225,7 +226,7 @@ function canKillWithHit(victim, hitType) {
   }
 
   if (remainingLives === 3) {
-    if (hitType === "triple") return true;
+    if (hitType === "triple" || hitType === "redBull") return true;
 
     if (
       activeCount === 2 &&
@@ -239,7 +240,12 @@ function canKillWithHit(victim, hitType) {
   }
 
   if (remainingLives === 2 || remainingLives === 1) {
-    if (hitType === "double" || hitType === "triple" || hitType === "redBull") {
+    if (
+      hitType === "double" ||
+      hitType === "triple" ||
+      hitType === "greenBull" ||
+      hitType === "redBull"
+    ) {
       return true;
     }
 
@@ -296,6 +302,7 @@ function checkZombieRevival(hitType, target, throwerIndex) {
   const validReviveHit =
     hitType === "double" ||
     hitType === "triple" ||
+    hitType === "greenBull" ||
     hitType === "redBull";
 
   if (!validReviveHit) return false;
