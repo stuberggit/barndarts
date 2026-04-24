@@ -1,6 +1,9 @@
 let gameState = {};
 let history = [];
 
+import { store } from "../../core/store.js";
+import { saveGameResult } from "../../core/historyService.js";
+
 const STARTING_SCORE = 301;
 const RED_BULL_BONUS = 10;
 
@@ -85,6 +88,43 @@ function resetTurnTracking() {
   gameState.currentTurnThrows = [];
 }
 
+function saveSurvivorHistory() {
+  if (gameState.historySaved) return;
+
+  const selectedProfiles = store.selectedPlayerProfiles || [];
+
+  const players = gameState.players.map((player, index) => {
+    const profile = selectedProfiles[index] || {};
+
+    return {
+      id: profile.id || null,
+      name: player.name,
+      avatar: profile.avatar || null,
+      score: player.score,
+      result: player.name === gameState.winner ? "winner" : "out",
+      placement: player.name === gameState.winner ? 1 : player.eliminatedOrder || null,
+      stats: { ...(player.stats || {}) }
+    };
+  });
+
+  const winnerPlayer = players.find(player => player.result === "winner");
+
+  saveGameResult({
+    gameId: "survivor-301",
+    gameName: "Survivor 301",
+    players,
+    winner: winnerPlayer
+      ? {
+          id: winnerPlayer.id,
+          name: winnerPlayer.name,
+          avatar: winnerPlayer.avatar
+        }
+      : null
+  });
+
+  gameState.historySaved = true;
+}
+
 function ensureStats(player) {
   if (!player.stats) {
     player.stats = {
@@ -122,6 +162,7 @@ function maybeDeclareWinner() {
     gameState.winner = activePlayers[0].name;
     gameState.finalStats = buildStatsSummary();
     updateMessage(`${activePlayers[0].name} is the last survivor!`, "#facc15");
+    saveSurvivorHistory();
     return true;
   }
 
@@ -129,6 +170,7 @@ function maybeDeclareWinner() {
     gameState.winner = "No Survivor";
     gameState.finalStats = buildStatsSummary();
     updateMessage("Everybody is out. No survivor remains.", "#ff4c4c");
+    saveSurvivorHistory();
     return true;
   }
 
@@ -329,7 +371,8 @@ export function endGameEarly() {
   }
 
   gameState.finalStats = buildStatsSummary();
-  updateMessage("Game ended early.", "#facc15");
+   saveSurvivorHistory(); 
+   updateMessage("Game ended early.", "#facc15");
 }
 
 /* -------------------------
