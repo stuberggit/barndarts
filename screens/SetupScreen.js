@@ -290,7 +290,7 @@ export function renderSetup(container) {
     playersDiv.querySelectorAll("[data-edit-player]").forEach(el => {
       el.onclick = () => {
         const id = el.getAttribute("data-edit-player");
-        renderEditPlayer(id);
+        Player(id);
       };
     });
 
@@ -315,7 +315,7 @@ export function renderSetup(container) {
   const profile = profiles.find(p => p.id === profileId);
   if (!profile) return;
 
-  let selectedAvatar = avatarOverride || profile.avatar || "🎯";
+  const selectedAvatar = avatarOverride || profile.avatar || "🎯";
 
   playersDiv.innerHTML = `
     <div style="
