@@ -3,6 +3,8 @@ import { renderApp } from "../core/router.js";
 
 const PLAYER_PROFILES_KEY = "barndarts_player_profiles";
 
+const AVATAR_OPTIONS = ["🎯", "🍺", "🔥", "☣️", "🏌️", "🧟", "⚡", "🏆", "🎸", "🐐"];
+
 function loadProfiles() {
   try {
     return JSON.parse(localStorage.getItem(PLAYER_PROFILES_KEY)) || [];
@@ -19,7 +21,7 @@ function createPlayerProfile(name) {
   return {
     id: `player_${Date.now()}_${Math.random().toString(16).slice(2)}`,
     name,
-    avatar: null,
+    avatar: "🎯",
     color: "#206a1e",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
@@ -66,6 +68,45 @@ function lightButtonStyle() {
   `;
 }
 
+function dangerButtonStyle() {
+  return `
+    background:#7f1d1d;
+    color:#ffffff;
+    border:1px solid #fca5a5;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+    text-align:center;
+    user-select:none;
+    padding:8px;
+    min-height:38px;
+  `;
+}
+
+function miniButtonStyle() {
+  return `
+    background:#206a1e;
+    color:#ffffff;
+    border:1px solid #ffffff;
+    border-radius:8px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+    text-align:center;
+    user-select:none;
+    padding:8px;
+    min-height:38px;
+    font-size:13px;
+  `;
+}
+
 function playerBlockStyle(isSelected) {
   return `
     background:#111111;
@@ -75,19 +116,14 @@ function playerBlockStyle(isSelected) {
     padding:12px;
     margin-bottom:8px;
     font-weight:bold;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-    cursor:pointer;
     box-sizing:border-box;
   `;
 }
 
 function avatarStyle(color) {
   return `
-    width:38px;
-    height:38px;
+    width:42px;
+    height:42px;
     border-radius:999px;
     background:${color || "#206a1e"};
     color:#ffffff;
@@ -97,16 +133,12 @@ function avatarStyle(color) {
     justify-content:center;
     font-weight:bold;
     flex-shrink:0;
+    font-size:22px;
   `;
 }
 
-function getInitials(name) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(part => part[0]?.toUpperCase())
-    .join("") || "?";
+function getAvatar(profile) {
+  return profile.avatar || "🎯";
 }
 
 export function renderSetup(container) {
@@ -142,14 +174,12 @@ export function renderSetup(container) {
       <div id="addPlayer" style="${buttonStyle()}">Add Player Block</div>
     </div>
 
-    <div style="
+    <div id="selectedCount" style="
       text-align:center;
       font-weight:bold;
       margin:10px 0;
       color:#ffffff;
-    ">
-      Select Players
-    </div>
+    "></div>
 
     <div id="players"></div>
 
@@ -158,8 +188,15 @@ export function renderSetup(container) {
   `;
 
   const playersDiv = document.getElementById("players");
+  const selectedCount = document.getElementById("selectedCount");
+
+  function updateSelectedCount() {
+    selectedCount.innerText = `Select Players (${selectedIds.size} selected)`;
+  }
 
   function renderPlayers() {
+    updateSelectedCount();
+
     if (!profiles.length) {
       playersDiv.innerHTML = `
         <div style="
@@ -187,41 +224,197 @@ export function renderSetup(container) {
       row.style = playerBlockStyle(isSelected);
 
       row.innerHTML = `
-        <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-          <div style="${avatarStyle(profile.color)}">
-            ${getInitials(profile.name)}
+        <div data-select-player="${profile.id}" style="
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap:10px;
+          cursor:pointer;
+        ">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+            <div style="${avatarStyle(profile.color)}">
+              ${getAvatar(profile)}
+            </div>
+
+            <div style="
+              font-size:18px;
+              overflow:hidden;
+              text-overflow:ellipsis;
+              white-space:nowrap;
+            ">
+              ${profile.name}
+            </div>
           </div>
+
           <div style="
-            font-size:18px;
-            overflow:hidden;
-            text-overflow:ellipsis;
-            white-space:nowrap;
+            color:${isSelected ? "#f0970a" : "#9ca3af"};
+            font-size:14px;
+            flex-shrink:0;
           ">
-            ${profile.name}
+            ${isSelected ? "SELECTED" : "Tap to Select"}
           </div>
         </div>
 
         <div style="
-          color:${isSelected ? "#f0970a" : "#9ca3af"};
-          font-size:14px;
-          flex-shrink:0;
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:8px;
+          margin-top:10px;
         ">
-          ${isSelected ? "SELECTED" : "Tap to Select"}
+          <div data-edit-player="${profile.id}" style="${miniButtonStyle()}">Edit</div>
+          <div data-delete-player="${profile.id}" style="${dangerButtonStyle()}">Delete</div>
         </div>
       `;
 
-      row.onclick = () => {
-        if (selectedIds.has(profile.id)) {
-          selectedIds.delete(profile.id);
+      playersDiv.appendChild(row);
+    });
+
+    playersDiv.querySelectorAll("[data-select-player]").forEach(el => {
+      el.onclick = () => {
+        const id = el.getAttribute("data-select-player");
+
+        if (selectedIds.has(id)) {
+          selectedIds.delete(id);
         } else {
-          selectedIds.add(profile.id);
+          selectedIds.add(id);
         }
 
         renderPlayers();
       };
-
-      playersDiv.appendChild(row);
     });
+
+    playersDiv.querySelectorAll("[data-edit-player]").forEach(el => {
+      el.onclick = () => {
+        const id = el.getAttribute("data-edit-player");
+        renderEditPlayer(id);
+      };
+    });
+
+    playersDiv.querySelectorAll("[data-delete-player]").forEach(el => {
+      el.onclick = () => {
+        const id = el.getAttribute("data-delete-player");
+        const profile = profiles.find(p => p.id === id);
+        if (!profile) return;
+
+        const confirmed = confirm(`Delete ${profile.name}?`);
+        if (!confirmed) return;
+
+        profiles = profiles.filter(p => p.id !== id);
+        selectedIds.delete(id);
+        saveProfiles(profiles);
+        renderPlayers();
+      };
+    });
+  }
+
+  function renderEditPlayer(profileId) {
+    const profile = profiles.find(p => p.id === profileId);
+    if (!profile) return;
+
+    playersDiv.innerHTML = `
+      <div style="
+        background:#111111;
+        color:#ffffff;
+        border:1px solid #9ca3af;
+        border-radius:12px;
+        padding:12px;
+        margin-bottom:8px;
+      ">
+        <div style="
+          text-align:center;
+          font-weight:bold;
+          font-size:18px;
+          margin-bottom:10px;
+        ">
+          Edit Player
+        </div>
+
+        <input
+          id="editPlayerName"
+          value="${profile.name}"
+          style="
+            width:100%;
+            box-sizing:border-box;
+            padding:10px;
+            border-radius:10px;
+            border:1px solid #9ca3af;
+            margin-bottom:10px;
+            font-size:16px;
+          "
+        />
+
+        <div style="
+          text-align:center;
+          font-weight:bold;
+          margin-bottom:8px;
+        ">
+          Avatar
+        </div>
+
+        <div id="avatarGrid" style="
+          display:grid;
+          grid-template-columns:repeat(5, 1fr);
+          gap:8px;
+          margin-bottom:10px;
+        "></div>
+
+        <div style="
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:8px;
+        ">
+          <div id="cancelEdit" style="${lightButtonStyle()}">Cancel</div>
+          <div id="saveEdit" style="${buttonStyle()}">Save</div>
+        </div>
+      </div>
+    `;
+
+    let selectedAvatar = profile.avatar || "🎯";
+    const avatarGrid = document.getElementById("avatarGrid");
+
+    AVATAR_OPTIONS.forEach(avatar => {
+      const btn = document.createElement("div");
+      btn.innerText = avatar;
+      btn.style = `
+        ${avatarStyle(profile.color)}
+        width:auto;
+        height:44px;
+        border:${selectedAvatar === avatar ? "3px solid #f0970a" : "1px solid #ffffff"};
+        cursor:pointer;
+      `;
+
+      btn.onclick = () => {
+        selectedAvatar = avatar;
+        renderEditPlayer(profileId);
+      };
+
+      avatarGrid.appendChild(btn);
+    });
+
+    document.getElementById("cancelEdit").onclick = () => {
+      renderPlayers();
+    };
+
+    document.getElementById("saveEdit").onclick = () => {
+      const newName = document.getElementById("editPlayerName").value.trim();
+      if (!newName) return;
+
+      const duplicate = profiles.some(
+        p => p.id !== profileId && p.name.toLowerCase() === newName.toLowerCase()
+      );
+
+      if (duplicate) {
+        alert("That player already exists.");
+        return;
+      }
+
+      profile.name = newName;
+      profile.avatar = selectedAvatar;
+      profile.updatedAt = new Date().toISOString();
+
+      saveProfiles(profiles);
+      renderPlayers();
+    };
   }
 
   document.getElementById("addPlayer").onclick = () => {
@@ -254,8 +447,8 @@ export function renderSetup(container) {
       .filter(profile => selectedIds.has(profile.id))
       .map(profile => profile.name);
 
-    if (selectedPlayers.length < 1) {
-      alert("Select at least one player.");
+    if (selectedPlayers.length < 2) {
+      alert("Select at least two players.");
       return;
     }
 
