@@ -2,6 +2,7 @@ import { store } from "../core/store.js";
 import { renderApp } from "../core/router.js";
 
 const PLAYER_PROFILES_KEY = "barndarts_player_profiles";
+const LAST_SELECTED_PLAYERS_KEY = "barndarts_last_selected_players";
 
 const AVATAR_OPTIONS = [
   "🎯", "🍺", "🔥", "☣️", "🏌️",
@@ -156,9 +157,24 @@ function escapeHtml(value) {
 
 export function renderSetup(container) {
   let profiles = loadProfiles();
+
   let selectedIds = new Set();
 
+  try {
+    const savedSelectedIds =
+      JSON.parse(localStorage.getItem(LAST_SELECTED_PLAYERS_KEY)) || [];
+
+    selectedIds = new Set(
+      savedSelectedIds.filter(id =>
+        profiles.some(profile => profile.id === id)
+      )
+    );
+  } catch {
+    selectedIds = new Set();
+  }
+
   store.players = [];
+  store.selectedPlayerProfiles = [];
 
   container.innerHTML = `
     <h1>${store.selectedGame}</h1>
@@ -205,6 +221,13 @@ export function renderSetup(container) {
 
   function updateSelectedCount() {
     selectedCount.innerText = `Select Players (${selectedIds.size} selected)`;
+  }
+
+  function saveLastSelectedPlayers() {
+    localStorage.setItem(
+      LAST_SELECTED_PLAYERS_KEY,
+      JSON.stringify([...selectedIds])
+    );
   }
 
   function renderPlayers() {
@@ -292,6 +315,7 @@ export function renderSetup(container) {
           selectedIds.add(id);
         }
 
+        saveLastSelectedPlayers();
         renderPlayers();
       };
     });
@@ -318,6 +342,7 @@ export function renderSetup(container) {
         profiles = profiles.filter(p => p.id !== id);
         selectedIds.delete(id);
         saveProfiles(profiles);
+        saveLastSelectedPlayers();
         renderPlayers();
       };
     });
@@ -458,22 +483,34 @@ export function renderSetup(container) {
     saveProfiles(profiles);
 
     selectedIds.add(newProfile.id);
+    saveLastSelectedPlayers();
+
     input.value = "";
 
     renderPlayers();
   };
 
   document.getElementById("start").onclick = () => {
-    const selectedPlayers = profiles
-      .filter(profile => selectedIds.has(profile.id))
-      .map(profile => profile.name);
+    const selectedProfiles = profiles.filter(profile =>
+      selectedIds.has(profile.id)
+    );
 
-    if (selectedPlayers.length < 2) {
+    if (selectedProfiles.length < 2) {
       alert("Select at least two players.");
       return;
     }
 
-    store.players = selectedPlayers;
+    store.selectedPlayerProfiles = selectedProfiles.map(profile => ({
+      id: profile.id,
+      name: profile.name,
+      avatar: profile.avatar,
+      color: profile.color
+    }));
+
+    store.players = selectedProfiles.map(profile => profile.name);
+
+    saveLastSelectedPlayers();
+
     store.screen = "GAME";
     renderApp();
   };
