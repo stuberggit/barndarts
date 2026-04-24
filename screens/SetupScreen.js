@@ -145,6 +145,15 @@ function getAvatar(profile) {
   return profile.avatar || "🎯";
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 export function renderSetup(container) {
   let profiles = loadProfiles();
   let selectedIds = new Set();
@@ -237,7 +246,7 @@ export function renderSetup(container) {
         ">
           <div style="display:flex;align-items:center;gap:10px;min-width:0;">
             <div style="${avatarStyle(profile.color)}">
-              ${getAvatar(profile)}
+              ${escapeHtml(getAvatar(profile))}
             </div>
 
             <div style="
@@ -246,7 +255,7 @@ export function renderSetup(container) {
               text-overflow:ellipsis;
               white-space:nowrap;
             ">
-              ${profile.name}
+              ${escapeHtml(profile.name)}
             </div>
           </div>
 
@@ -288,14 +297,17 @@ export function renderSetup(container) {
     });
 
     playersDiv.querySelectorAll("[data-edit-player]").forEach(el => {
-      el.onclick = () => {
+      el.onclick = event => {
+        event.stopPropagation();
         const id = el.getAttribute("data-edit-player");
-        Player(id);
+        renderEditPlayer(id);
       };
     });
 
     playersDiv.querySelectorAll("[data-delete-player]").forEach(el => {
-      el.onclick = () => {
+      el.onclick = event => {
+        event.stopPropagation();
+
         const id = el.getAttribute("data-delete-player");
         const profile = profiles.find(p => p.id === id);
         if (!profile) return;
@@ -312,99 +324,128 @@ export function renderSetup(container) {
   }
 
   function renderEditPlayer(profileId, avatarOverride = null) {
-  const profile = profiles.find(p => p.id === profileId);
-  if (!profile) return;
+    const profile = profiles.find(p => p.id === profileId);
+    if (!profile) return;
 
-  const selectedAvatar = avatarOverride || profile.avatar || "🎯";
+    const selectedAvatar = avatarOverride || profile.avatar || "🎯";
 
-  playersDiv.innerHTML = `
-    <div style="
-      background:#111111;
-      color:#ffffff;
-      border:1px solid #9ca3af;
-      border-radius:12px;
-      padding:12px;
-      margin-bottom:8px;
-    ">
+    playersDiv.innerHTML = `
       <div style="
-        text-align:center;
-        font-weight:bold;
-        font-size:18px;
-        margin-bottom:10px;
-      ">
-        Edit Player
-      </div>
-
-      <input
-        id="editPlayerName"
-        value="${profile.name}"
-        style="
-          width:100%;
-          box-sizing:border-box;
-          padding:10px;
-          border-radius:10px;
-          border:1px solid #9ca3af;
-          margin-bottom:10px;
-          font-size:16px;
-        "
-      />
-
-      <div style="
-        text-align:center;
-        font-weight:bold;
+        background:#111111;
+        color:#ffffff;
+        border:1px solid #9ca3af;
+        border-radius:12px;
+        padding:12px;
         margin-bottom:8px;
       ">
-        Avatar
+        <div style="
+          text-align:center;
+          font-weight:bold;
+          font-size:18px;
+          margin-bottom:10px;
+        ">
+          Edit Player
+        </div>
+
+        <input
+          id="editPlayerName"
+          value="${escapeHtml(profile.name)}"
+          style="
+            width:100%;
+            box-sizing:border-box;
+            padding:10px;
+            border-radius:10px;
+            border:1px solid #9ca3af;
+            margin-bottom:10px;
+            font-size:16px;
+          "
+        />
+
+        <div style="
+          text-align:center;
+          font-weight:bold;
+          margin-bottom:8px;
+        ">
+          Avatar
+        </div>
+
+        <div id="avatarGrid" style="
+          display:grid;
+          grid-template-columns:repeat(5, 1fr);
+          gap:8px;
+          margin-bottom:10px;
+        "></div>
+
+        <div style="
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:8px;
+        ">
+          <div id="cancelEdit" style="${lightButtonStyle()}">Cancel</div>
+          <div id="saveEdit" style="${buttonStyle()}">Save</div>
+        </div>
       </div>
-
-      <div id="avatarGrid" style="
-        display:grid;
-        grid-template-columns:repeat(5, 1fr);
-        gap:8px;
-        margin-bottom:10px;
-      "></div>
-
-      <div style="
-        display:grid;
-        grid-template-columns:1fr 1fr;
-        gap:8px;
-      ">
-        <div id="cancelEdit" style="${lightButtonStyle()}">Cancel</div>
-        <div id="saveEdit" style="${buttonStyle()}">Save</div>
-      </div>
-    </div>
-  `;
-
-  const avatarGrid = document.getElementById("avatarGrid");
-
-  AVATAR_OPTIONS.forEach(avatar => {
-    const btn = document.createElement("div");
-    btn.innerText = avatar;
-    btn.style = `
-      ${avatarStyle(profile.color)}
-      width:auto;
-      height:44px;
-      border:${selectedAvatar === avatar ? "3px solid #f0970a" : "1px solid #ffffff"};
-      cursor:pointer;
     `;
 
-    btn.onclick = () => {
-      renderEditPlayer(profileId, avatar);
+    const avatarGrid = document.getElementById("avatarGrid");
+
+    AVATAR_OPTIONS.forEach(avatar => {
+      const btn = document.createElement("div");
+      btn.innerText = avatar;
+      btn.style = `
+        ${avatarStyle(profile.color)}
+        width:auto;
+        height:44px;
+        border:${selectedAvatar === avatar ? "3px solid #f0970a" : "1px solid #ffffff"};
+        cursor:pointer;
+        box-sizing:border-box;
+      `;
+
+      btn.onclick = () => {
+        const input = document.getElementById("editPlayerName");
+        const currentName = input ? input.value.trim() : profile.name;
+
+        profile.name = currentName || profile.name;
+        renderEditPlayer(profileId, avatar);
+      };
+
+      avatarGrid.appendChild(btn);
+    });
+
+    document.getElementById("cancelEdit").onclick = () => {
+      renderPlayers();
     };
 
-    avatarGrid.appendChild(btn);
-  });
+    document.getElementById("saveEdit").onclick = () => {
+      const newName = document.getElementById("editPlayerName").value.trim();
+      if (!newName) return;
 
-  document.getElementById("cancelEdit").onclick = () => {
-    renderPlayers();
-  };
+      const duplicate = profiles.some(
+        p => p.id !== profileId && p.name.toLowerCase() === newName.toLowerCase()
+      );
 
-  document.getElementById("saveEdit").onclick = () => {
-    const newName = document.getElementById("editPlayerName").value.trim();
-    if (!newName) return;
+      if (duplicate) {
+        alert("That player already exists.");
+        return;
+      }
+
+      profile.name = newName;
+      profile.avatar = selectedAvatar;
+      profile.updatedAt = new Date().toISOString();
+
+      saveProfiles(profiles);
+      renderPlayers();
+    };
+  }
+
+  document.getElementById("addPlayer").onclick = () => {
+    const input = document.getElementById("playerName");
+    const name = input.value.trim();
+
+    if (!name) return;
 
     const duplicate = profiles.some(
-      p => p.id !== profileId && p.name.toLowerCase() === newName.toLowerCase()
+      profile => profile.name.toLowerCase() === name.toLowerCase()
     );
 
     if (duplicate) {
@@ -412,11 +453,35 @@ export function renderSetup(container) {
       return;
     }
 
-    profile.name = newName;
-    profile.avatar = selectedAvatar;
-    profile.updatedAt = new Date().toISOString();
-
+    const newProfile = createPlayerProfile(name);
+    profiles.push(newProfile);
     saveProfiles(profiles);
+
+    selectedIds.add(newProfile.id);
+    input.value = "";
+
     renderPlayers();
   };
+
+  document.getElementById("start").onclick = () => {
+    const selectedPlayers = profiles
+      .filter(profile => selectedIds.has(profile.id))
+      .map(profile => profile.name);
+
+    if (selectedPlayers.length < 2) {
+      alert("Select at least two players.");
+      return;
+    }
+
+    store.players = selectedPlayers;
+    store.screen = "GAME";
+    renderApp();
+  };
+
+  document.getElementById("back").onclick = () => {
+    store.screen = "CATEGORY";
+    renderApp();
+  };
+
+  renderPlayers();
 }
