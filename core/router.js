@@ -5,10 +5,6 @@ import { renderSetup } from "../screens/SetupScreen.js";
 import { renderGame } from "../screens/GameScreen.js";
 import { renderHistory } from "../screens/HistoryScreen.js";
 
-if (store.screen === "HISTORY") {
-  renderHistory(container);
-}
-
 export function renderApp() {
   const app = document.getElementById("app");
   app.innerHTML = "";
@@ -25,6 +21,12 @@ export function renderApp() {
       break;
     case "GAME":
       renderGame(app);
+      break;
+    case "HISTORY":
+      renderHistory(app);
+      break;
+    default:
+      renderHome(app);
       break;
   }
 }
