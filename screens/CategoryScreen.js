@@ -38,9 +38,9 @@ function comingSoonCardStyle() {
 
 function backButtonStyle() {
   return `
-    background:#206a1e;
-    color:#ffffff;
-    border:1px solid #ffffff;
+    background:#ffffff;
+    color:#206a1e;
+    border:1px solid #000000;
     border-radius:10px;
     cursor:pointer;
     display:flex;
