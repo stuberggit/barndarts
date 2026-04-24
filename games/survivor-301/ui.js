@@ -152,8 +152,7 @@ function rotatePlayers(players) {
 }
 
 function buildFlashHtml(state) {
-  const age = Date.now() - (state.lastMessageTimestamp || 0);
-  const showFlash = state.lastMessage && age < 2500;
+  const showFlash = !!state.lastMessage;
 
   const flashHtml = showFlash
     ? `
@@ -164,8 +163,6 @@ function buildFlashHtml(state) {
         color:${state.lastMessageColor || "#ffffff"};
         font-weight:bold;
         text-align:center;
-        opacity:${age > 1800 ? 0.35 : 1};
-        transition:opacity 0.6s ease;
       ">
         ${state.lastMessage}
       </div>
@@ -295,12 +292,6 @@ function renderGame(container, state) {
   renderPlayerBoard(state);
   renderTurnSummary(state);
   renderUtilityControls(container);
-
-  if (showFlash) {
-    setTimeout(() => {
-      renderUI(container);
-    }, 700);
-  }
 }
 
 function renderThrowControls(container, state) {
