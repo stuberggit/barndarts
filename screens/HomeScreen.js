@@ -30,9 +30,9 @@ export function renderHome(container) {
     store.screen = "CATEGORY";
     renderApp();
   };
-}
 
-document.getElementById("history").onclick = () => {
-  store.screen = "HISTORY";
-  renderApp();
-};
+  document.getElementById("history").onclick = () => {
+    store.screen = "HISTORY";
+    renderApp();
+  };
+}
