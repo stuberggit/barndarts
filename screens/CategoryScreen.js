@@ -8,7 +8,6 @@ const gamesByCategory = {
     { id: "hammer-cricket", label: "Hammer Cricket" },
     { id: "killer", label: "Killer" },
     { id: "survivor-301", label: "Survivor 301" },
-    { id: "soon-footdarts", label: "Soon - FootDarts" }
   ],
   x01: [
     { id: "gotcha", label: "Gotcha" },
