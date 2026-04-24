@@ -7,9 +7,9 @@ export function renderHome(container) {
   container.innerHTML = `
     <h1>Barndarts</h1>
 
-    <div class="card" id="fun">FUN!</div>
-    <div class="card" id="x01">X01</div>
-    <div class="card" id="cricket">Cricket</div>
+    <div class="card" id="fun" style="border:1px solid #9ca3af;">FUN!</div>
+    <div class="card" id="x01" style="border:1px solid #9ca3af;">X01</div>
+    <div class="card" id="cricket" style="border:1px solid #9ca3af;">Cricket</div>
   `;
 
   document.getElementById("fun").onclick = () => {
