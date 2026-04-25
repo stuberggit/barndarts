@@ -58,6 +58,76 @@ function cloneState(state) {
   return JSON.parse(JSON.stringify(state));
 }
 
+function normalizePlayerName(player, index) {
+  if (typeof player === "string") return player;
+  if (player && typeof player.name === "string") return player.name;
+  return `Player ${index + 1}`;
+}
+
+function buildStatsSummary() {
+  return gameState.players.map(player => ({
+    name: player.name,
+    score: player.total,
+    scores: [...player.scores],
+    result: player.name === getWinnerName() ? "winner" : "played"
+  }));
+}
+
+function getWinnerName() {
+  if (gameState.shanghaiWinner) return gameState.shanghaiWinner;
+
+  const winner = [...(gameState.players || [])].sort((a, b) => a.total - b.total)[0];
+  return winner ? winner.name : null;
+}
+
+function saveGolfDartsHistory() {
+  if (gameState.historySaved) return;
+
+  const selectedProfiles = store.selectedPlayerProfiles || [];
+  const winnerName = getWinnerName();
+
+  const players = gameState.players.map((player, index) => {
+    const profile = selectedProfiles[index] || {};
+
+    return {
+      id: profile.id || null,
+      name: player.name,
+      avatar: profile.avatar || null,
+      score: player.total,
+      result: player.name === winnerName ? "winner" : "played",
+      scores: [...player.scores],
+      stats: {
+        total: player.total,
+        shanghai: gameState.shanghaiWinner === player.name
+      }
+    };
+  });
+
+  const winnerPlayer = players.find(player => player.name === winnerName) || null;
+
+  saveGameResult({
+    gameId: "golfdarts",
+    gameName: "GolfDarts",
+    players,
+    winner: winnerPlayer
+      ? {
+          id: winnerPlayer.id,
+          name: winnerPlayer.name,
+          avatar: winnerPlayer.avatar
+        }
+      : null,
+    meta: {
+      hazardHoles: [...(gameState.hazardHoles || [])],
+      hammerHoles: [...(gameState.hammerHoles || [])],
+      shanghaiWinner: gameState.shanghaiWinner || null,
+      finalStats: buildStatsSummary()
+    }
+  });
+
+  gameState.finalStats = buildStatsSummary();
+  gameState.historySaved = true;
+}
+
 export function recordThrow(hitValue) {
   if (
     gameState.currentHole >= 18 ||
