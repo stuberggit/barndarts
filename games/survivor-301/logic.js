@@ -5,7 +5,10 @@ import { store } from "../../core/store.js";
 import { saveGameResult } from "../../core/historyService.js";
 
 const STARTING_SCORE = 301;
-const RED_BULL_BONUS = 10;
+const GREEN_BULL_BASE_BONUS = 10;
+const RED_BULL_BASE_BONUS = 20;
+const EXTRA_BULL_BONUS = 10;
+const MISS_PENALTY = -25;
 
 /* -------------------------
    HELPERS
@@ -19,6 +22,10 @@ function normalizePlayerName(player, index) {
   if (typeof player === "string") return player;
   if (player && typeof player.name === "string") return player.name;
   return `Player ${index + 1}`;
+}
+
+function getRandomBonusTarget() {
+  return Math.floor(Math.random() * 10) + 11; // 11-20
 }
 
 function isBullHitType(hitType) {
@@ -40,9 +47,9 @@ function getHitMultiplier(hitType) {
 }
 
 function getHitLabel(hitType, target = null) {
-  if (hitType === "miss") return "Miss";
-  if (hitType === "greenBull") return "Green Bull";
-  if (hitType === "redBull") return "Red Bull";
+  if (hitType === "miss") return "Miss Board";
+  if (hitType === "greenBull") return "Sing Bull";
+  if (hitType === "redBull") return "Dub Bull";
 
   const labels = {
     single: "Single",
@@ -54,12 +61,24 @@ function getHitLabel(hitType, target = null) {
 }
 
 function getScoreChange(hitType, target = null) {
-  if (hitType === "miss") return 0;
-  if (hitType === "greenBull") return 0;
-  if (hitType === "redBull") return RED_BULL_BONUS;
+  if (hitType === "miss") return MISS_PENALTY;
+
+  if (hitType === "greenBull") {
+    return GREEN_BULL_BASE_BONUS + (gameState.currentTurnBullCount || 0) * EXTRA_BULL_BONUS;
+  }
+
+  if (hitType === "redBull") {
+    return RED_BULL_BASE_BONUS + (gameState.currentTurnBullCount || 0) * EXTRA_BULL_BONUS;
+  }
 
   if (isNumberHitType(hitType)) {
-    return -(target * getHitMultiplier(hitType));
+    const value = target * getHitMultiplier(hitType);
+
+    if (target === gameState.bonusTarget) {
+      return value;
+    }
+
+    return -value;
   }
 
   return 0;
@@ -86,6 +105,8 @@ function updateMessage(message, color = "#ffffff") {
 function resetTurnTracking() {
   gameState.dartsThrown = 0;
   gameState.currentTurnThrows = [];
+  gameState.currentTurnBullCount = 0;
+  gameState.turnReadyForNext = false;
 }
 
 function saveSurvivorHistory() {
@@ -240,17 +261,22 @@ export function initGame(players) {
       }
     })),
 
+    bonusTarget: getRandomBonusTarget(),
+
     currentPlayer: 0,
     turnNumber: 1,
     dartsThrown: 0,
     currentTurnThrows: [],
+    currentTurnBullCount: 0,
+    turnReadyForNext: false,
 
     lastMessage: "",
     lastMessageColor: "#ffffff",
     lastMessageTimestamp: 0,
 
     winner: null,
-    finalStats: null
+    finalStats: null,
+    historySaved: false
   };
 
   history = [];
@@ -270,7 +296,11 @@ export function getStats() {
 }
 
 export function getCurrentTargetDisplay() {
-  return `Dart ${gameState.dartsThrown + 1}/3`;
+  if (gameState.turnReadyForNext) {
+    return `Turn complete — tap Next Player`;
+  }
+
+  return `Dart ${gameState.dartsThrown + 1}/3 | Bonus: ${gameState.bonusTarget}`;
 }
 
 /* -------------------------
@@ -278,7 +308,7 @@ export function getCurrentTargetDisplay() {
 --------------------------*/
 
 export function submitThrow(hitType, target = null) {
-  if (gameState.winner) return;
+  if (gameState.winner || gameState.turnReadyForNext) return;
 
   const player = gameState.players[gameState.currentPlayer];
   if (!player || !isPlayerActive(player)) return;
@@ -295,6 +325,10 @@ export function submitThrow(hitType, target = null) {
 
   player.score = scoreAfter;
   gameState.dartsThrown++;
+
+  if (isBullHitType(hitType)) {
+    gameState.currentTurnBullCount++;
+  }
 
   const throwRecord = {
     hitType,
@@ -325,11 +359,11 @@ export function submitThrow(hitType, target = null) {
   if (scoreChange > 0) stats.pointsGained += scoreChange;
 
   if (hitType === "miss") {
-    updateMessage(`${player.name} misses. No damage.`, "#ffffff");
-  } else if (hitType === "greenBull") {
-    updateMessage(`${player.name} hits Green Bull. Safe throw.`, "#22c55e");
-  } else if (hitType === "redBull") {
-    updateMessage(`${player.name} hits Red Bull and gains ${RED_BULL_BONUS}!`, "#22c55e");
+    updateMessage(`${player.name} misses the board and loses ${Math.abs(MISS_PENALTY)}.`, "#ff4c4c");
+  } else if (isBullHitType(hitType)) {
+    updateMessage(`${player.name} hits ${getHitLabel(hitType)} and gains ${scoreChange}!`, "#22c55e");
+  } else if (target === gameState.bonusTarget) {
+    updateMessage(`${player.name} hits bonus ${getHitLabel(hitType, target)} and gains ${scoreChange}!`, "#22c55e");
   } else {
     updateMessage(`${player.name} hits ${getHitLabel(hitType, target)} for ${Math.abs(scoreChange)} damage.`, "#facc15");
   }
@@ -345,7 +379,8 @@ export function submitThrow(hitType, target = null) {
   }
 
   if (gameState.dartsThrown >= 3) {
-    advanceTurn();
+    gameState.turnReadyForNext = true;
+    updateMessage(`${player.name}'s turn is complete. Tap Next Player.`, "#facc15");
   }
 }
 
