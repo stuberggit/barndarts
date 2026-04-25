@@ -7,7 +7,10 @@ import {
   submitHazards,
   submitHammer,
   getMeta,
-  initGame
+  initGame,
+  confirmShanghaiWinner,
+  cancelPendingShanghai,
+  getRotatedPlayersForReplay
 } from "./logic.js";
 import { store } from "../../core/store.js";
 import { renderApp } from "../../core/router.js";
@@ -58,6 +61,78 @@ function buttonStyle() {
     font-weight:bold;
     box-sizing:border-box;
   `;
+}
+
+function renderShanghaiConfirm(container, playerName) {
+  const modal = document.getElementById("modal");
+  if (!modal) return;
+
+  modal.innerHTML = `
+    <div style="
+      position:fixed;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      background:rgba(0,0,0,0.7);
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      z-index:999;
+      padding:16px;
+      box-sizing:border-box;
+    ">
+      <div style="
+        background:#111111;
+        color:#ffffff;
+        padding:20px;
+        border-radius:10px;
+        width:90%;
+        max-width:600px;
+        max-height:90vh;
+        overflow:auto;
+        border:1px solid #ffffff;
+      ">
+        <h2 style="text-align:center;margin-top:0;color:#facc15;">🔥 SHANGHAI? 🔥</h2>
+
+        <div style="text-align:center;margin-bottom:14px;line-height:1.45;">
+          ${playerName} hit Single + Dub + Trip.<br>
+          Confirm Shanghai and end the game?
+        </div>
+
+        <div style="
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:10px;
+        ">
+          <div id="cancelShanghaiBtn" style="
+            ${leaderboardButtonStyle()}
+            padding:12px;
+            min-height:48px;
+          ">Cancel</div>
+
+          <div id="confirmShanghaiBtn" style="
+            ${buttonStyle()}
+            padding:12px;
+            min-height:48px;
+            border:1px solid #facc15;
+          ">Confirm</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("cancelShanghaiBtn").onclick = () => {
+    cancelPendingShanghai();
+    modal.innerHTML = "";
+    renderUI(container);
+  };
+
+  document.getElementById("confirmShanghaiBtn").onclick = () => {
+    confirmShanghaiWinner();
+    modal.innerHTML = "";
+    renderUI(container);
+  };
 }
 
 function renderLeaderboardModal(state) {
@@ -304,11 +379,7 @@ export function renderUI(container) {
       `
       : "";
 
-  const scoreAge = Date.now() - (state.lastScoreTimestamp || 0);
-  const showScoreFlash = state.lastScoreMessage && scoreAge < 2500;
-  const flashOpacity = scoreAge > 1800 ? 0.35 : 1;
-
-  const scoreFlashHtml = showScoreFlash
+  const scoreMessageHtml = state.lastScoreMessage
     ? `
       <div style="
         padding:8px 10px;
@@ -317,15 +388,13 @@ export function renderUI(container) {
         color:${state.lastScoreColor || "#ffffff"};
         font-weight:bold;
         text-align:center;
-        opacity:${flashOpacity};
-        transition:opacity 0.6s ease;
       ">
         ${state.lastScoreMessage}
       </div>
     `
     : "";
 
-  const feedbackHtml = scoreFlashHtml || previewLabelHtml || `<div></div>`;
+  const feedbackHtml = previewLabelHtml || scoreMessageHtml || `<div></div>`;
 
   container.innerHTML = `
     <h2 style="text-align:center;margin-bottom:10px;">Hole ${state.currentHole + 1}</h2>
@@ -357,10 +426,8 @@ export function renderUI(container) {
   renderScorecard(state);
   renderControls(container);
 
-  if (showScoreFlash) {
-    setTimeout(() => {
-      renderUI(container);
-    }, 700);
+  if (state.pendingShanghai) {
+    renderShanghaiConfirm(container, state.pendingShanghai);
   }
 }
 
