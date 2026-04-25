@@ -40,14 +40,6 @@ function getPreviewScoreFromHits(hits) {
   return scores[cappedHits - 1] ?? 5;
 }
 
-function getRotatedPlayersForReplay(state) {
-  const currentPlayers = state.players.map(p => p.name);
-
-  if (currentPlayers.length <= 1) return currentPlayers;
-
-  return [...currentPlayers.slice(1), currentPlayers[0]];
-}
-
 function buttonStyle() {
   return `
     background:#206a1e;
