@@ -1,7 +1,8 @@
 let gameState = {};
 let history = [];
 
-import { checkShanghai } from "../../core/rules/shanghai.js";
+import { store } from "../../core/store.js";
+import { saveGameResult } from "../../core/historyService.js";
 
 /* -------------------------
    INIT / STATE
@@ -9,10 +10,11 @@ import { checkShanghai } from "../../core/rules/shanghai.js";
 
 export function initGame(players) {
   const rounds = buildRoundOrder();
+  const playerNames = (players || []).map(normalizePlayerName);
 
   gameState = {
-     originalPlayers: [...players],
-    players: players.map(name => ({
+    originalPlayers: [...playerNames],
+    players: playerNames.map(name => ({
       name,
       roundScores: Array(rounds.length).fill(null),
       total: 0
@@ -30,7 +32,9 @@ export function initGame(players) {
     lastScoreColor: "#ffffff",
     lastScoreTimestamp: 0,
 
-    shanghaiWinner: null
+    shanghaiWinner: null,
+    pendingShanghai: null,
+    historySaved: false
   };
 
   history = [];
@@ -45,6 +49,63 @@ export function getState() {
 
 function cloneState(state) {
   return JSON.parse(JSON.stringify(state));
+}
+
+function normalizePlayerName(player, index) {
+  if (typeof player === "string") return player;
+  if (player && typeof player.name === "string") return player.name;
+  return `Player ${index + 1}`;
+}
+
+function getWinnerPlayer() {
+  if (gameState.shanghaiWinner) {
+    return gameState.players.find(player => player.name === gameState.shanghaiWinner) || null;
+  }
+
+  return [...gameState.players].sort((a, b) => b.total - a.total)[0] || null;
+}
+
+function saveHammerCricketHistory() {
+  if (gameState.historySaved) return;
+
+  const selectedProfiles = store.selectedPlayerProfiles || [];
+  const winnerPlayer = getWinnerPlayer();
+
+  const players = gameState.players.map((player, index) => {
+    const profile = selectedProfiles[index] || {};
+
+    return {
+      id: profile.id || null,
+      name: player.name,
+      avatar: profile.avatar || null,
+      score: player.total,
+      result: winnerPlayer && player.name === winnerPlayer.name ? "winner" : "played",
+      roundScores: [...player.roundScores],
+      stats: {
+        total: player.total,
+        shanghai: gameState.shanghaiWinner === player.name
+      }
+    };
+  });
+
+  saveGameResult({
+    gameId: "hammer-cricket",
+    gameName: "Hammer Cricket",
+    players,
+    winner: winnerPlayer
+      ? {
+          id: players.find(player => player.name === winnerPlayer.name)?.id || null,
+          name: winnerPlayer.name,
+          avatar: players.find(player => player.name === winnerPlayer.name)?.avatar || null
+        }
+      : null,
+    meta: {
+      rounds: gameState.rounds,
+      shanghaiWinner: gameState.shanghaiWinner || null
+    }
+  });
+
+  gameState.historySaved = true;
 }
 
 function shuffle(array) {
@@ -154,11 +215,16 @@ function finalizeTurn() {
 
   gameState.currentPlayer++;
 
-  if (gameState.currentPlayer >= gameState.players.length) {
+    if (gameState.currentPlayer >= gameState.players.length) {
     gameState.currentPlayer = 0;
     gameState.currentRound++;
   }
+
+  if (gameState.currentRound >= gameState.rounds.length) {
+    saveHammerCricketHistory();
+  }
 }
+
 
 /* -------------------------
    ACTIONS
@@ -203,6 +269,18 @@ export function nextPlayer() {
 
   history.push(cloneState(gameState));
   finalizeTurn();
+}
+
+export function confirmShanghaiWinner() {
+  if (!gameState.pendingShanghai || gameState.shanghaiWinner) return;
+
+  gameState.shanghaiWinner = gameState.pendingShanghai;
+  gameState.pendingShanghai = null;
+  gameState.lastScoreMessage = `${gameState.shanghaiWinner} hit SHANGHAI!`;
+  gameState.lastScoreColor = "#ffcc00";
+  gameState.lastScoreTimestamp = Date.now();
+
+  saveHammerCricketHistory();
 }
 
 export function undo() {
