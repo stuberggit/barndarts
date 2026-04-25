@@ -2,13 +2,18 @@ let gameState = {};
 let history = [];
 
 import { checkShanghai } from "../../core/rules/shanghai.js";
+import { store } from "../../core/store.js";
+import { saveGameResult } from "../../core/historyService.js";
 
 export function initGame(players) {
+  const playerNames = (players || []).map(normalizePlayerName);
   const hazardHoles = generateHazardHoles();
   const hammerHoles = generateHammerHoles(hazardHoles);
 
   gameState = {
-    players: players.map(name => ({
+    originalPlayers: [...playerNames],
+
+    players: playerNames.map(name => ({
       name,
       scores: Array(18).fill(null),
       total: 0
@@ -27,6 +32,9 @@ export function initGame(players) {
     lastScoreTimestamp: 0,
 
     shanghaiWinner: null,
+    pendingShanghai: null,
+    finalStats: null,
+    historySaved: false,
 
     hazardHoles,
     hammerHoles,
@@ -51,6 +59,14 @@ function cloneState(state) {
 }
 
 export function recordThrow(hitValue) {
+  if (
+    gameState.currentHole >= 18 ||
+    gameState.shanghaiWinner ||
+    gameState.pendingShanghai
+  ) {
+    return;
+  }
+
   history.push(cloneState(gameState));
 
   if (gameState.awaitingHazardInput || gameState.awaitingHammerInput) return;
@@ -67,7 +83,7 @@ export function recordThrow(hitValue) {
   }
 
   if (checkShanghai(gameState.currentTurnHits)) {
-    gameState.shanghaiWinner = player.name;
+    gameState.pendingShanghai = player.name;
     return;
   }
 
@@ -216,6 +232,11 @@ function finalizeTurn(hazards = 0, isHammer = false) {
     gameState.currentPlayer = 0;
     gameState.currentHole++;
   }
+
+  if (gameState.currentHole >= 18) {
+    gameState.finalStats = buildStatsSummary();
+    saveGolfDartsHistory();
+  }
 }
 
 function generateHammerHoles(hazardHoles) {
@@ -260,14 +281,20 @@ function getHammerHitsFromThrows(throws) {
 }
 
 export function undo() {
-  console.log("UNDO CLICKED");
-  
   if (history.length === 0) return;
 
   gameState = history.pop();
 }
 
 export function nextPlayer() {
+  if (
+    gameState.currentHole >= 18 ||
+    gameState.shanghaiWinner ||
+    gameState.pendingShanghai
+  ) {
+    return;
+  }
+
   history.push(cloneState(gameState));
 
   if (gameState.awaitingHazardInput || gameState.awaitingHammerInput) return;
@@ -291,6 +318,62 @@ export function nextPlayer() {
   finalizeTurn(0, false);
 }
 
+export function confirmShanghaiWinner() {
+  if (!gameState.pendingShanghai || gameState.shanghaiWinner) return;
+
+  gameState.shanghaiWinner = gameState.pendingShanghai;
+  gameState.pendingShanghai = null;
+  gameState.lastScoreMessage = `${gameState.shanghaiWinner} hit SHANGHAI!`;
+  gameState.lastScoreColor = "#ffcc00";
+  gameState.lastScoreTimestamp = Date.now();
+  gameState.finalStats = buildStatsSummary();
+
+  saveGolfDartsHistory();
+}
+
+export function cancelPendingShanghai() {
+  if (!gameState.pendingShanghai || gameState.shanghaiWinner) return;
+
+  gameState.pendingShanghai = null;
+
+  if (gameState.dartsThrown >= 3) {
+    const hole = gameState.currentHole;
+    const isHazard = gameState.hazardHoles.includes(hole);
+    const isHammer = gameState.hammerHoles.includes(hole);
+
+    if (isHazard) {
+      gameState.awaitingHazardInput = true;
+      return;
+    }
+
+    if (isHammer) {
+      finalizeTurn(0, true);
+      return;
+    }
+
+    finalizeTurn(0, false);
+  }
+}
+
 export function isGameOver() {
-  return gameState.currentHole >= 18 || gameState.shanghaiWinner;
+  const over = gameState.currentHole >= 18 || !!gameState.shanghaiWinner;
+
+  if (over) {
+    saveGolfDartsHistory();
+  }
+
+  return over;
+}
+
+export function getRotatedPlayersForReplay() {
+  if (!gameState.originalPlayers || !gameState.originalPlayers.length) return [];
+
+  if (gameState.originalPlayers.length === 1) {
+    return [...gameState.originalPlayers];
+  }
+
+  return [
+    ...gameState.originalPlayers.slice(1),
+    gameState.originalPlayers[0]
+  ];
 }
