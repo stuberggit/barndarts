@@ -204,10 +204,7 @@ function getLivesEmoji(player) {
 }
 
 function buildFlashHtml(state) {
-  const age = Date.now() - (state.lastMessageTimestamp || 0);
-  const showFlash = state.lastMessage && age < 2500;
-
-  const flashHtml = showFlash
+  const flashHtml = state.lastMessage
     ? `
       <div style="
         padding:8px 10px;
@@ -216,15 +213,13 @@ function buildFlashHtml(state) {
         color:${state.lastMessageColor || "#ffffff"};
         font-weight:bold;
         text-align:center;
-        opacity:${age > 1800 ? 0.35 : 1};
-        transition:opacity 0.6s ease;
       ">
         ${state.lastMessage}
       </div>
     `
     : `<div></div>`;
 
-  return { showFlash, flashHtml };
+  return { showFlash: false, flashHtml };
 }
 
 function stateSnapshot() {
