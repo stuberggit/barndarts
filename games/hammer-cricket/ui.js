@@ -32,6 +32,136 @@ function formatCurrentThrows(throws = []) {
   return throws.map(v => map[v] || "").join(", ");
 }
 
+function buttonStyle() {
+  return `
+    background:#206a1e;
+    color:#ffffff;
+    border:1px solid #ffffff;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+    text-align:center;
+    user-select:none;
+  `;
+}
+
+function lightButtonStyle() {
+  return `
+    background:#ffffff;
+    color:#206a1e;
+    border:1px solid #000000;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+    text-align:center;
+    user-select:none;
+  `;
+}
+
+function undoButtonStyle() {
+  return `
+    background:#206a1e;
+    color:#ffffff;
+    border:1px solid #ff4c4c;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+    text-align:center;
+    user-select:none;
+  `;
+}
+
+function dangerButtonStyle() {
+  return `
+    background:#7f1d1d;
+    color:#ffffff;
+    border:1px solid #fca5a5;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+    text-align:center;
+    user-select:none;
+  `;
+}
+
+function attachButtonClick(el, handler) {
+  el.onclick = handler;
+  el.ontouchstart = e => {
+    e.preventDefault();
+    handler();
+  };
+}
+
+function closeModal() {
+  const modal = document.getElementById("modal");
+  if (modal) modal.innerHTML = "";
+}
+
+function renderModalShell(innerHtml) {
+  const modal = document.getElementById("modal");
+  if (!modal) return;
+
+  modal.innerHTML = `
+    <div id="overlayModal" style="
+      position:fixed;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      background:rgba(0,0,0,0.7);
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      z-index:999;
+      padding:16px;
+      box-sizing:border-box;
+    ">
+      <div id="overlayCard" style="
+        background:#111111;
+        color:#ffffff;
+        padding:20px;
+        border-radius:12px;
+        width:100%;
+        max-width:700px;
+        max-height:90vh;
+        overflow:auto;
+        border:1px solid #ffffff;
+      ">
+        ${innerHtml}
+      </div>
+    </div>
+  `;
+
+  const overlay = document.getElementById("overlayModal");
+  const card = document.getElementById("overlayCard");
+
+  overlay.onclick = e => {
+    if (e.target === overlay) {
+      closeModal();
+    }
+  };
+
+  card.onclick = e => {
+    e.stopPropagation();
+  };
+}
+
 function getLiveRoundScore(throws, round) {
   if (!round || !Array.isArray(throws)) return 0;
 
@@ -65,6 +195,18 @@ export function renderUI(container) {
     return;
   }
 
+  renderGame(container, state);
+
+  if (state.pendingShanghai) {
+    renderShanghaiConfirm(container, state.pendingShanghai);
+  }
+}
+
+/* -------------------------
+   GAME SCREEN
+--------------------------*/
+
+function renderGame(container, state) {
   const round = state.rounds[state.currentRound];
   const scoreAge = Date.now() - (state.lastScoreTimestamp || 0);
   const showScoreFlash = state.lastScoreMessage && scoreAge < 2500;
@@ -108,7 +250,7 @@ export function renderUI(container) {
         font-size:14px;
         opacity:0.75;
         letter-spacing:0.5px;
-      ">TARGET -</div>
+      ">TARGET</div>
 
       <div style="
         font-size:36px;
@@ -182,7 +324,8 @@ function renderPlayerTiles(state) {
       justify-content:space-between;
       align-items:center;
       font-size:18px;
-      border:1px solid #ffffff;
+      border:${isActive ? "3px solid #facc15" : "1px solid #ffffff"};
+      box-sizing:border-box;
     `;
 
     tile.innerHTML = `
@@ -207,7 +350,7 @@ function renderControls(container) {
 
   let topOptions;
 
-    if (round.target === 25) {
+  if (round.target === 25) {
     topOptions = [
       { label: "Single Bull", value: 1 },
       { label: "Double Bull", value: 2 }
@@ -228,24 +371,10 @@ function renderControls(container) {
     margin-top:8px;
   `;
 
-  const greenButtonStyle = `
-    background:#206a1e;
-    color:#ffffff;
-    border:1px solid #ffffff;
-    border-radius:10px;
-    cursor:pointer;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:bold;
-    box-sizing:border-box;
-  `;
-
-  // Top row
   const topRow = document.createElement("div");
   topRow.style = `
     display:grid;
-    grid-template-columns:${round.type === "bull" ? "1fr 1fr" : "1fr 1fr 1fr"};
+    grid-template-columns:repeat(${topOptions.length}, 1fr);
     gap:8px;
   `;
 
@@ -253,21 +382,20 @@ function renderControls(container) {
     const btn = document.createElement("div");
     btn.innerText = opt.label;
     btn.style = `
-      ${greenButtonStyle}
+      ${buttonStyle()}
       padding:10px 8px;
       font-size:16px;
       min-height:44px;
     `;
 
-    btn.onclick = () => {
+    attachButtonClick(btn, () => {
       recordThrow(opt.value);
       renderUI(container);
-    };
+    });
 
     topRow.appendChild(btn);
   });
 
-  // Middle row
   const middleRow = document.createElement("div");
   middleRow.style = `
     display:grid;
@@ -278,165 +406,198 @@ function renderControls(container) {
   const missBtn = document.createElement("div");
   missBtn.innerText = "❌ Miss";
   missBtn.style = `
-    ${greenButtonStyle}
+    ${buttonStyle()}
     padding:8px;
     font-size:15px;
     min-height:40px;
   `;
-  missBtn.onclick = () => {
+  attachButtonClick(missBtn, () => {
     recordThrow(0);
     renderUI(container);
-  };
+  });
 
   const nextBtn = document.createElement("div");
   nextBtn.innerText = "➡️ Next Player";
   nextBtn.style = `
-    ${greenButtonStyle}
+    ${buttonStyle()}
     padding:8px;
     font-size:15px;
     min-height:40px;
   `;
-  nextBtn.onclick = () => {
+  attachButtonClick(nextBtn, () => {
     nextPlayer();
     renderUI(container);
-  };
+  });
 
   middleRow.appendChild(missBtn);
   middleRow.appendChild(nextBtn);
 
-  // Lower row
-  const lowerRow = document.createElement("div");
-  lowerRow.style = `
+  const utilityRow = document.createElement("div");
+  utilityRow.style = `
     display:grid;
-    grid-template-columns:1fr 1fr;
+    grid-template-columns:1fr 1fr 1fr;
     gap:8px;
   `;
 
   const leaderboardBtn = document.createElement("div");
   leaderboardBtn.innerText = "Leaderboard";
   leaderboardBtn.style = `
-    background:#ffffff;
-    color:#206a1e;
-    border:1px solid #000000;
-    border-radius:10px;
-    cursor:pointer;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:bold;
-    box-sizing:border-box;
+    ${lightButtonStyle()}
     padding:8px;
     font-size:15px;
     min-height:40px;
   `;
-  leaderboardBtn.onclick = () => {
+  attachButtonClick(leaderboardBtn, () => {
     renderLeaderboardModal(getState());
-  };
+  });
 
   const undoBtn = document.createElement("div");
   undoBtn.innerText = "Undo";
   undoBtn.style = `
-    background:#206a1e;
-    color:#ffffff;
-    border:1px solid #ff4c4c;
-    border-radius:10px;
-    cursor:pointer;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:bold;
-    box-sizing:border-box;
+    ${undoButtonStyle()}
     padding:8px;
     font-size:15px;
     min-height:40px;
   `;
-  undoBtn.onclick = () => {
+  attachButtonClick(undoBtn, () => {
     undo();
     renderUI(container);
-  };
-
-  lowerRow.appendChild(leaderboardBtn);
-  lowerRow.appendChild(undoBtn);
-
-  // End game row
-  const endRow = document.createElement("div");
-  endRow.style = `
-    display:grid;
-    grid-template-columns:1fr;
-    gap:8px;
-  `;
+  });
 
   const endBtn = document.createElement("div");
-  endBtn.innerText = "End Game";
+  endBtn.innerText = "End";
   endBtn.style = `
-    ${greenButtonStyle}
-    padding:10px;
-    font-size:16px;
-    min-height:44px;
+    ${dangerButtonStyle()}
+    padding:8px;
+    font-size:15px;
+    min-height:40px;
   `;
-  endBtn.onclick = () => {
-    store.screen = "HOME";
-    store.players = [];
-    renderApp();
-  };
+  attachButtonClick(endBtn, () => {
+    renderEndGameConfirm(container);
+  });
 
-  endRow.appendChild(endBtn);
+  utilityRow.appendChild(leaderboardBtn);
+  utilityRow.appendChild(undoBtn);
+  utilityRow.appendChild(endBtn);
 
   controlsWrap.appendChild(topRow);
   controlsWrap.appendChild(middleRow);
-  controlsWrap.appendChild(lowerRow);
-  controlsWrap.appendChild(endRow);
+  controlsWrap.appendChild(utilityRow);
 
   controls.appendChild(controlsWrap);
 }
 
 /* -------------------------
-   LEADERBOARD MODAL
+   MODALS
 --------------------------*/
 
-function renderLeaderboardModal(state) {
-  const modal = document.getElementById("modal");
-
-  modal.innerHTML = `
+function renderEndGameConfirm(container) {
+  renderModalShell(`
+    <h2 style="text-align:center;margin-top:0;color:#facc15;">End Game?</h2>
+    <div style="text-align:center;margin-bottom:14px;">
+      Are you sure you want to end this game and return to the main menu?
+    </div>
     <div style="
-      position:fixed;
-      top:0;
-      left:0;
-      width:100%;
-      height:100%;
-      background:rgba(0,0,0,0.7);
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    ">
+      <div id="cancelEndBtn" style="
+        ${lightButtonStyle()}
+        padding:12px;
+        min-height:48px;
+      ">Cancel</div>
+      <div id="confirmEndBtn" style="
+        ${dangerButtonStyle()}
+        padding:12px;
+        min-height:48px;
+      ">End Game</div>
+    </div>
+  `);
+
+  attachButtonClick(document.getElementById("cancelEndBtn"), closeModal);
+
+  attachButtonClick(document.getElementById("confirmEndBtn"), () => {
+    closeModal();
+    store.screen = "HOME";
+    store.players = [];
+    renderApp();
+  });
+}
+
+function renderShanghaiConfirm(container, playerName) {
+  renderModalShell(`
+    <h2 style="text-align:center;margin-top:0;color:#facc15;">🔥 SHANGHAI? 🔥</h2>
+    <div style="text-align:center;margin-bottom:14px;line-height:1.45;">
+      ${playerName} hit Single + Dub + Trip.<br>
+      Confirm Shanghai and end the game?
+    </div>
+    <div style="
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    ">
+      <div id="cancelShanghaiBtn" style="
+        ${lightButtonStyle()}
+        padding:12px;
+        min-height:48px;
+      ">Cancel</div>
+      <div id="confirmShanghaiBtn" style="
+        ${buttonStyle()}
+        padding:12px;
+        min-height:48px;
+        border:1px solid #facc15;
+      ">Confirm</div>
+    </div>
+  `);
+
+  attachButtonClick(document.getElementById("cancelShanghaiBtn"), () => {
+    const state = getState();
+    state.pendingShanghai = null;
+    closeModal();
+
+    if (state.dartsThrown >= 3) {
+      nextPlayer();
+    }
+
+    renderUI(container);
+  });
+
+  attachButtonClick(document.getElementById("confirmShanghaiBtn"), () => {
+    const state = getState();
+    state.shanghaiWinner = state.pendingShanghai;
+    state.pendingShanghai = null;
+    state.lastScoreMessage = `${state.shanghaiWinner} hit SHANGHAI!`;
+    state.lastScoreColor = "#ffcc00";
+    state.lastScoreTimestamp = Date.now();
+
+    closeModal();
+    renderUI(container);
+  });
+}
+
+function renderLeaderboardModal(state) {
+  renderModalShell(`
+    <h2 style="text-align:center;margin-top:0;">Leaderboard</h2>
+    <div id="scorecard"></div>
+    <div style="
       display:flex;
       justify-content:center;
-      align-items:center;
-      z-index:999;
+      margin-top:12px;
     ">
-      <div style="
-        background:#fff;
-        color:#000;
-        padding:20px;
-        border-radius:10px;
-        width:90%;
-        max-width:600px;
-        max-height:90vh;
-        overflow:auto;
-      ">
-        <h2>Leaderboard</h2>
-        <div id="scorecard"></div>
-        <div class="button" id="closeModal" style="
-          background:#206a1e;
-          color:#ffffff;
-          border:1px solid #ffffff;
-          margin-top:12px;
-        ">Close</div>
-      </div>
+      <div id="closeModalBtn" style="
+        ${buttonStyle()}
+        width:110px;
+        min-height:38px;
+        font-size:15px;
+        border:1px solid #ff4c4c;
+      ">Close</div>
     </div>
-  `;
+  `);
 
   renderScorecard(state);
 
-  document.getElementById("closeModal").onclick = () => {
-    modal.innerHTML = "";
-  };
+  attachButtonClick(document.getElementById("closeModalBtn"), closeModal);
 }
 
 /* -------------------------
@@ -523,8 +684,10 @@ function renderEnd(container, state) {
     : [...state.players].sort((a, b) => b.total - a.total)[0].name;
 
   container.innerHTML = `
-    <h2>${state.shanghaiWinner ? "🔥 SHANGHAI 🔥" : "Game Over"}</h2>
-    <h3>🏆 Winner: ${winner}</h3>
+    <h2 style="text-align:center;">
+      ${state.shanghaiWinner ? "🔥 SHANGHAI 🔥" : "Game Over"}
+    </h2>
+    <h3 style="text-align:center;">🏆 Winner: ${winner}</h3>
 
     <div id="scorecard"></div>
 
@@ -534,6 +697,8 @@ function renderEnd(container, state) {
       gap:8px;
       margin-top:12px;
     " id="endControls"></div>
+
+    <div id="modal"></div>
   `;
 
   renderScorecard(state);
@@ -543,48 +708,30 @@ function renderEnd(container, state) {
   const playAgainBtn = document.createElement("div");
   playAgainBtn.innerText = "Play Again";
   playAgainBtn.style = `
-    background:#206a1e;
-    color:#ffffff;
-    border:1px solid #ffffff;
-    border-radius:10px;
-    cursor:pointer;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:bold;
-    box-sizing:border-box;
+    ${buttonStyle()}
     padding:10px;
     font-size:16px;
     min-height:44px;
   `;
-  playAgainBtn.onclick = () => {
+  attachButtonClick(playAgainBtn, () => {
     const rotatedPlayers = getRotatedPlayersForReplay();
     initGame(rotatedPlayers);
     renderUI(container);
-  };
+  });
 
   const mainMenuBtn = document.createElement("div");
   mainMenuBtn.innerText = "Main Menu";
   mainMenuBtn.style = `
-    background:#206a1e;
-    color:#ffffff;
-    border:1px solid #ffffff;
-    border-radius:10px;
-    cursor:pointer;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:bold;
-    box-sizing:border-box;
+    ${buttonStyle()}
     padding:10px;
     font-size:16px;
     min-height:44px;
   `;
-  mainMenuBtn.onclick = () => {
+  attachButtonClick(mainMenuBtn, () => {
     store.screen = "HOME";
     store.players = [];
     renderApp();
-  };
+  });
 
   controls.appendChild(playAgainBtn);
   controls.appendChild(mainMenuBtn);
