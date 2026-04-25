@@ -6,7 +6,8 @@ import {
   isGameOver,
   getMeta,
   initGame,
-  getRotatedPlayersForReplay
+  getRotatedPlayersForReplay,
+  confirmShanghaiWinner
 } from "./logic.js";
 import { store } from "../../core/store.js";
 import { renderApp } from "../../core/router.js";
@@ -564,13 +565,7 @@ function renderShanghaiConfirm(container, playerName) {
   });
 
   attachButtonClick(document.getElementById("confirmShanghaiBtn"), () => {
-    const state = getState();
-    state.shanghaiWinner = state.pendingShanghai;
-    state.pendingShanghai = null;
-    state.lastScoreMessage = `${state.shanghaiWinner} hit SHANGHAI!`;
-    state.lastScoreColor = "#ffcc00";
-    state.lastScoreTimestamp = Date.now();
-
+    confirmShanghaiWinner();
     closeModal();
     renderUI(container);
   });
