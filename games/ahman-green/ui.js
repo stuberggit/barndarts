@@ -167,12 +167,10 @@ export function renderUI(container) {
     return;
   }
 
-  const age = Date.now() - (state.lastMessageTimestamp || 0);
-  const showFlash = state.lastMessage && age < 2500;
   const currentPlayer = state.players[state.currentPlayer];
   const needsMeta = getNeedsColorMeta(currentPlayer.progress);
 
-  const flashHtml = showFlash
+  const messageHtml = state.lastMessage
     ? `
       <div style="
         padding:8px 10px;
@@ -181,8 +179,6 @@ export function renderUI(container) {
         color:${state.lastMessageColor || "#ffffff"};
         font-weight:bold;
         text-align:center;
-        opacity:${age > 1800 ? 0.35 : 1};
-        transition:opacity 0.6s ease;
       ">
         ${state.lastMessage}
       </div>
@@ -216,7 +212,7 @@ export function renderUI(container) {
       justify-content:center;
     ">
       <div style="width:100%;">
-        ${flashHtml}
+        ${messageHtml}
       </div>
     </div>
 
@@ -234,12 +230,6 @@ export function renderUI(container) {
   activeColorBlock.appendChild(getProgressCells(currentPlayer, true, container));
 
   renderControls(container);
-
-  if (showFlash) {
-    setTimeout(() => {
-      renderUI(container);
-    }, 700);
-  }
 }
 
 /* -------------------------
