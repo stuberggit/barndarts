@@ -183,16 +183,13 @@ export function recordThrow(hitValue) {
 
   // Shanghai = single + double + triple in one turn
   if (
-    gameState.currentTurnHits.includes(1) &&
-    gameState.currentTurnHits.includes(2) &&
-    gameState.currentTurnHits.includes(3)
-  ) {
-    gameState.shanghaiWinner = player.name;
-    gameState.lastScoreMessage = `${player.name} hit SHANGHAI!`;
-    gameState.lastScoreColor = "#ffcc00";
-    gameState.lastScoreTimestamp = Date.now();
-    return;
-  }
+  gameState.currentTurnHits.includes(1) &&
+  gameState.currentTurnHits.includes(2) &&
+  gameState.currentTurnHits.includes(3)
+) {
+  gameState.pendingShanghai = player.name;
+  return;
+}
 
   if (gameState.dartsThrown === 3) {
     finalizeTurn();
