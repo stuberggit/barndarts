@@ -1,12 +1,76 @@
 let gameState = {};
 let history = [];
 
+import { store } from "../../core/store.js";
+import { saveGameResult } from "../../core/historyService.js";
+
 /* -------------------------
    HELPERS
 --------------------------*/
 
 function cloneState(state) {
   return JSON.parse(JSON.stringify(state));
+}
+
+function normalizePlayerName(player, index) {
+  if (typeof player === "string") return player;
+  if (player && typeof player.name === "string") return player.name;
+  return `Player ${index + 1}`;
+}
+
+function getWinnerName() {
+  return gameState.winner || gameState.shanghaiWinner || null;
+}
+
+function saveKillerHistory() {
+  if (gameState.historySaved) return;
+
+  const selectedProfiles = store.selectedPlayerProfiles || [];
+  const winnerName = getWinnerName();
+
+  const players = gameState.players.map((player, index) => {
+    const profile = selectedProfiles[index] || {};
+
+    return {
+      id: profile.id || null,
+      name: player.name,
+      avatar: profile.avatar || null,
+      score: player.lives,
+      result: player.name === winnerName ? "winner" : player.isDormantDead ? "out" : "played",
+      stats: { ...(player.stats || {}) },
+      meta: {
+        target: player.target,
+        hitType: player.hitType,
+        lives: player.lives,
+        isKiller: player.isKiller,
+        isZombie: player.isZombie,
+        isRedemski: player.isRedemski,
+        isDormantDead: player.isDormantDead,
+        redemskiCount: player.redemskiCount || 0
+      }
+    };
+  });
+
+  const winnerPlayer = players.find(player => player.name === winnerName) || null;
+
+  saveGameResult({
+    gameId: "killer",
+    gameName: "Killer",
+    players,
+    winner: winnerPlayer
+      ? {
+          id: winnerPlayer.id,
+          name: winnerPlayer.name,
+          avatar: winnerPlayer.avatar
+        }
+      : null,
+    meta: {
+      shanghaiWinner: gameState.shanghaiWinner || null,
+      finalStats: gameState.finalStats || buildStatsSummary()
+    }
+  });
+
+  gameState.historySaved = true;
 }
 
 function isBullHitType(hitType) {
@@ -150,6 +214,7 @@ function maybeDeclareWinner() {
   if (activePlayers.length === 1) {
     gameState.winner = activePlayers[0].name;
     gameState.finalStats = buildStatsSummary();
+    saveKillerHistory();
     return true;
   }
 
@@ -432,6 +497,7 @@ function finishShanghaiWin(playerName) {
   gameState.shanghaiWinner = playerName;
   gameState.finalStats = buildStatsSummary();
   updateMessage(`${playerName} hit SHANGHAI!`, "#ffcc00");
+  saveKillerHistory();
 }
 
 function canConsumeTurnEvents(amount) {
@@ -484,10 +550,12 @@ function dealHitToVictim(attacker, victimIndex, hitType, damage) {
 --------------------------*/
 
 export function initGame(players) {
-  gameState = {
-    originalPlayers: [...players],
+  const playerNames = (players || []).map(normalizePlayerName);
 
-    players: players.map(name => ({
+  gameState = {
+    originalPlayers: [...playerNames],
+
+    players: playerNames.map(name => ({
       name,
       target: null,
       hitType: null,
@@ -524,7 +592,8 @@ export function initGame(players) {
 
     winner: null,
     shanghaiWinner: null,
-    finalStats: null
+    finalStats: null,
+    historySaved: false
   };
 
   history = [];
@@ -773,6 +842,7 @@ export function endGameEarly() {
 
   gameState.finalStats = buildStatsSummary();
   updateMessage("Game ended early.", "#facc15");
+  saveKillerHistory();
 }
 
 /* -------------------------
