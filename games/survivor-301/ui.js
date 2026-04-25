@@ -232,7 +232,7 @@ export function renderUI(container) {
 --------------------------*/
 
 function renderGame(container, state) {
-  const { showFlash, flashHtml } = buildFlashHtml(state);
+  const { flashHtml } = buildFlashHtml(state);
   const currentPlayer = state.players[state.currentPlayer];
 
   container.innerHTML = `
@@ -303,7 +303,8 @@ function renderThrowControls(container, state) {
     currentPlayer &&
     currentPlayer.isActive &&
     !currentPlayer.isEliminated &&
-    state.dartsThrown < 3;
+    state.dartsThrown < 3 &&
+    !state.turnReadyForNext;
 
   const hitTypeRow = document.createElement("div");
   hitTypeRow.style = `
@@ -347,7 +348,7 @@ function renderThrowControls(container, state) {
   `;
 
   const missBtn = document.createElement("div");
-  missBtn.innerText = "Miss";
+  missBtn.innerText = "Miss Board";
   missBtn.style = `
     ${buttonStyle()}
     padding:12px;
@@ -368,6 +369,7 @@ function renderThrowControls(container, state) {
     padding:12px;
     min-height:52px;
     font-size:18px;
+    ${state.dartsThrown === 0 && !state.turnReadyForNext ? "opacity:0.9;" : ""}
   `;
   attachButtonClick(nextBtn, () => {
     nextPlayer();
@@ -542,12 +544,26 @@ function renderUtilityControls(container) {
 --------------------------*/
 
 function renderNumberPicker(container, hitType) {
+  const state = getState();
   const isTriple = hitType === "triple";
+  const canThrow =
+    !state.winner &&
+    !state.turnReadyForNext &&
+    state.dartsThrown < 3;
 
   renderModalShell(`
     <h2 style="text-align:center;margin-top:0;">
       ${hitType === "single" ? "Single" : hitType === "double" ? "Dub" : "Trip"}
     </h2>
+
+    <div style="
+      text-align:center;
+      margin-bottom:12px;
+      color:#facc15;
+      font-weight:bold;
+    ">
+      Bonus Number: ${state.bonusTarget}
+    </div>
 
     <div id="numberGrid"></div>
 
@@ -562,7 +578,7 @@ function renderNumberPicker(container, hitType) {
         padding:12px;
         min-height:52px;
         font-size:20px;
-        ${isTriple ? "background:#555;color:#bbb;border:1px solid #999;cursor:not-allowed;" : ""}
+        ${isTriple || !canThrow ? "background:#555;color:#bbb;border:1px solid #999;cursor:not-allowed;" : ""}
       ">Bull</div>
 
       <div id="closeModalBtn" style="
@@ -583,6 +599,8 @@ function renderNumberPicker(container, hitType) {
   `;
 
   for (let i = 1; i <= 20; i++) {
+    const isBonus = i === state.bonusTarget;
+
     const btn = document.createElement("div");
     btn.innerText = i;
     btn.style = `
@@ -590,12 +608,19 @@ function renderNumberPicker(container, hitType) {
       padding:12px;
       min-height:52px;
       font-size:20px;
+      ${isBonus ? "border:2px solid #facc15;color:#facc15;" : ""}
+      ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
     `;
 
     attachButtonClick(btn, () => {
+      if (!canThrow) return;
+
       submitThrow(hitType, i);
-      closeModal();
       renderUI(container);
+
+      if (!isGameOver()) {
+        renderNumberPicker(container, hitType);
+      }
     });
 
     grid.appendChild(btn);
@@ -604,11 +629,14 @@ function renderNumberPicker(container, hitType) {
   const bullBtn = document.getElementById("bullBtn");
   const closeBtn = document.getElementById("closeModalBtn");
 
-  if (!isTriple) {
+  if (!isTriple && canThrow) {
     attachButtonClick(bullBtn, () => {
       submitThrow(hitType === "single" ? "greenBull" : "redBull");
-      closeModal();
       renderUI(container);
+
+      if (!isGameOver()) {
+        renderNumberPicker(container, hitType);
+      }
     });
   }
 
