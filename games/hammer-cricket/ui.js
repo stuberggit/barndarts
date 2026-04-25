@@ -209,25 +209,21 @@ export function renderUI(container) {
 
 function renderGame(container, state) {
   const round = state.rounds[state.currentRound];
-  const scoreAge = Date.now() - (state.lastScoreTimestamp || 0);
-  const showScoreFlash = state.lastScoreMessage && scoreAge < 2500;
 
-  const scoreFlashHtml = showScoreFlash
+  const scoreMessageHtml = state.lastScoreMessage
     ? `
       <div style="
         padding:8px 10px;
         border-radius:10px;
-        background: rgba(255,255,255,0.08);
+        background:rgba(255,255,255,0.08);
         color:${state.lastScoreColor || "#ffffff"};
         font-weight:bold;
         text-align:center;
-        opacity:${scoreAge > 1800 ? 0.35 : 1};
-        transition: opacity 0.6s ease;
       ">
         ${state.lastScoreMessage}
       </div>
     `
-    : "";
+    : `<div></div>`;
 
   const throwsText = formatCurrentThrows(state.currentTurnThrows);
   const throwsDisplay = throwsText ? ` | Hits ${throwsText}` : "";
@@ -242,8 +238,6 @@ function renderGame(container, state) {
     state.dartsThrown > 0
       ? ` | <span style="color:${liveMeta.color};font-weight:bold;">${liveMeta.label}: ${liveScore > 0 ? "+" : ""}${liveScore}</span>`
       : "";
-
-  const feedbackHtml = scoreFlashHtml || `<div></div>`;
 
   container.innerHTML = `
     <div style="text-align:center;margin-bottom:10px;">
@@ -273,7 +267,7 @@ function renderGame(container, state) {
       justify-content:center;
     ">
       <div style="width:100%;">
-        ${feedbackHtml}
+        ${scoreMessageHtml}
       </div>
     </div>
 
@@ -289,12 +283,6 @@ function renderGame(container, state) {
 
   renderPlayerTiles(state);
   renderControls(container);
-
-  if (showScoreFlash) {
-    setTimeout(() => {
-      renderUI(container);
-    }, 700);
-  }
 }
 
 /* -------------------------
