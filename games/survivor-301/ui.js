@@ -551,6 +551,17 @@ function renderNumberPicker(container, hitType) {
     !state.turnReadyForNext &&
     state.dartsThrown < 3;
 
+  function getHitCountFor(target, buttonHitType = hitType) {
+    return (state.currentTurnThrows || []).filter(throwRecord => {
+      return throwRecord.hitType === buttonHitType && throwRecord.target === target;
+    }).length;
+  }
+
+  const bullHitType = hitType === "single" ? "greenBull" : hitType === "double" ? "redBull" : null;
+  const bullHitCount = bullHitType
+    ? (state.currentTurnThrows || []).filter(throwRecord => throwRecord.hitType === bullHitType).length
+    : 0;
+
   renderModalShell(`
     <h2 style="text-align:center;margin-top:0;">
       ${hitType === "single" ? "Single" : hitType === "double" ? "Dub" : "Trip"}
@@ -575,11 +586,34 @@ function renderNumberPicker(container, hitType) {
     ">
       <div id="bullBtn" style="
         ${buttonStyle()}
+        position:relative;
         padding:12px;
         min-height:52px;
         font-size:20px;
+        ${bullHitCount > 0 ? "border:3px solid #facc15;box-shadow:0 0 12px rgba(250,204,21,0.55);" : ""}
         ${isTriple || !canThrow ? "background:#555;color:#bbb;border:1px solid #999;cursor:not-allowed;" : ""}
-      ">Bull</div>
+      ">
+        Bull
+        ${
+          bullHitCount > 0
+            ? `<span style="
+                position:absolute;
+                top:4px;
+                right:6px;
+                background:#facc15;
+                color:#111111;
+                border-radius:999px;
+                min-width:22px;
+                height:22px;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                font-size:13px;
+                font-weight:bold;
+              ">${bullHitCount}</span>`
+            : ""
+        }
+      </div>
 
       <div id="closeModalBtn" style="
         ${buttonStyle()}
@@ -600,15 +634,40 @@ function renderNumberPicker(container, hitType) {
 
   for (let i = 1; i <= 20; i++) {
     const isBonus = i === state.bonusTarget;
+    const hitCount = getHitCountFor(i);
 
     const btn = document.createElement("div");
-    btn.innerText = i;
+    btn.innerHTML = `
+      <span>${i}</span>
+      ${
+        hitCount > 0
+          ? `<span style="
+              position:absolute;
+              top:4px;
+              right:6px;
+              background:#facc15;
+              color:#111111;
+              border-radius:999px;
+              min-width:22px;
+              height:22px;
+              display:flex;
+              align-items:center;
+              justify-content:center;
+              font-size:13px;
+              font-weight:bold;
+            ">${hitCount}</span>`
+          : ""
+      }
+    `;
+
     btn.style = `
       ${buttonStyle()}
+      position:relative;
       padding:12px;
       min-height:52px;
       font-size:20px;
       ${isBonus ? "border:2px solid #facc15;color:#facc15;" : ""}
+      ${hitCount > 0 ? "border:3px solid #facc15;box-shadow:0 0 12px rgba(250,204,21,0.55);" : ""}
       ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
     `;
 
