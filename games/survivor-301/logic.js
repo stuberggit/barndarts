@@ -64,21 +64,27 @@ function getScoreChange(hitType, target = null) {
   if (hitType === "miss") return MISS_PENALTY;
 
   if (hitType === "greenBull") {
-    return GREEN_BULL_BASE_BONUS + (gameState.currentTurnBullCount || 0) * EXTRA_BULL_BONUS;
+    const greenBullCount = (gameState.currentTurnThrows || []).filter(
+      throwRecord => throwRecord.hitType === "greenBull"
+    ).length;
+
+    return GREEN_BULL_BASE_BONUS + greenBullCount * EXTRA_BULL_BONUS;
   }
 
   if (hitType === "redBull") {
-    return RED_BULL_BASE_BONUS + (gameState.currentTurnBullCount || 0) * EXTRA_BULL_BONUS;
+    const redBullCount = (gameState.currentTurnThrows || []).filter(
+      throwRecord => throwRecord.hitType === "redBull"
+    ).length;
+
+    return RED_BULL_BASE_BONUS + redBullCount * EXTRA_BULL_BONUS;
   }
 
   if (isNumberHitType(hitType)) {
-    const value = target * getHitMultiplier(hitType);
-
     if (target === gameState.bonusTarget) {
-      return value;
+      return target;
     }
 
-    return -value;
+    return -(target * getHitMultiplier(hitType));
   }
 
   return 0;
