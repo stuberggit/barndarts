@@ -201,23 +201,20 @@ function maybeDeclareWinner() {
 function advanceTurn() {
   resetTurnTracking();
 
-  let attempts = 0;
+  let nextIndex = gameState.currentPlayer;
 
   do {
-    gameState.currentPlayer++;
+    nextIndex = (nextIndex + 1) % gameState.players.length;
+  } while (!isPlayerActive(gameState.players[nextIndex]));
 
-    if (gameState.currentPlayer >= gameState.players.length) {
-      gameState.currentPlayer = 0;
-      gameState.turnNumber++;
-    }
+  if (nextIndex <= gameState.currentPlayer) {
+    gameState.turnNumber++;
+  }
 
-    attempts++;
-  } while (
-    !isPlayerActive(gameState.players[gameState.currentPlayer]) &&
-    attempts <= gameState.players.length
-  );
+  gameState.currentPlayer = nextIndex;
 
-  maybeDeclareWinner();
+  // 🔥 NEW: assign new bonus target per turn
+  gameState.bonusTarget = getRandomBonusTarget();
 }
 
 function eliminateCurrentPlayer() {
@@ -261,7 +258,7 @@ export function initGame(players) {
       }
     })),
 
-    bonusTarget: getRandomBonusTarget(),
+    bonusTarget: getRandomBonusTarget(), // first player
 
     currentPlayer: 0,
     turnNumber: 1,
