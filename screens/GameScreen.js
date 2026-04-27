@@ -7,7 +7,6 @@ import AhmanGreen from "../games/ahman-green/index.js";
 import Killer from "../games/killer/index.js";
 import Survivor301 from "../games/survivor-301/index.js";
 import ThreeOhOne from "../games/301/index.js";
-import Cricket from "../games/cricket/index.js";
 
 const gameMap = {
   "GolfDarts": golfdarts,
@@ -15,8 +14,7 @@ const gameMap = {
   "ahman-green": AhmanGreen,
   "killer": Killer,
   "survivor-301": Survivor301,
-  "301": ThreeOhOne,
-  "Cricket": Cricket
+  "301": ThreeOhOne
 };
 
 export function renderGame(container) {
