@@ -11,14 +11,13 @@ const gamesByCategory = {
   ],
   x01: [
     { id: "gotcha", label: "Gotcha", built: false },
-    { id: "301", label: "301", built: false },
-    { id: "501", label: "501", built: false },
-    { id: "701", label: "701", built: false }
+    { id: "301", label: "301", built: true },
+    { id: "X01", label: "X01", built: true },
   ],
   cricket: [
-    { id: "cricket-no-score", label: "No Score", built: false },
-    { id: "cricket-random", label: "Random", built: false },
-    { id: "cricket-standard", label: "Standard", built: false }
+    { id: "cricket-no-score", label: "No Score", built: true },
+    { id: "cricket-random", label: "Random", built: true },
+    { id: "cricket-standard", label: "Standard", built: true }
   ]
 };
 
