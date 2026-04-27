@@ -89,27 +89,51 @@ export function renderUI(container) {
   }
 
   const player = state.players[state.currentPlayer];
+  const dartDisplay = state.turnReadyForNext
+    ? "Turn complete — tap Next Player"
+    : `Dart ${state.dartsThrown + 1}/3`;
 
   container.innerHTML = `
-    <div style="text-align:center;font-size:24px;margin-bottom:10px;">
-      🎯 ${player.name}
+    <div style="
+      text-align:center;
+      margin-bottom:12px;
+      font-size:24px;
+      font-weight:bold;
+      color:#facc15;
+    ">
+      🎯 Current Player
     </div>
 
-    <div style="text-align:center;font-size:36px;margin-bottom:10px;">
-      ${player.score}
-    </div>
-
-    <div style="text-align:center;margin-bottom:10px;">
-      Dart ${state.dartsThrown + 1}/3
+    <div style="
+      margin-bottom:12px;
+      padding:14px;
+      border-radius:12px;
+      background:#11361a;
+      border:2px solid #f0970a;
+      color:#ffffff;
+      text-align:center;
+      font-weight:bold;
+    ">
+      <div style="font-size:26px;margin-bottom:6px;">
+        ${player.name}
+      </div>
+      <div style="font-size:34px;line-height:1;margin-bottom:6px;">
+        ${player.score}
+      </div>
+      <div style="font-size:16px;color:#facc15;">
+        ${dartDisplay}
+      </div>
     </div>
 
     <div id="controls"></div>
     <div id="playerBoard"></div>
+    <div id="turnSummary"></div>
     <div id="modal"></div>
   `;
 
   renderControls(container);
   renderPlayers(container);
+  renderTurnSummary();
 }
 
 /* -------------------------
@@ -148,38 +172,61 @@ function renderPlayers(container) {
 function renderControls(container) {
   const state = getState();
   const controls = document.getElementById("controls");
+  controls.innerHTML = "";
 
   const canThrow =
     !state.winner &&
     !state.turnReadyForNext &&
     state.dartsThrown < 3;
 
-  const wrap = document.createElement("div");
-
-  // top row
   const row1 = document.createElement("div");
-  row1.style = "display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px";
+  row1.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:8px;
+    margin-top:8px;
+  `;
 
-  ["single", "double", "triple"].forEach(type => {
+  [
+    { label: "Single", value: "single" },
+    { label: "Dub", value: "double" },
+    { label: "Trip", value: "triple" }
+  ].forEach(type => {
     const btn = document.createElement("div");
-    btn.innerText = type === "single" ? "Single" : type === "double" ? "Dub" : "Trip";
-    btn.style = `${buttonStyle()}padding:12px`;
+    btn.innerText = type.label;
+    btn.style = `
+      ${buttonStyle()}
+      padding:12px;
+      min-height:52px;
+      font-size:18px;
+      ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
+    `;
 
     attach(btn, () => {
       if (!canThrow) return;
-      openNumberModal(container, type);
+      openNumberModal(container, type.value);
     });
 
     row1.appendChild(btn);
   });
 
-  // bottom row
   const row2 = document.createElement("div");
-  row2.style = "display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px";
+  row2.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:10px;
+  `;
 
   const miss = document.createElement("div");
   miss.innerText = "Miss";
-  miss.style = `${buttonStyle()}padding:12px`;
+  miss.style = `
+    ${buttonStyle()}
+    padding:12px;
+    min-height:52px;
+    font-size:18px;
+    ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
+  `;
   attach(miss, () => {
     if (!canThrow) return;
     submitThrow("miss");
@@ -188,7 +235,12 @@ function renderControls(container) {
 
   const next = document.createElement("div");
   next.innerText = "Next Player";
-  next.style = `${buttonStyle()}padding:12px`;
+  next.style = `
+    ${buttonStyle()}
+    padding:12px;
+    min-height:52px;
+    font-size:18px;
+  `;
   attach(next, () => {
     nextPlayer();
     renderUI(container);
@@ -197,17 +249,31 @@ function renderControls(container) {
   row2.appendChild(miss);
   row2.appendChild(next);
 
-  // utility row
   const row3 = document.createElement("div");
-  row3.style = "display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px";
+  row3.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:8px;
+    margin-top:10px;
+  `;
 
   const leaderboard = document.createElement("div");
   leaderboard.innerText = "Leaderboard";
-  leaderboard.style = `${lightButtonStyle()}padding:8px`;
+  leaderboard.style = `
+    ${lightButtonStyle()}
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
+  `;
 
   const undoBtn = document.createElement("div");
   undoBtn.innerText = "Undo";
-  undoBtn.style = `${undoButtonStyle()}padding:8px`;
+  undoBtn.style = `
+    ${undoButtonStyle()}
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
+  `;
   attach(undoBtn, () => {
     undo();
     renderUI(container);
@@ -215,17 +281,20 @@ function renderControls(container) {
 
   const end = document.createElement("div");
   end.innerText = "End";
-  end.style = `${dangerButtonStyle()}padding:8px`;
+  end.style = `
+    ${dangerButtonStyle()}
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
+  `;
 
   row3.appendChild(leaderboard);
   row3.appendChild(undoBtn);
   row3.appendChild(end);
 
-  wrap.appendChild(row1);
-  wrap.appendChild(row2);
-  wrap.appendChild(row3);
-
-  controls.appendChild(wrap);
+  controls.appendChild(row1);
+  controls.appendChild(row2);
+  controls.appendChild(row3);
 }
 
 /* -------------------------
@@ -233,40 +302,215 @@ function renderControls(container) {
 --------------------------*/
 
 function openNumberModal(container, type) {
+  const state = getState();
   const modal = document.getElementById("modal");
+  const isTriple = type === "triple";
+
+  const canThrow =
+    !state.winner &&
+    !state.turnReadyForNext &&
+    state.dartsThrown < 3;
+
+  function getHitCountFor(target) {
+    return (state.currentTurnThrows || []).filter(throwRecord => {
+      return throwRecord.hitType === type && throwRecord.target === target;
+    }).length;
+  }
+
+  const bullHitType = type === "single" ? "greenBull" : type === "double" ? "redBull" : null;
+
+  const bullHitCount = bullHitType
+    ? (state.currentTurnThrows || []).filter(throwRecord => {
+        return throwRecord.hitType === bullHitType;
+      }).length
+    : 0;
 
   modal.innerHTML = `
-    <div style="background:#111;padding:10px;border:1px solid #fff;">
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
-        ${Array.from({ length: 20 }, (_, i) => `
-          <div class="numBtn" data-num="${i + 1}" style="${buttonStyle()}padding:10px">
-            ${i + 1}
-          </div>
-        `).join("")}
-      </div>
+    <div style="
+      position:fixed;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      background:rgba(0,0,0,0.7);
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      z-index:999;
+      padding:16px;
+      box-sizing:border-box;
+    ">
+      <div style="
+        background:#111111;
+        color:#ffffff;
+        padding:20px;
+        border-radius:12px;
+        width:100%;
+        max-width:700px;
+        max-height:90vh;
+        overflow:auto;
+        border:1px solid #ffffff;
+      ">
+        <h2 style="text-align:center;margin-top:0;">
+          ${type === "single" ? "Single" : type === "double" ? "Dub" : "Trip"}
+        </h2>
 
-      <div style="display:flex;gap:6px;margin-top:8px;">
-        <div id="bull" style="${buttonStyle()}padding:10px">Bull</div>
-        <div id="close" style="${buttonStyle()}padding:10px;border:1px solid red;">Close</div>
+        <div id="numberGrid"></div>
+
+        <div style="
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:8px;
+          margin-top:12px;
+        ">
+          <div id="bullBtn" style="
+            ${buttonStyle()}
+            position:relative;
+            padding:12px;
+            min-height:52px;
+            font-size:20px;
+            ${bullHitCount > 0 ? "border:3px solid #facc15;box-shadow:0 0 12px rgba(250,204,21,0.55);" : ""}
+            ${isTriple || !canThrow ? "background:#555;color:#bbb;border:1px solid #999;cursor:not-allowed;" : ""}
+          ">
+            Bull
+            ${
+              bullHitCount > 0
+                ? `<span style="
+                    position:absolute;
+                    top:4px;
+                    right:6px;
+                    background:#facc15;
+                    color:#111111;
+                    border-radius:999px;
+                    min-width:22px;
+                    height:22px;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    font-size:13px;
+                    font-weight:bold;
+                  ">${bullHitCount}</span>`
+                : ""
+            }
+          </div>
+
+          <div id="closeModalBtn" style="
+            ${buttonStyle()}
+            padding:12px;
+            min-height:52px;
+            font-size:20px;
+            border:1px solid #ff4c4c;
+          ">Close</div>
+        </div>
       </div>
     </div>
   `;
 
-  modal.querySelectorAll(".numBtn").forEach(btn => {
+  const grid = document.getElementById("numberGrid");
+  grid.style = `
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:8px;
+  `;
+
+  for (let i = 1; i <= 20; i++) {
+    const hitCount = getHitCountFor(i);
+
+    const btn = document.createElement("div");
+    btn.innerHTML = `
+      <span>${i}</span>
+      ${
+        hitCount > 0
+          ? `<span style="
+              position:absolute;
+              top:4px;
+              right:6px;
+              background:#facc15;
+              color:#111111;
+              border-radius:999px;
+              min-width:22px;
+              height:22px;
+              display:flex;
+              align-items:center;
+              justify-content:center;
+              font-size:13px;
+              font-weight:bold;
+            ">${hitCount}</span>`
+          : ""
+      }
+    `;
+
+    btn.style = `
+      ${buttonStyle()}
+      position:relative;
+      padding:12px;
+      min-height:52px;
+      font-size:20px;
+      ${hitCount > 0 ? "border:3px solid #facc15;box-shadow:0 0 12px rgba(250,204,21,0.55);" : ""}
+      ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
+    `;
+
     attach(btn, () => {
-      submitThrow(type, Number(btn.dataset.num));
+      const freshState = getState();
+
+      if (
+        freshState.winner ||
+        freshState.turnReadyForNext ||
+        freshState.dartsThrown >= 3
+      ) {
+        openNumberModal(container, type);
+        return;
+      }
+
+      submitThrow(type, i);
       renderUI(container);
-      openNumberModal(container, type);
+
+      const updatedState = getState();
+
+      if (
+        !updatedState.winner &&
+        !updatedState.turnReadyForNext &&
+        updatedState.dartsThrown < 3
+      ) {
+        openNumberModal(container, type);
+      }
     });
-  });
 
-  attach(document.getElementById("bull"), () => {
-    submitThrow(type === "single" ? "greenBull" : "redBull");
-    renderUI(container);
-    openNumberModal(container, type);
-  });
+    grid.appendChild(btn);
+  }
 
-  attach(document.getElementById("close"), () => {
+  const bullBtn = document.getElementById("bullBtn");
+  const closeBtn = document.getElementById("closeModalBtn");
+
+  if (!isTriple && canThrow) {
+    attach(bullBtn, () => {
+      const freshState = getState();
+
+      if (
+        freshState.winner ||
+        freshState.turnReadyForNext ||
+        freshState.dartsThrown >= 3
+      ) {
+        openNumberModal(container, type);
+        return;
+      }
+
+      submitThrow(type === "single" ? "greenBull" : "redBull");
+      renderUI(container);
+
+      const updatedState = getState();
+
+      if (
+        !updatedState.winner &&
+        !updatedState.turnReadyForNext &&
+        updatedState.dartsThrown < 3
+      ) {
+        openNumberModal(container, type);
+      }
+    });
+  }
+
+  attach(closeBtn, () => {
     modal.innerHTML = "";
   });
 }
