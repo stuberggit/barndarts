@@ -3,6 +3,7 @@ let history = [];
 
 import { store } from "../../core/store.js";
 import { saveGameResult } from "../../core/historyService.js";
+import { checkShanghai } from "../../core/rules/shanghai.js";
 
 const STARTING_SCORE = 301;
 const GREEN_BULL_BASE_BONUS = 10;
@@ -256,6 +257,7 @@ export function initGame(players) {
     players: playerNames.map(name => ({
       name,
       score: STARTING_SCORE,
+      throwHistory: [],
       isActive: true,
       isEliminated: false,
       eliminatedOrder: null,
@@ -287,6 +289,8 @@ export function initGame(players) {
     lastMessageTimestamp: 0,
 
     winner: null,
+    pendingShanghai: null,
+    shanghaiWinner: null,
     finalStats: null,
     historySaved: false
   };
@@ -319,8 +323,43 @@ export function getCurrentTargetDisplay() {
    GAMEPLAY
 --------------------------*/
 
-export function submitThrow(hitType, target = null) {
-  if (gameState.winner || gameState.turnReadyForNext) return;
+function recordThrowHistory(player, throwRecord) {
+  if (!player.throwHistory) player.throwHistory = [];
+
+  player.throwHistory.push({
+    turnNumber: gameState.turnNumber,
+    dartNumber: throwRecord.dartNumber,
+    label: throwRecord.label,
+    scoreBefore: throwRecord.scoreBefore,
+    scoreChange: throwRecord.scoreChange,
+    scoreAfter: throwRecord.scoreAfter,
+    result: throwRecord.result || "scored"
+  });
+}
+
+function getShanghaiHitsForTarget(target) {
+  return (gameState.currentTurnThrows || [])
+    .filter(throwRecord => throwRecord.target === target && target != null)
+    .map(throwRecord => {
+      if (throwRecord.hitType === "single") return 1;
+      if (throwRecord.hitType === "double") return 2;
+      if (throwRecord.hitType === "triple") return 3;
+      return 0;
+    })
+    .filter(Boolean);
+}
+
+function padRemainingDartsAsMisses() {
+  const player = gameState.players[gameState.currentPlayer];
+  if (!player || !isPlayerActive(player)) return;
+
+  while (!gameState.winner && !gameState.pendingShanghai && gameState.dartsThrown < 3) {
+    applySurvivorThrow("miss", null, true);
+  }
+}
+
+function applySurvivorThrow(hitType, target = null, isAutoMiss = false) {
+  if (gameState.winner || gameState.pendingShanghai || gameState.turnReadyForNext) return;
 
   const player = gameState.players[gameState.currentPlayer];
   if (!player || !isPlayerActive(player)) return;
@@ -329,13 +368,15 @@ export function submitThrow(hitType, target = null) {
     if (target == null || target < 1 || target > 20) return;
   }
 
-  history.push(cloneState(gameState));
+  if (!isAutoMiss) {
+    history.push(cloneState(gameState));
+  }
 
   const scoreBefore = player.score;
   const scoreChange = getScoreChange(hitType, target);
   const scoreAfter = scoreBefore + scoreChange;
+  const dartNumber = gameState.dartsThrown + 1;
 
-  player.score = scoreAfter;
   gameState.dartsThrown++;
 
   if (isBullHitType(hitType)) {
@@ -348,7 +389,9 @@ export function submitThrow(hitType, target = null) {
     label: getHitLabel(hitType, target),
     scoreBefore,
     scoreChange,
-    scoreAfter
+    scoreAfter,
+    dartNumber,
+    result: hitType === "miss" ? "miss" : "scored"
   };
 
   gameState.currentTurnThrows.push(throwRecord);
@@ -367,11 +410,29 @@ export function submitThrow(hitType, target = null) {
   if (hitType === "greenBull") stats.greenBulls++;
   if (hitType === "redBull") stats.redBulls++;
 
+  const shanghaiHits = getShanghaiHitsForTarget(target);
+
+  if (checkShanghai(shanghaiHits)) {
+    throwRecord.result = "shanghai";
+    recordThrowHistory(player, throwRecord);
+
+    gameState.pendingShanghai = {
+      playerName: player.name,
+      target
+    };
+
+    return;
+  }
+
+  player.score = scoreAfter;
+
   if (scoreChange < 0) stats.pointsLost += Math.abs(scoreChange);
   if (scoreChange > 0) stats.pointsGained += scoreChange;
 
+  recordThrowHistory(player, throwRecord);
+
   if (hitType === "miss") {
-    updateMessage(`${player.name} misses the board and loses ${Math.abs(MISS_PENALTY)}.`, "#ff4c4c");
+    updateMessage(`${player.name} misses the board and loses ${Math.abs(scoreChange)}.`, "#ff4c4c");
   } else if (isBullHitType(hitType)) {
     updateMessage(`${player.name} hits ${getHitLabel(hitType)} and gains ${scoreChange}!`, "#22c55e");
   } else if (target === gameState.bonusTarget) {
@@ -383,7 +444,7 @@ export function submitThrow(hitType, target = null) {
   if (player.score <= 0) {
     eliminateCurrentPlayer();
 
-    if (!maybeDeclareWinner()) {
+    if (!maybeDeclareWinner() && !isAutoMiss) {
       advanceTurn();
     }
 
@@ -396,11 +457,20 @@ export function submitThrow(hitType, target = null) {
   }
 }
 
+export function submitThrow(hitType, target = null) {
+  applySurvivorThrow(hitType, target, false);
+}
+
 export function nextPlayer() {
-  if (gameState.winner) return;
+  if (gameState.winner || gameState.pendingShanghai) return;
 
   history.push(cloneState(gameState));
-  advanceTurn();
+
+  padRemainingDartsAsMisses();
+
+  if (!gameState.winner && !gameState.pendingShanghai) {
+    advanceTurn();
+  }
 }
 
 export function endGameEarly() {
@@ -425,6 +495,39 @@ export function endGameEarly() {
 /* -------------------------
    SHARED ACTIONS
 --------------------------*/
+
+export function confirmShanghaiWinner() {
+  if (!gameState.pendingShanghai || gameState.winner) return;
+
+  const playerName = gameState.pendingShanghai.playerName;
+  const target = gameState.pendingShanghai.target;
+
+  gameState.shanghaiWinner = playerName;
+  gameState.winner = playerName;
+  gameState.pendingShanghai = null;
+  gameState.finalStats = buildStatsSummary();
+
+  updateMessage(`${playerName} hit SHANGHAI on ${target}!`, "#ffcc00");
+
+  saveSurvivorHistory();
+}
+
+export function cancelPendingShanghai() {
+  if (!gameState.pendingShanghai || gameState.winner) return;
+
+  if (history.length) {
+    gameState = history.pop();
+  } else {
+    gameState.pendingShanghai = null;
+  }
+}
+
+export function getThrowLog() {
+  return gameState.players.map(player => ({
+    name: player.name,
+    throws: player.throwHistory || []
+  }));
+}
 
 export function undo() {
   if (!history.length) return;
