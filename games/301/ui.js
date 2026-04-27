@@ -6,7 +6,8 @@ import {
   isGameOver,
   initGame,
   confirmShanghaiWinner,
-  cancelPendingShanghai
+  cancelPendingShanghai,
+  getThrowLog
 } from "./logic.js";
 import { store } from "../../core/store.js";
 import { renderApp } from "../../core/router.js";
@@ -475,17 +476,17 @@ function renderUtilityControls(container) {
     margin-top:10px;
   `;
 
-  const leaderboardBtn = document.createElement("div");
-  leaderboardBtn.innerText = "Leaderboard";
-  leaderboardBtn.style = `
-    ${lightButtonStyle()}
-    padding:10px;
-    min-height:42px;
-    font-size:15px;
-  `;
-  attachButtonClick(leaderboardBtn, () => {
-    renderLeaderboardModal(getState());
-  });
+  const statsBtn = document.createElement("div");
+statsBtn.innerText = "Stats";
+statsBtn.style = `
+  ${lightButtonStyle()}
+  padding:10px;
+  min-height:42px;
+  font-size:15px;
+`;
+attachButtonClick(statsBtn, () => {
+  renderStatsModal(getThrowLog());
+});
 
   const undoBtn = document.createElement("div");
   undoBtn.innerText = "Undo";
@@ -512,7 +513,7 @@ function renderUtilityControls(container) {
     renderEndGameConfirm(container);
   });
 
-  utilityRow.appendChild(leaderboardBtn);
+  utilityRow.appendChild(statsBtn);
   utilityRow.appendChild(undoBtn);
   utilityRow.appendChild(endBtn);
 
@@ -788,6 +789,65 @@ function renderLeaderboardModal(state) {
     row.innerHTML = `
       <div>${index + 1}. ${player.name}</div>
       <div>${player.score}</div>
+    `;
+
+    list.appendChild(row);
+  });
+
+  attachButtonClick(document.getElementById("closeModalBtn"), closeModal);
+}
+
+function renderStatsModal(throwLog) {
+  renderModalShell(`
+    <h2 style="text-align:center;margin-top:0;">Throw Log</h2>
+    <div id="throwLogList"></div>
+    <div style="
+      display:flex;
+      justify-content:center;
+      margin-top:12px;
+    ">
+      <div id="closeModalBtn" style="
+        ${buttonStyle()}
+        width:110px;
+        min-height:38px;
+        font-size:15px;
+        border:1px solid #ff4c4c;
+      ">Close</div>
+    </div>
+  `);
+
+  const list = document.getElementById("throwLogList");
+  list.innerHTML = "";
+
+  throwLog.forEach(player => {
+    const row = document.createElement("div");
+    row.style = `
+      margin-bottom:12px;
+      padding:14px;
+      border-radius:10px;
+      background:#111111;
+      border:1px solid #ffffff;
+      color:#ffffff;
+    `;
+
+    const throwsHtml = player.throws.length
+      ? player.throws.map(t => `
+          <div style="
+            padding:6px 0;
+            border-top:1px solid rgba(255,255,255,0.16);
+            font-size:14px;
+            line-height:1.4;
+          ">
+            Turn ${t.turnNumber}, Dart ${t.dartNumber}: ${t.label}
+            (${t.scoreBefore} → ${t.scoreAfter})
+            ${t.result !== "scored" ? `<span style="color:#facc15;"> — ${t.result}</span>` : ""}
+          </div>
+        `).join("")
+      : `<div style="opacity:0.8;">No throws recorded.</div>`;
+
+    row.innerHTML = `
+      <div style="font-size:18px;font-weight:bold;margin-bottom:8px;">${player.name}</div>
+      ${throwsHtml}
     `;
 
     list.appendChild(row);
