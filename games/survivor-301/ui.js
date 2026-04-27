@@ -1,6 +1,7 @@
 import {
   getState,
   getStats,
+  getThrowLog,
   getCurrentTargetDisplay,
   submitThrow,
   nextPlayer,
@@ -247,7 +248,7 @@ function renderGame(container, state) {
     </div>
 
     <div style="
-      margin-bottom:12px;
+      margin-bottom:8px;
       padding:14px;
       border-radius:12px;
       background:#11361a;
@@ -267,13 +268,9 @@ function renderGame(container, state) {
       </div>
     </div>
 
-    <div id="controls"></div>
-
-    <div id="playerBoard"></div>
-
     <div style="
-      min-height:54px;
-      margin:12px 0;
+      min-height:42px;
+      margin:8px 0 10px;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -283,6 +280,8 @@ function renderGame(container, state) {
       </div>
     </div>
 
+    <div id="controls"></div>
+    <div id="playerBoard"></div>
     <div id="turnSummary"></div>
     <div id="utilityControls"></div>
     <div id="modal"></div>
@@ -325,9 +324,9 @@ function renderThrowControls(container, state) {
     btn.innerText = type.label;
     btn.style = `
       ${buttonStyle()}
-      padding:12px;
-      min-height:52px;
-      font-size:18px;
+      padding:10px;
+      min-height:42px;
+      font-size:15px;
       ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
     `;
 
@@ -344,16 +343,16 @@ function renderThrowControls(container, state) {
     display:grid;
     grid-template-columns:1fr 1fr;
     gap:8px;
-    margin-top:10px;
+    margin-top:8px;
   `;
 
   const missBtn = document.createElement("div");
   missBtn.innerText = "Miss Board";
   missBtn.style = `
     ${buttonStyle()}
-    padding:12px;
-    min-height:52px;
-    font-size:18px;
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
     ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
   `;
   attachButtonClick(missBtn, () => {
@@ -366,10 +365,9 @@ function renderThrowControls(container, state) {
   nextBtn.innerText = "Next Player";
   nextBtn.style = `
     ${buttonStyle()}
-    padding:12px;
-    min-height:52px;
-    font-size:18px;
-    ${state.dartsThrown === 0 && !state.turnReadyForNext ? "opacity:0.9;" : ""}
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
   `;
   attachButtonClick(nextBtn, () => {
     nextPlayer();
@@ -504,7 +502,7 @@ function renderUtilityControls(container) {
     font-size:15px;
   `;
   attachButtonClick(statsBtn, () => {
-    renderStatsModal(getStats());
+    renderStatsModal(getThrowLog());
   });
 
   const undoBtn = document.createElement("div");
@@ -702,10 +700,10 @@ function renderNumberPicker(container, hitType) {
   attachButtonClick(closeBtn, closeModal);
 }
 
-function renderStatsModal(stats) {
+function renderStatsModal(throwLog) {
   renderModalShell(`
-    <h2 style="text-align:center;margin-top:0;">Game Stats</h2>
-    <div id="statsList"></div>
+    <h2 style="text-align:center;margin-top:0;">Throw Log</h2>
+    <div id="throwLogList"></div>
     <div style="
       display:flex;
       justify-content:center;
@@ -721,10 +719,10 @@ function renderStatsModal(stats) {
     </div>
   `);
 
-  const list = document.getElementById("statsList");
+  const list = document.getElementById("throwLogList");
   list.innerHTML = "";
 
-  stats.forEach(player => {
+  throwLog.forEach(player => {
     const row = document.createElement("div");
     row.style = `
       margin-bottom:12px;
@@ -735,25 +733,30 @@ function renderStatsModal(stats) {
       color:#ffffff;
     `;
 
+    const throwsHtml = player.throws.length
+      ? player.throws.map(t => `
+          <div style="
+            padding:6px 0;
+            border-top:1px solid rgba(255,255,255,0.16);
+            font-size:14px;
+            line-height:1.4;
+          ">
+            Turn ${t.turnNumber}, Dart ${t.dartNumber}: ${t.label}
+            (${t.scoreBefore} → ${t.scoreAfter})
+            ${t.result !== "scored" ? `<span style="color:#facc15;"> — ${t.result}</span>` : ""}
+          </div>
+        `).join("")
+      : `<div style="opacity:0.8;">No throws recorded.</div>`;
+
     row.innerHTML = `
       <div style="font-size:18px;font-weight:bold;margin-bottom:8px;">${player.name}</div>
-      <div style="font-size:14px;line-height:1.6;">
-        • Final Score: ${player.score}<br>
-        • Status: ${player.isEliminated ? "Out" : "Alive"}<br>
-        • Darts Thrown: ${player.stats?.dartsThrown || 0}<br>
-        • Points Lost: ${player.stats?.pointsLost || 0}<br>
-        • Points Gained: ${player.stats?.pointsGained || 0}<br>
-        • Misses: ${player.stats?.misses || 0}<br>
-        • Green Bulls: ${player.stats?.greenBulls || 0}<br>
-        • Red Bulls: ${player.stats?.redBulls || 0}
-      </div>
+      ${throwsHtml}
     `;
 
     list.appendChild(row);
   });
 
-  const closeBtn = document.getElementById("closeModalBtn");
-  attachButtonClick(closeBtn, closeModal);
+  attachButtonClick(document.getElementById("closeModalBtn"), closeModal);
 }
 
 function renderEndGameConfirm(container) {
