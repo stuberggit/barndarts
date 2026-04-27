@@ -3,6 +3,7 @@ let history = [];
 
 import { store } from "../../core/store.js";
 import { saveGameResult } from "../../core/historyService.js";
+import { checkShanghai } from "../../core/rules/shanghai.js";
 
 /* -------------------------
    HELPERS
@@ -99,6 +100,8 @@ export function initGame(players) {
     lastMessageColor: "#ffffff",
 
     winner: null,
+    pendingShanghai: null,
+    shanghaiWinner: null,
     historySaved: false
   };
 
@@ -110,7 +113,7 @@ export function initGame(players) {
 --------------------------*/
 
 export function submitThrow(hitType, target = null) {
-  if (gameState.winner || gameState.turnReadyForNext) return;
+  if (gameState.winner || gameState.pendingShanghai || gameState.turnReadyForNext) return;
 
   const player = gameState.players[gameState.currentPlayer];
 
@@ -132,7 +135,24 @@ export function submitThrow(hitType, target = null) {
     value
   });
 
-  // BUST
+  const shanghaiHits = gameState.currentTurnThrows
+    .filter(t => t.target === target && target !== null)
+    .map(t => {
+      if (t.hitType === "single") return 1;
+      if (t.hitType === "double") return 2;
+      if (t.hitType === "triple") return 3;
+      return 0;
+    })
+    .filter(Boolean);
+
+  if (checkShanghai(shanghaiHits)) {
+    gameState.pendingShanghai = {
+      playerName: player.name,
+      target
+    };
+    return;
+  }
+
   if (newScore < 0) {
     player.score = gameState.turnStartScore;
     player.stats.busts++;
@@ -143,7 +163,6 @@ export function submitThrow(hitType, target = null) {
     return;
   }
 
-  // WIN
   if (newScore === 0) {
     player.score = 0;
     gameState.winner = player.name;
@@ -170,6 +189,32 @@ export function submitThrow(hitType, target = null) {
 /* -------------------------
    ACTIONS
 --------------------------*/
+
+export function confirmShanghaiWinner() {
+  if (!gameState.pendingShanghai || gameState.winner) return;
+
+  const playerName = gameState.pendingShanghai.playerName;
+  const target = gameState.pendingShanghai.target;
+
+  gameState.shanghaiWinner = playerName;
+  gameState.winner = playerName;
+  gameState.pendingShanghai = null;
+
+  gameState.lastMessage = `${playerName} hit SHANGHAI on ${target}!`;
+  gameState.lastMessageColor = "#ffcc00";
+
+  save301History();
+}
+
+export function cancelPendingShanghai() {
+  if (!gameState.pendingShanghai || gameState.winner) return;
+
+  gameState.pendingShanghai = null;
+
+  if (gameState.dartsThrown >= 3) {
+    gameState.turnReadyForNext = true;
+  }
+}
 
 export function nextPlayer() {
   if (gameState.winner) return;
