@@ -3,7 +3,7 @@ import { renderUI } from "./ui.js";
 
 export default {
   id: "gotcha",
-  name: "Gotcha",
+  name: "Gotcha 301",
 
   start(players) {
     initGame(players);
