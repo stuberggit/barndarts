@@ -7,7 +7,10 @@ import {
   initGame,
   endGameEarly,
   getStats,
-  getWinningScore
+  getWinningScore,
+  confirmShanghaiWinner,
+  cancelPendingShanghai,
+  getThrowLog
 } from "./logic.js";
 import { store } from "../../core/store.js";
 import { renderApp } from "../../core/router.js";
@@ -275,6 +278,9 @@ function renderGame(container, state) {
   renderPlayerBoard(state);
   renderTurnSummary(state);
   renderUtilityControls(container);
+  if (state.pendingShanghai) {
+  renderShanghaiConfirm(container, state.pendingShanghai);
+}
 }
 
 /* -------------------------
@@ -286,9 +292,10 @@ function renderThrowControls(container, state) {
   controls.innerHTML = "";
 
   const canThrow =
-    !state.winner &&
-    !state.turnReadyForNext &&
-    state.dartsThrown < 3;
+  !state.winner &&
+  !state.pendingShanghai &&
+  !state.turnReadyForNext &&
+  state.dartsThrown < 3;
 
   const hitTypeRow = document.createElement("div");
   hitTypeRow.style = `
@@ -473,17 +480,17 @@ function renderUtilityControls(container) {
     margin-top:10px;
   `;
 
-  const leaderboardBtn = document.createElement("div");
-  leaderboardBtn.innerText = "Leaderboard";
-  leaderboardBtn.style = `
-    ${lightButtonStyle()}
-    padding:10px;
-    min-height:42px;
-    font-size:15px;
-  `;
-  attachButtonClick(leaderboardBtn, () => {
-    renderLeaderboardModal(getState());
-  });
+  const statsBtn = document.createElement("div");
+statsBtn.innerText = "Stats";
+statsBtn.style = `
+  ${lightButtonStyle()}
+  padding:10px;
+  min-height:42px;
+  font-size:15px;
+`;
+attachButtonClick(statsBtn, () => {
+  renderStatsModal(getThrowLog());
+});
 
   const undoBtn = document.createElement("div");
   undoBtn.innerText = "Undo";
@@ -510,7 +517,7 @@ function renderUtilityControls(container) {
     renderEndGameConfirm(container);
   });
 
-  utilityRow.appendChild(leaderboardBtn);
+  utilityRow.appendChild(statsBtn);
   utilityRow.appendChild(undoBtn);
   utilityRow.appendChild(endBtn);
 
@@ -754,6 +761,104 @@ function renderLeaderboardModal(state) {
   });
 
   attachButtonClick(document.getElementById("closeModalBtn"), closeModal);
+}
+
+function renderStatsModal(throwLog) {
+  renderModalShell(`
+    <h2 style="text-align:center;margin-top:0;">Throw Log</h2>
+    <div id="throwLogList"></div>
+    <div style="
+      display:flex;
+      justify-content:center;
+      margin-top:12px;
+    ">
+      <div id="closeModalBtn" style="
+        ${buttonStyle()}
+        width:110px;
+        min-height:38px;
+        font-size:15px;
+        border:1px solid #ff4c4c;
+      ">Close</div>
+    </div>
+  `);
+
+  const list = document.getElementById("throwLogList");
+  list.innerHTML = "";
+
+  throwLog.forEach(player => {
+    const row = document.createElement("div");
+    row.style = `
+      margin-bottom:12px;
+      padding:14px;
+      border-radius:10px;
+      background:#111111;
+      border:1px solid #ffffff;
+      color:#ffffff;
+    `;
+
+    const throwsHtml = player.throws.length
+      ? player.throws.map(t => `
+          <div style="
+            padding:6px 0;
+            border-top:1px solid rgba(255,255,255,0.16);
+            font-size:14px;
+            line-height:1.4;
+          ">
+            Turn ${t.turnNumber}, Dart ${t.dartNumber}: ${t.label}
+            (${t.scoreBefore} → ${t.scoreAfter})
+            ${t.result !== "scored" ? `<span style="color:#facc15;"> — ${t.result}</span>` : ""}
+          </div>
+        `).join("")
+      : `<div style="opacity:0.8;">No throws recorded.</div>`;
+
+    row.innerHTML = `
+      <div style="font-size:18px;font-weight:bold;margin-bottom:8px;">${player.name}</div>
+      ${throwsHtml}
+    `;
+
+    list.appendChild(row);
+  });
+
+  attachButtonClick(document.getElementById("closeModalBtn"), closeModal);
+}
+
+function renderShanghaiConfirm(container, pendingShanghai) {
+  renderModalShell(`
+    <h2 style="text-align:center;margin-top:0;color:#facc15;">🔥 SHANGHAI? 🔥</h2>
+    <div style="text-align:center;margin-bottom:14px;line-height:1.45;">
+      ${pendingShanghai.playerName} hit Single + Dub + Trip on ${pendingShanghai.target}.<br>
+      Confirm Shanghai and end the game?
+    </div>
+    <div style="
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    ">
+      <div id="cancelShanghaiBtn" style="
+        ${lightButtonStyle()}
+        padding:12px;
+        min-height:48px;
+      ">Cancel</div>
+      <div id="confirmShanghaiBtn" style="
+        ${buttonStyle()}
+        padding:12px;
+        min-height:48px;
+        border:1px solid #facc15;
+      ">Confirm</div>
+    </div>
+  `);
+
+  attachButtonClick(document.getElementById("cancelShanghaiBtn"), () => {
+    cancelPendingShanghai();
+    closeModal();
+    renderUI(container);
+  });
+
+  attachButtonClick(document.getElementById("confirmShanghaiBtn"), () => {
+    confirmShanghaiWinner();
+    closeModal();
+    renderUI(container);
+  });
 }
 
 function renderEndGameConfirm(container) {
