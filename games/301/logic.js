@@ -81,7 +81,8 @@ export function initGame(players) {
     players: playerNames.map(name => ({
       name,
       score: 301,
-      stats: {
+      throwHistory: [],
+       stats: {
         dartsThrown: 0,
         turnsTaken: 0,
         busts: 0,
@@ -112,6 +113,64 @@ export function initGame(players) {
    CORE GAME
 --------------------------*/
 
+function getHitLabel(hitType, target = null) {
+  if (hitType === "miss") return "Miss";
+  if (hitType === "greenBull") return "Sing Bull";
+  if (hitType === "redBull") return "Dub Bull";
+
+  const labels = {
+    single: "Single",
+    double: "Dub",
+    triple: "Trip"
+  };
+
+  return `${labels[hitType] || "Hit"} ${target}`;
+}
+
+function recordThrowHistory(player, throwRecord) {
+  if (!player.throwHistory) player.throwHistory = [];
+
+  player.throwHistory.push({
+    turnNumber: gameState.turnNumber,
+    dartNumber: throwRecord.dartNumber,
+    label: throwRecord.label,
+    value: throwRecord.value,
+    scoreBefore: throwRecord.scoreBefore,
+    scoreAfter: throwRecord.scoreAfter,
+    result: throwRecord.result || "scored"
+  });
+}
+
+function padRemainingDartsAsMisses() {
+  const player = gameState.players[gameState.currentPlayer];
+  if (!player) return;
+
+  if (gameState.dartsThrown === 0) {
+    player.stats.turnsTaken++;
+  }
+
+  while (gameState.dartsThrown < 3) {
+    const dartNumber = gameState.dartsThrown + 1;
+
+    const throwRecord = {
+      hitType: "miss",
+      target: null,
+      value: 0,
+      dartNumber,
+      label: "Miss",
+      scoreBefore: player.score,
+      scoreAfter: player.score,
+      result: "miss"
+    };
+
+    gameState.currentTurnThrows.push(throwRecord);
+    recordThrowHistory(player, throwRecord);
+
+    gameState.dartsThrown++;
+    player.stats.dartsThrown++;
+  }
+}
+
 export function submitThrow(hitType, target = null) {
   if (gameState.winner || gameState.pendingShanghai || gameState.turnReadyForNext) return;
 
@@ -120,7 +179,9 @@ export function submitThrow(hitType, target = null) {
   history.push(cloneState(gameState));
 
   const value = getHitValue(hitType, target);
+  const scoreBefore = player.score;
   const newScore = player.score - value;
+  const dartNumber = gameState.dartsThrown + 1;
 
   gameState.dartsThrown++;
   player.stats.dartsThrown++;
@@ -129,11 +190,18 @@ export function submitThrow(hitType, target = null) {
     player.stats.turnsTaken++;
   }
 
-  gameState.currentTurnThrows.push({
+  const throwRecord = {
     hitType,
     target,
-    value
-  });
+    value,
+    dartNumber,
+    label: getHitLabel(hitType, target),
+    scoreBefore,
+    scoreAfter: newScore,
+    result: "scored"
+  };
+
+  gameState.currentTurnThrows.push(throwRecord);
 
   const shanghaiHits = gameState.currentTurnThrows
     .filter(t => t.target === target && target !== null)
@@ -158,6 +226,10 @@ export function submitThrow(hitType, target = null) {
     player.stats.busts++;
     gameState.turnReadyForNext = true;
 
+    throwRecord.scoreAfter = gameState.turnStartScore;
+    throwRecord.result = "bust";
+    recordThrowHistory(player, throwRecord);
+
     gameState.lastMessage = `${player.name} busts!`;
     gameState.lastMessageColor = "#ff4c4c";
     return;
@@ -165,8 +237,13 @@ export function submitThrow(hitType, target = null) {
 
   if (newScore === 0) {
     player.score = 0;
-    gameState.winner = player.name;
+    player.stats.totalPoints += value;
 
+    throwRecord.scoreAfter = 0;
+    throwRecord.result = "checkout";
+    recordThrowHistory(player, throwRecord);
+
+    gameState.winner = player.name;
     gameState.lastMessage = `${player.name} wins!`;
     gameState.lastMessageColor = "#22c55e";
 
@@ -176,6 +253,7 @@ export function submitThrow(hitType, target = null) {
 
   player.score = newScore;
   player.stats.totalPoints += value;
+  recordThrowHistory(player, throwRecord);
 
   gameState.lastMessage = `${player.name} scores ${value}`;
   gameState.lastMessageColor = "#facc15";
@@ -209,17 +287,19 @@ export function confirmShanghaiWinner() {
 export function cancelPendingShanghai() {
   if (!gameState.pendingShanghai || gameState.winner) return;
 
-  gameState.pendingShanghai = null;
-
-  if (gameState.dartsThrown >= 3) {
-    gameState.turnReadyForNext = true;
+  if (history.length) {
+    gameState = history.pop();
+  } else {
+    gameState.pendingShanghai = null;
   }
 }
 
 export function nextPlayer() {
-  if (gameState.winner) return;
+  if (gameState.winner || gameState.pendingShanghai) return;
 
   history.push(cloneState(gameState));
+
+  padRemainingDartsAsMisses();
   advanceTurn();
 }
 
@@ -234,4 +314,11 @@ export function isGameOver() {
 
 export function getState() {
   return gameState;
+}
+
+export function getThrowLog() {
+  return gameState.players.map(player => ({
+    name: player.name,
+    throws: player.throwHistory || []
+  }));
 }
