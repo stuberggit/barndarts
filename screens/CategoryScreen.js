@@ -15,7 +15,7 @@ const gamesByCategory = {
     { id: "X01", label: "X01", built: true },
   ],
   cricket: [
-    { id: "cricket-no-score", label: "No Score", built: false },
+    { id: "cricket-no-score", label: "No Score", built: true },
     { id: "cricket-random", label: "Random", built: false },
     { id: "cricket-standard", label: "Standard", built: true }
   ]
