@@ -8,7 +8,7 @@ import Killer from "../games/killer/index.js";
 import Survivor301 from "../games/survivor-301/index.js";
 import ThreeOhOne from "../games/301/index.js";
 import X01 from "../games/x01/index.js";
-import Cricket from "../games/cricket/index.js";
+import Cricket from "../games/cricket-standard/index.js";
 
 const gameMap = {
   "GolfDarts": golfdarts,
@@ -18,7 +18,7 @@ const gameMap = {
   "survivor-301": Survivor301,
   "301": ThreeOhOne,
   "x01": X01,
-  "cricket": Cricket
+  "cricket-standard": Cricket
 };
 
 export function renderGame(container) {
