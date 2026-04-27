@@ -633,7 +633,7 @@ function renderTargetPicker(container, hitType) {
     gap:8px;
   `;
 
-  [20, 19, 18, 17, 16, 15].forEach(target => {
+  [15, 16, 17, 18, 19, 20].forEach(target => {
     const hitCount = getHitCountFor(target);
 
     const btn = document.createElement("div");
