@@ -62,24 +62,6 @@ function buildPlayers(playerNames) {
   }));
 }
 
-function resetTurnTracking() {
-  gameState.dartsThrown = 0;
-  gameState.currentTurnThrows = [];
-  gameState.turnStartSnapshot = cloneState(gameState.players);
-  gameState.turnReadyForNext = false;
-}
-
-function advanceTurn() {
-  gameState.currentPlayer =
-    (gameState.currentPlayer + 1) % gameState.players.length;
-
-  if (gameState.currentPlayer === 0) {
-    gameState.turnNumber++;
-  }
-
-  resetTurnTracking();
-}
-
 function getPlayerPpd(player) {
   const darts = player.stats?.dartsThrown || 0;
   const points = player.stats?.totalPoints || 0;
@@ -92,6 +74,7 @@ function buildStatsSummary() {
     name: player.name,
     score: player.score,
     ppd: getPlayerPpd(player),
+    throws: [...(player.throwHistory || [])],
     stats: { ...(player.stats || {}) }
   }));
 }
@@ -110,6 +93,7 @@ function saveGotchaHistory() {
       avatar: profile.avatar || null,
       score: player.score,
       result: player.name === gameState.winner ? "winner" : "played",
+      throws: [...(player.throwHistory || [])],
       stats: { ...(player.stats || {}) }
     };
   });
@@ -129,6 +113,8 @@ function saveGotchaHistory() {
       : null,
     meta: {
       winningScore: WINNING_SCORE,
+      grResetThreshold: GR_RESET_THRESHOLD,
+      shanghaiWinner: gameState.shanghaiWinner || null,
       finalStats: buildStatsSummary()
     }
   });
@@ -136,77 +122,22 @@ function saveGotchaHistory() {
   gameState.historySaved = true;
 }
 
-function applyGotchaChecks(scoringPlayerIndex) {
-  const scoringPlayer = gameState.players[scoringPlayerIndex];
-  if (!scoringPlayer) return [];
-
-  const resetEvents = [];
-
-  gameState.players.forEach((otherPlayer, otherIndex) => {
-    if (otherIndex === scoringPlayerIndex) return;
-    if (otherPlayer.score !== scoringPlayer.score) return;
-    if (otherPlayer.score <= 0) return;
-
-    const victimPreviousScore = otherPlayer.score;
-    const isUngentlemanly = victimPreviousScore < GR_RESET_THRESHOLD;
-
-    if (isUngentlemanly) {
-      scoringPlayer.score = 0;
-      otherPlayer.score = 0;
-      scoringPlayer.stats.ungentlemanlyGotchas++;
-      otherPlayer.stats.ungentlemanlyGotchas++;
-      scoringPlayer.stats.gotchasGiven++;
-      otherPlayer.stats.gotchasReceived++;
-
-      resetEvents.push({
-        type: "ungentlemanly",
-        attackerIndex: scoringPlayerIndex,
-        attackerName: scoringPlayer.name,
-        victimIndex: otherIndex,
-        victimName: otherPlayer.name,
-        victimPreviousScore,
-        attackerPreviousScore: victimPreviousScore
-      });
-
-      gameState.lastMessage = `${scoringPlayer.name} tied ${otherPlayer.name} under ${GR_RESET_THRESHOLD}. Ungentlemanly Gotcha! Both reset to 0.`;
-      gameState.lastMessageColor = "#ff4c4c";
-      return;
-    }
-
-    otherPlayer.score = 0;
-    scoringPlayer.stats.gentlemanlyGotchas++;
-    scoringPlayer.stats.gotchasGiven++;
-    otherPlayer.stats.gotchasReceived++;
-
-    resetEvents.push({
-      type: "standard",
-      attackerIndex: scoringPlayerIndex,
-      attackerName: scoringPlayer.name,
-      victimIndex: otherIndex,
-      victimName: otherPlayer.name,
-      victimPreviousScore
-    });
-
-    gameState.lastMessage = `${scoringPlayer.name} gotcha'd ${otherPlayer.name}! ${otherPlayer.name} resets to 0.`;
-    gameState.lastMessageColor = "#facc15";
-  });
-
-  return resetEvents;
+function resetTurnTracking() {
+  gameState.dartsThrown = 0;
+  gameState.currentTurnThrows = [];
+  gameState.turnStartSnapshot = cloneState(gameState.players);
+  gameState.turnReadyForNext = false;
 }
 
-function getWinMessage(player, hitType, value) {
-  const gentlemanly =
-    hitType === "double" ||
-    hitType === "triple" ||
-    value === 1;
+function advanceTurn() {
+  gameState.currentPlayer =
+    (gameState.currentPlayer + 1) % gameState.players.length;
 
-  if (gentlemanly) {
-    player.stats.gentlemanlyWins++;
-    return `${player.name} wins Gotcha 301 like a true gentleman!`;
+  if (gameState.currentPlayer === 0) {
+    gameState.turnNumber++;
   }
 
-  player.stats.ungentlemanlyWins++;
-  return `${player.name} wins Gotcha 301... but that single was wildly un-gentlemanly.`;
+  resetTurnTracking();
 }
 
 function recordThrowHistory(player, throwRecord) {
@@ -219,7 +150,8 @@ function recordThrowHistory(player, throwRecord) {
     value: throwRecord.value,
     scoreBefore: throwRecord.scoreBefore,
     scoreAfter: throwRecord.scoreAfter,
-    result: throwRecord.result || "scored"
+    result: throwRecord.result || "scored",
+    gotchaEvents: throwRecord.gotchaEvents || []
   });
 }
 
@@ -252,6 +184,95 @@ function padRemainingDartsAsMisses() {
     gameState.dartsThrown++;
     player.stats.dartsThrown++;
   }
+}
+
+function getShanghaiHitsForTarget(target) {
+  return (gameState.currentTurnThrows || [])
+    .filter(throwRecord => throwRecord.target === target && target != null)
+    .map(throwRecord => {
+      if (throwRecord.hitType === "single") return 1;
+      if (throwRecord.hitType === "double") return 2;
+      if (throwRecord.hitType === "triple") return 3;
+      return 0;
+    })
+    .filter(Boolean);
+}
+
+function applyGotchaChecks(scoringPlayerIndex) {
+  const scoringPlayer = gameState.players[scoringPlayerIndex];
+  if (!scoringPlayer) return [];
+
+  const resetEvents = [];
+
+  gameState.players.forEach((otherPlayer, otherIndex) => {
+    if (otherIndex === scoringPlayerIndex) return;
+    if (otherPlayer.score !== scoringPlayer.score) return;
+    if (otherPlayer.score <= 0) return;
+
+    const victimPreviousScore = otherPlayer.score;
+    const attackerPreviousScore = scoringPlayer.score;
+    const isUngentlemanly = victimPreviousScore < GR_RESET_THRESHOLD;
+
+    if (isUngentlemanly) {
+      scoringPlayer.score = 0;
+      otherPlayer.score = 0;
+
+      scoringPlayer.stats.ungentlemanlyGotchas++;
+      otherPlayer.stats.ungentlemanlyGotchas++;
+      scoringPlayer.stats.gotchasGiven++;
+      otherPlayer.stats.gotchasReceived++;
+
+      resetEvents.push({
+        type: "ungentlemanly",
+        attackerName: scoringPlayer.name,
+        victimName: otherPlayer.name,
+        attackerPreviousScore,
+        victimPreviousScore,
+        attackerScoreAfter: 0,
+        victimScoreAfter: 0
+      });
+
+      gameState.lastMessage = `${scoringPlayer.name} tied ${otherPlayer.name} under ${GR_RESET_THRESHOLD}. Ungentlemanly Gotcha! Both reset to 0.`;
+      gameState.lastMessageColor = "#ff4c4c";
+      return;
+    }
+
+    otherPlayer.score = 0;
+
+    scoringPlayer.stats.gentlemanlyGotchas++;
+    scoringPlayer.stats.gotchasGiven++;
+    otherPlayer.stats.gotchasReceived++;
+
+    resetEvents.push({
+      type: "standard",
+      attackerName: scoringPlayer.name,
+      victimName: otherPlayer.name,
+      attackerPreviousScore,
+      victimPreviousScore,
+      attackerScoreAfter: scoringPlayer.score,
+      victimScoreAfter: 0
+    });
+
+    gameState.lastMessage = `${scoringPlayer.name} gotcha'd ${otherPlayer.name}! ${otherPlayer.name} resets to 0.`;
+    gameState.lastMessageColor = "#facc15";
+  });
+
+  return resetEvents;
+}
+
+function getWinMessage(player, hitType, value) {
+  const gentlemanly =
+    hitType === "double" ||
+    hitType === "triple" ||
+    value === 1;
+
+  if (gentlemanly) {
+    player.stats.gentlemanlyWins++;
+    return `${player.name} wins Gotcha 301 like a true gentleman!`;
+  }
+
+  player.stats.ungentlemanlyWins++;
+  return `${player.name} wins Gotcha 301... but that single was wildly un-gentlemanly.`;
 }
 
 export function initGame(players) {
@@ -317,32 +338,41 @@ export function submitThrow(hitType, target = null) {
 
   gameState.currentTurnThrows.push(throwRecord);
 
-  const shanghaiHits = gameState.currentTurnThrows
-    .filter(t => t.target === target && target !== null)
-    .map(t => {
-      if (t.hitType === "single") return 1;
-      if (t.hitType === "double") return 2;
-      if (t.hitType === "triple") return 3;
-      return 0;
-    })
-    .filter(Boolean);
+  const shanghaiHits = getShanghaiHitsForTarget(target);
 
   if (checkShanghai(shanghaiHits)) {
+    throwRecord.result = "shanghai";
+    recordThrowHistory(player, throwRecord);
+
     gameState.pendingShanghai = {
       playerName: player.name,
       target
     };
+
     return;
   }
 
   if (newScore > WINNING_SCORE) {
-    gameState.players = cloneState(gameState.turnStartSnapshot);
-    const restoredPlayer = gameState.players[gameState.currentPlayer];
+    const bustPlayerName = player.name;
 
-    restoredPlayer.stats.busts++;
+    gameState.players = cloneState(gameState.turnStartSnapshot);
+
+    const restoredPlayer = gameState.players[gameState.currentPlayer];
+    if (restoredPlayer) {
+      restoredPlayer.stats.busts++;
+      restoredPlayer.stats.dartsThrown++;
+      restoredPlayer.stats.turnsTaken =
+        gameState.dartsThrown === 1
+          ? restoredPlayer.stats.turnsTaken + 1
+          : restoredPlayer.stats.turnsTaken;
+
+      throwRecord.scoreAfter = restoredPlayer.score;
+      throwRecord.result = "bust";
+      recordThrowHistory(restoredPlayer, throwRecord);
+    }
 
     gameState.turnReadyForNext = true;
-    gameState.lastMessage = `${restoredPlayer.name} busts! Turn resets, including any Gotchas.`;
+    gameState.lastMessage = `${bustPlayerName} busts! Turn resets, including any Gotchas.`;
     gameState.lastMessageColor = "#ff4c4c";
     return;
   }
@@ -352,6 +382,7 @@ export function submitThrow(hitType, target = null) {
 
   if (newScore === WINNING_SCORE) {
     player.stats.checkout = value;
+    throwRecord.scoreAfter = player.score;
     throwRecord.result = "checkout";
     recordThrowHistory(player, throwRecord);
 
@@ -367,6 +398,7 @@ export function submitThrow(hitType, target = null) {
   const gotchaEvents = applyGotchaChecks(gameState.currentPlayer);
   throwRecord.gotchaEvents = gotchaEvents;
   throwRecord.scoreAfter = gameState.players[gameState.currentPlayer].score;
+
   recordThrowHistory(gameState.players[gameState.currentPlayer], throwRecord);
 
   if (!gotchaEvents.length) {
@@ -376,6 +408,7 @@ export function submitThrow(hitType, target = null) {
 
   if (gameState.dartsThrown >= 3) {
     gameState.turnReadyForNext = true;
+
     if (!gotchaEvents.length) {
       gameState.lastMessage = `${player.name}'s turn complete.`;
       gameState.lastMessageColor = "#facc15";
