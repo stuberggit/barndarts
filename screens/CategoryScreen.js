@@ -10,13 +10,12 @@ const gamesByCategory = {
     { id: "survivor-301", label: "Survivor 301", built: true },
   ],
   x01: [
-    { id: "gotcha", label: "Gotcha", built: false },
+    { id: "gotcha", label: "Gotcha", built: true },
     { id: "301", label: "301", built: true },
     { id: "X01", label: "X01", built: true },
   ],
   cricket: [
     { id: "cricket-no-score", label: "No Score", built: true },
-    { id: "cricket-random", label: "Random", built: false },
     { id: "cricket-standard", label: "Standard", built: true }
   ]
 };
