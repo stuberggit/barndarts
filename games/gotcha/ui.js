@@ -925,10 +925,10 @@ function renderEnd(container, state) {
   controls.appendChild(mainMenuBtn);
 }
 
-function renderStatsModal(stats) {
+function renderStatsModal(throwLog) {
   renderModalShell(`
-    <h2 style="text-align:center;margin-top:0;">Game Stats</h2>
-    <div id="statsList"></div>
+    <h2 style="text-align:center;margin-top:0;">Throw Log</h2>
+    <div id="throwLogList"></div>
     <div style="
       display:flex;
       justify-content:center;
@@ -944,10 +944,10 @@ function renderStatsModal(stats) {
     </div>
   `);
 
-  const list = document.getElementById("statsList");
+  const list = document.getElementById("throwLogList");
   list.innerHTML = "";
 
-  stats.forEach(player => {
+  throwLog.forEach(player => {
     const row = document.createElement("div");
     row.style = `
       margin-bottom:12px;
@@ -958,20 +958,24 @@ function renderStatsModal(stats) {
       color:#ffffff;
     `;
 
+    const throwsHtml = player.throws.length
+      ? player.throws.map(t => `
+          <div style="
+            padding:6px 0;
+            border-top:1px solid rgba(255,255,255,0.16);
+            font-size:14px;
+            line-height:1.4;
+          ">
+            Turn ${t.turnNumber}, Dart ${t.dartNumber}: ${t.label}
+            (${t.scoreBefore} → ${t.scoreAfter})
+            ${t.result !== "scored" ? `<span style="color:#facc15;"> — ${t.result}</span>` : ""}
+          </div>
+        `).join("")
+      : `<div style="opacity:0.8;">No throws recorded.</div>`;
+
     row.innerHTML = `
       <div style="font-size:18px;font-weight:bold;margin-bottom:8px;">${player.name}</div>
-      <div style="font-size:14px;line-height:1.6;">
-        • Score: ${player.score}<br>
-        • PPD: ${player.ppd}<br>
-        • Darts Thrown: ${player.stats?.dartsThrown || 0}<br>
-        • Busts: ${player.stats?.busts || 0}<br>
-        • Gotchas Given: ${player.stats?.gotchasGiven || 0}<br>
-        • Gotchas Received: ${player.stats?.gotchasReceived || 0}<br>
-        • Gentlemanly Gotchas: ${player.stats?.gentlemanlyGotchas || 0}<br>
-        • Ungentlemanly Gotchas: ${player.stats?.ungentlemanlyGotchas || 0}<br>
-        • Gentlemanly Wins: ${player.stats?.gentlemanlyWins || 0}<br>
-        • Ungentlemanly Wins: ${player.stats?.ungentlemanlyWins || 0}
-      </div>
+      ${throwsHtml}
     `;
 
     list.appendChild(row);
