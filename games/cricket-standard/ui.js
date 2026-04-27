@@ -212,7 +212,7 @@ function renderGame(container, state) {
       font-weight:bold;
       color:#facc15;
     ">
-      🏏 Standard Cricket
+      🏏 Current Player 🏏
     </div>
 
     <div style="
