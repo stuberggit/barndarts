@@ -10,6 +10,7 @@ import ThreeOhOne from "../games/301/index.js";
 import X01 from "../games/x01/index.js";
 import CricketStandard from "../games/cricket-standard/index.js";
 import CricketNoScore from "../games/cricket-no-score/index.js";
+import Gotcha from "../games/gotcha/index.js";
 
 const gameMap = {
   "GolfDarts": golfdarts,
@@ -20,7 +21,8 @@ const gameMap = {
   "301": ThreeOhOne,
   "x01": X01,
   "cricket-standard": CricketStandard,
-  "cricket-no-score": CricketNoScore
+  "cricket-no-score": CricketNoScore,
+  "gotcha": Gotcha
 };
 
 export function renderGame(container) {
