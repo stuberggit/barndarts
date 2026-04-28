@@ -174,7 +174,7 @@ function resetTurnTracking() {
   gameState.dartsThrown = 0;
   gameState.currentTurnThrows = [];
   gameState.currentTurnHits = [];
-  gameState.currentTurnHitsOnOwnTarget = [];
+  gameState.currentTurnHitsByOpponentTarget = {};
   gameState.livesTakenThisTurn = 0;
 }
 
@@ -427,13 +427,23 @@ function finishSuccessfulRedemski() {
   advanceTurn();
 }
 
-function isBullShanghai(turnHitsOnOwnTarget) {
-  if (turnHitsOnOwnTarget.length !== 3) return false;
+function isBullShanghai(turnHits) {
+  if (!Array.isArray(turnHits) || turnHits.length !== 3) return false;
 
-  const greenCount = turnHitsOnOwnTarget.filter(hit => hit === "greenBull").length;
-  const redCount = turnHitsOnOwnTarget.filter(hit => hit === "redBull").length;
+  const greenCount = turnHits.filter(hit => hit === "greenBull").length;
+  const redCount = turnHits.filter(hit => hit === "redBull").length;
 
   return greenCount === 2 && redCount === 1;
+}
+
+function isStandardShanghai(turnHits) {
+  if (!Array.isArray(turnHits)) return false;
+
+  return (
+    turnHits.includes("single") &&
+    turnHits.includes("double") &&
+    turnHits.includes("triple")
+  );
 }
 
 function isStandardShanghai(turnHitsOnOwnTarget) {
@@ -479,18 +489,65 @@ function getCurrentTargetText() {
   return targets.map(formatTargetNumber).join(", ");
 }
 
-function recordOwnTargetHitForShanghai(player, hitType, target) {
-  const hitOwnTarget = target === player.target;
+function recordOpponentTargetHitForShanghai(playerIndex, hitType, target) {
+  const player = gameState.players[playerIndex];
+  if (!player || !player.isKiller) return;
+  if (target == null) return;
 
-  if (
-    hitOwnTarget &&
-    (
-      (player.target === 25 && isBullHitType(hitType)) ||
-      (player.target !== 25 && isNumberHitType(hitType))
-    )
-  ) {
-    gameState.currentTurnHitsOnOwnTarget.push(hitType);
+  const targetOwnerIndex = findPlayerByTarget(target);
+  if (targetOwnerIndex === -1) return;
+  if (targetOwnerIndex === playerIndex) return;
+
+  const targetOwner = gameState.players[targetOwnerIndex];
+  if (!targetOwner || targetOwner.isDormantDead) return;
+
+  const validHitForTarget =
+    (target === 25 && isBullHitType(hitType)) ||
+    (target !== 25 && isNumberHitType(hitType));
+
+  if (!validHitForTarget) return;
+
+  const key = String(target);
+
+  if (!gameState.currentTurnHitsByOpponentTarget) {
+    gameState.currentTurnHitsByOpponentTarget = {};
   }
+
+  if (!gameState.currentTurnHitsByOpponentTarget[key]) {
+    gameState.currentTurnHitsByOpponentTarget[key] = [];
+  }
+
+  gameState.currentTurnHitsByOpponentTarget[key].push(hitType);
+}
+
+function getShanghaiTargetForCurrentPlayer() {
+  const playerIndex = gameState.currentPlayer;
+  const player = gameState.players[playerIndex];
+
+  if (!player || !player.isKiller) return null;
+
+  const hitsByTarget = gameState.currentTurnHitsByOpponentTarget || {};
+
+  for (const targetKey of Object.keys(hitsByTarget)) {
+    const target = Number(targetKey);
+    const hits = hitsByTarget[targetKey];
+
+    const targetOwnerIndex = findPlayerByTarget(target);
+    if (targetOwnerIndex === -1 || targetOwnerIndex === playerIndex) continue;
+
+    const targetOwner = gameState.players[targetOwnerIndex];
+    if (!targetOwner || targetOwner.isDormantDead) continue;
+
+    if (target === 25 && isBullShanghai(hits)) {
+      return target;
+    }
+
+    if (target !== 25 && isStandardShanghai(hits)) {
+      return target;
+    }
+  }
+
+  return null;
 }
 
 function finishShanghaiWin(playerName) {
@@ -583,7 +640,7 @@ export function initGame(players) {
     dartsThrown: 0,
     currentTurnThrows: [],
     currentTurnHits: [],
-    currentTurnHitsOnOwnTarget: [],
+    currentTurnHitsByOpponentTarget: {},
     livesTakenThisTurn: 0,
 
     lastMessage: "",
@@ -706,18 +763,13 @@ export function submitGameThrow(hitType, target) {
     gameState.currentTurnHits.push(hitType);
   }
 
-  recordOwnTargetHitForShanghai(player, hitType, target);
+  recordOpponentTargetHitForShanghai(playerIndex, hitType, target);
 
   const revivedZombieThisDart = checkZombieRevival(hitType, target, playerIndex);
 
-  const shanghaiHit =
-    player.isKiller &&
-    (
-      (player.target === 25 && isBullShanghai(gameState.currentTurnHitsOnOwnTarget)) ||
-      (player.target !== 25 && isStandardShanghai(gameState.currentTurnHitsOnOwnTarget))
-    );
+  const shanghaiTarget = getShanghaiTargetForCurrentPlayer();
 
-  if (shanghaiHit) {
+  if (shanghaiTarget != null) {
     finishShanghaiWin(player.name);
     return;
   }
@@ -773,6 +825,13 @@ export function submitShanghai() {
 
   const player = gameState.players[gameState.currentPlayer];
   if (!player || !isPlayerActive(player) || !player.isKiller) return;
+
+  const shanghaiTarget = getShanghaiTargetForCurrentPlayer();
+
+  if (shanghaiTarget == null) {
+    updateMessage(`${player.name} needs a valid Shanghai on an opponent's target.`, "#facc15");
+    return;
+  }
 
   history.push(cloneState(gameState));
   finishShanghaiWin(player.name);
