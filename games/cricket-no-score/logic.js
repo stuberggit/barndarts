@@ -3,6 +3,7 @@ let history = [];
 
 import { store } from "../../core/store.js";
 import { saveGameResult } from "../../core/historyService.js";
+import { checkShanghai } from "../../core/rules/shanghai.js";
 
 const TARGETS = [20, 19, 18, 17, 16, 15, 25];
 const NO_SCORE_MODE = true;
@@ -202,6 +203,8 @@ export function initGame(players) {
     lastMessageColor: "#ffffff",
 
     winner: null,
+    pendingShanghai: null,
+    shanghaiWinner: null,
     finalStats: null,
     historySaved: false
   };
@@ -210,7 +213,7 @@ export function initGame(players) {
 }
 
 export function submitThrow(hitType, target = null) {
-  if (gameState.winner || gameState.turnReadyForNext) return;
+  if (gameState.winner || gameState.pendingShanghai || gameState.turnReadyForNext) return;
 
   const player = gameState.players[gameState.currentPlayer];
   if (!player) return;
@@ -233,15 +236,42 @@ export function submitThrow(hitType, target = null) {
     player.stats.turnsTaken++;
   }
 
-  if (hitType === "miss") {
-    player.stats.misses++;
-  }
-
+  if (hitType === "miss") player.stats.misses++;
   if (hitType === "single") player.stats.singles++;
   if (hitType === "double") player.stats.doubles++;
   if (hitType === "triple") player.stats.triples++;
   if (hitType === "greenBull") player.stats.greenBulls++;
   if (hitType === "redBull") player.stats.redBulls++;
+
+  const throwRecord = {
+    hitType,
+    target,
+    label: getHitLabel(hitType, target),
+    marks,
+    marksApplied,
+    extraMarks,
+    pointsScored
+  };
+
+  gameState.currentTurnThrows.push(throwRecord);
+
+  const shanghaiHits = gameState.currentTurnThrows
+    .filter(t => t.target === target && target !== null && target !== 25)
+    .map(t => {
+      if (t.hitType === "single") return 1;
+      if (t.hitType === "double") return 2;
+      if (t.hitType === "triple") return 3;
+      return 0;
+    })
+    .filter(Boolean);
+
+  if (checkShanghai(shanghaiHits)) {
+    gameState.pendingShanghai = {
+      playerName: player.name,
+      target
+    };
+    return;
+  }
 
   if (marks > 0) {
     const previousMarks = player.marks[target] || 0;
@@ -252,23 +282,17 @@ export function submitThrow(hitType, target = null) {
     player.marks[target] = Math.min(3, previousMarks + marks);
 
     if (!NO_SCORE_MODE && extraMarks > 0 && canScoreOnTarget(gameState.currentPlayer, target)) {
-  pointsScored = extraMarks * scoreValue;
-  player.score += pointsScored;
-  player.stats.pointsScored += pointsScored;
-}
+      pointsScored = extraMarks * scoreValue;
+      player.score += pointsScored;
+      player.stats.pointsScored += pointsScored;
+    }
 
     player.stats.marksHit += marks;
   }
 
-  gameState.currentTurnThrows.push({
-    hitType,
-    target,
-    label: getHitLabel(hitType, target),
-    marks,
-    marksApplied,
-    extraMarks,
-    pointsScored
-  });
+  throwRecord.marksApplied = marksApplied;
+  throwRecord.extraMarks = extraMarks;
+  throwRecord.pointsScored = pointsScored;
 
   if (hitType === "miss") {
     gameState.lastMessage = `${player.name} misses.`;
@@ -319,6 +343,33 @@ export function endGameEarly() {
   gameState.lastMessageColor = "#facc15";
 
   saveCricketHistory();
+}
+
+export function confirmShanghaiWinner() {
+  if (!gameState.pendingShanghai || gameState.winner) return;
+
+  const playerName = gameState.pendingShanghai.playerName;
+  const target = gameState.pendingShanghai.target;
+
+  gameState.shanghaiWinner = playerName;
+  gameState.winner = playerName;
+  gameState.pendingShanghai = null;
+  gameState.finalStats = buildStatsSummary();
+
+  gameState.lastMessage = `${playerName} hit SHANGHAI on ${formatTarget(target)}!`;
+  gameState.lastMessageColor = "#ffcc00";
+
+  saveCricketHistory();
+}
+
+export function cancelPendingShanghai() {
+  if (!gameState.pendingShanghai || gameState.winner) return;
+
+  if (history.length) {
+    gameState = history.pop();
+  } else {
+    gameState.pendingShanghai = null;
+  }
 }
 
 export function undo() {
