@@ -122,6 +122,7 @@ function playerBlockStyle(isSelected) {
     margin-bottom:8px;
     font-weight:bold;
     box-sizing:border-box;
+    position:relative;
   `;
 }
 
@@ -142,6 +143,19 @@ function avatarStyle(color) {
   `;
 }
 
+function orderBadgeStyle() {
+  return `
+    background:#facc15;
+    color:#111111;
+    border:1px solid #ffffff;
+    border-radius:999px;
+    padding:4px 9px;
+    font-size:13px;
+    font-weight:bold;
+    flex-shrink:0;
+  `;
+}
+
 function getAvatar(profile) {
   return profile.avatar || "🎯";
 }
@@ -155,22 +169,26 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function getOrderedProfiles(profiles, selectedOrderIds) {
+  return selectedOrderIds
+    .map(id => profiles.find(profile => profile.id === id))
+    .filter(Boolean);
+}
+
 export function renderSetup(container) {
   let profiles = loadProfiles();
 
-  let selectedIds = new Set();
+  let selectedOrderIds = [];
 
   try {
     const savedSelectedIds =
       JSON.parse(localStorage.getItem(LAST_SELECTED_PLAYERS_KEY)) || [];
 
-    selectedIds = new Set(
-      savedSelectedIds.filter(id =>
-        profiles.some(profile => profile.id === id)
-      )
+    selectedOrderIds = savedSelectedIds.filter(id =>
+      profiles.some(profile => profile.id === id)
     );
   } catch {
-    selectedIds = new Set();
+    selectedOrderIds = [];
   }
 
   store.players = [];
@@ -212,26 +230,107 @@ export function renderSetup(container) {
 
     <div id="players"></div>
 
+    <div id="orderPreview"></div>
+
     <div id="start" style="${buttonStyle()}">Start Game</div>
     <div id="back" style="${lightButtonStyle()}">Back</div>
   `;
 
   const playersDiv = document.getElementById("players");
   const selectedCount = document.getElementById("selectedCount");
+  const orderPreview = document.getElementById("orderPreview");
+
+  function isSelected(id) {
+    return selectedOrderIds.includes(id);
+  }
+
+  function getSelectedOrderNumber(id) {
+    const index = selectedOrderIds.indexOf(id);
+    return index >= 0 ? index + 1 : null;
+  }
+
+  function toggleSelectedPlayer(id) {
+    if (isSelected(id)) {
+      selectedOrderIds = selectedOrderIds.filter(selectedId => selectedId !== id);
+    } else {
+      selectedOrderIds.push(id);
+    }
+
+    saveLastSelectedPlayers();
+  }
 
   function updateSelectedCount() {
-    selectedCount.innerText = `Select Players (${selectedIds.size} selected)`;
+    selectedCount.innerText = `Select Players (${selectedOrderIds.length} selected)`;
   }
 
   function saveLastSelectedPlayers() {
     localStorage.setItem(
       LAST_SELECTED_PLAYERS_KEY,
-      JSON.stringify([...selectedIds])
+      JSON.stringify(selectedOrderIds)
     );
+  }
+
+  function renderOrderPreview() {
+    const orderedProfiles = getOrderedProfiles(profiles, selectedOrderIds);
+
+    if (!orderedProfiles.length) {
+      orderPreview.innerHTML = `
+        <div style="
+          background:#111111;
+          color:#ffffff;
+          border:1px solid #9ca3af;
+          border-radius:10px;
+          padding:12px;
+          text-align:center;
+          font-weight:bold;
+          opacity:0.85;
+          margin-top:10px;
+        ">
+          Tap player blocks in throwing order.
+        </div>
+      `;
+      return;
+    }
+
+    orderPreview.innerHTML = `
+      <div style="
+        background:#111111;
+        color:#ffffff;
+        border:1px solid #9ca3af;
+        border-radius:12px;
+        padding:12px;
+        margin-top:10px;
+      ">
+        <div style="
+          color:#facc15;
+          font-weight:bold;
+          text-align:center;
+          margin-bottom:8px;
+        ">
+          Throwing Order
+        </div>
+
+        ${orderedProfiles.map((profile, index) => `
+          <div style="
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:10px;
+            padding:6px 0;
+            border-top:${index === 0 ? "none" : "1px solid rgba(255,255,255,0.12)"};
+            font-weight:bold;
+          ">
+            <span>${index + 1}. ${escapeHtml(getAvatar(profile))} ${escapeHtml(profile.name)}</span>
+            <span style="color:#9ca3af;font-size:13px;">Tap block to remove</span>
+          </div>
+        `).join("")}
+      </div>
+    `;
   }
 
   function renderPlayers() {
     updateSelectedCount();
+    renderOrderPreview();
 
     if (!profiles.length) {
       playersDiv.innerHTML = `
@@ -254,10 +353,11 @@ export function renderSetup(container) {
     playersDiv.innerHTML = "";
 
     profiles.forEach(profile => {
-      const isSelected = selectedIds.has(profile.id);
+      const selected = isSelected(profile.id);
+      const orderNumber = getSelectedOrderNumber(profile.id);
 
       const row = document.createElement("div");
-      row.style = playerBlockStyle(isSelected);
+      row.style = playerBlockStyle(selected);
 
       row.innerHTML = `
         <div data-select-player="${profile.id}" style="
@@ -283,11 +383,25 @@ export function renderSetup(container) {
           </div>
 
           <div style="
-            color:${isSelected ? "#f0970a" : "#9ca3af"};
-            font-size:14px;
+            display:flex;
+            align-items:center;
+            justify-content:flex-end;
+            gap:8px;
             flex-shrink:0;
           ">
-            ${isSelected ? "SELECTED" : "Tap to Select"}
+            ${
+              selected
+                ? `<div style="${orderBadgeStyle()}">#${orderNumber}</div>`
+                : ""
+            }
+
+            <div style="
+              color:${selected ? "#f0970a" : "#9ca3af"};
+              font-size:14px;
+              flex-shrink:0;
+            ">
+              ${selected ? "SELECTED" : "Tap to Select"}
+            </div>
           </div>
         </div>
 
@@ -308,14 +422,14 @@ export function renderSetup(container) {
     playersDiv.querySelectorAll("[data-select-player]").forEach(el => {
       el.onclick = () => {
         const id = el.getAttribute("data-select-player");
+        toggleSelectedPlayer(id);
+        renderPlayers();
+      };
 
-        if (selectedIds.has(id)) {
-          selectedIds.delete(id);
-        } else {
-          selectedIds.add(id);
-        }
-
-        saveLastSelectedPlayers();
+      el.ontouchstart = event => {
+        event.preventDefault();
+        const id = el.getAttribute("data-select-player");
+        toggleSelectedPlayer(id);
         renderPlayers();
       };
     });
@@ -340,7 +454,8 @@ export function renderSetup(container) {
         if (!confirmed) return;
 
         profiles = profiles.filter(p => p.id !== id);
-        selectedIds.delete(id);
+        selectedOrderIds = selectedOrderIds.filter(selectedId => selectedId !== id);
+
         saveProfiles(profiles);
         saveLastSelectedPlayers();
         renderPlayers();
@@ -482,7 +597,7 @@ export function renderSetup(container) {
     profiles.push(newProfile);
     saveProfiles(profiles);
 
-    selectedIds.add(newProfile.id);
+    selectedOrderIds.push(newProfile.id);
     saveLastSelectedPlayers();
 
     input.value = "";
@@ -491,9 +606,7 @@ export function renderSetup(container) {
   };
 
   document.getElementById("start").onclick = () => {
-    const selectedProfiles = profiles.filter(profile =>
-      selectedIds.has(profile.id)
-    );
+    const selectedProfiles = getOrderedProfiles(profiles, selectedOrderIds);
 
     if (selectedProfiles.length < 2) {
       alert("Select at least two players.");
