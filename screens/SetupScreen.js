@@ -644,6 +644,26 @@ function createPlayerProfile(name) {
   };
 }
 
+function rulesButtonStyle() {
+  return `
+    background:#1e3a5f;
+    color:#ffffff;
+    border:1px solid #93c5fd;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+    text-align:center;
+    user-select:none;
+    padding:10px;
+    min-height:44px;
+    margin-top:8px;
+  `;
+}
+
 function buttonStyle() {
   return `
     background:#206a1e;
@@ -981,7 +1001,7 @@ export function renderSetup(container) {
   container.innerHTML = `
     <h1>${getGameDisplayName(store.selectedGame)}</h1>
 
-    <div id="rulesBtn" style="${lightButtonStyle()}">Rules</div>
+    <div id="rulesBtn" style="${rulesButtonStyle()}">Rules</div>
 
     <div style="
       background:#111111;
