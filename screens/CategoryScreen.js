@@ -12,7 +12,7 @@ const gamesByCategory = {
   x01: [
     { id: "gotcha", label: "Gotcha", built: true },
     { id: "301", label: "301", built: true },
-    { id: "X01", label: "X01", built: true },
+    { id: "x01", label: "X01", built: true },
   ],
   cricket: [
     { id: "cricket-no-score", label: "No Score", built: true },
