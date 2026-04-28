@@ -155,45 +155,66 @@ function rotatePlayers(players) {
 
 function getMarkDisplay(marks) {
   const safeMarks = Math.max(0, Math.min(3, marks || 0));
+  const isClosed = safeMarks >= 3;
 
-  const dotStyle = `
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    width:14px;
-    height:14px;
-    margin:0 1px;
-    border-radius:999px;
-    background:#facc15;
-    color:#111111;
-    font-size:10px;
-    font-weight:bold;
-    line-height:1;
-  `;
-
-  let html = "";
-
-  for (let i = 0; i < 3; i++) {
-    const filled = i < safeMarks;
-
-    html += `
-      <span style="
-        ${dotStyle}
-        opacity:${filled ? "1" : "0.14"};
-        background:${filled ? "#facc15" : "#ffffff"};
-      "></span>
+  if (safeMarks === 0) {
+    return `
+      <div style="
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        min-width:54px;
+        min-height:24px;
+      "></div>
     `;
   }
 
   return `
     <div style="
+      position:relative;
       display:flex;
       align-items:center;
       justify-content:center;
       min-width:54px;
-      min-height:22px;
+      min-height:28px;
+      color:${isClosed ? "#22c55e" : "#ffffff"};
+      line-height:1;
     ">
-      ${html}
+      ${
+        safeMarks >= 1
+          ? `<span style="
+              font-size:24px;
+              font-weight:300;
+              transform:translateX(-5px);
+            ">/</span>`
+          : ""
+      }
+
+      ${
+        safeMarks >= 2
+          ? `<span style="
+              position:absolute;
+              left:50%;
+              top:50%;
+              transform:translate(-50%, -50%);
+              font-size:24px;
+              font-weight:900;
+            ">X</span>`
+          : ""
+      }
+
+      ${
+        safeMarks >= 3
+          ? `<span style="
+              position:absolute;
+              left:50%;
+              top:50%;
+              transform:translate(-50%, -52%);
+              font-size:24px;
+              font-weight:700;
+            ">O</span>`
+          : ""
+      }
     </div>
   `;
 }
@@ -431,7 +452,8 @@ function renderCricketBoard(state) {
   `;
 
   targets.forEach(target => {
-    const closedByAll = targetClosedByAll(target);
+    <tr style="${closedByAll ? "opacity:0.55;text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:#22c55e;" : ""}">
+  const closedByAll = targetClosedByAll(target);
 
     html += `
       <tr style="${closedByAll ? "opacity:0.55;" : ""}">
