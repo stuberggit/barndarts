@@ -9,7 +9,9 @@ import {
   endGameEarly,
   undo,
   isGameOver,
-  initGame
+  initGame,
+  confirmShanghaiWinner,
+  cancelPendingShanghai
 } from "./logic.js";
 import { store } from "../../core/store.js";
 import { renderApp } from "../../core/router.js";
@@ -153,10 +155,93 @@ function rotatePlayers(players) {
 
 function getMarkDisplay(marks) {
   const safeMarks = Math.max(0, Math.min(3, marks || 0));
-  if (safeMarks === 0) return "";
-  if (safeMarks === 1) return "／";
-  if (safeMarks === 2) return "✕";
-  return "Ⓧ";
+
+  if (safeMarks === 0) {
+    return `
+      <div style="
+        position:relative;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        min-width:48px;
+        min-height:22px;
+      "></div>
+    `;
+  }
+
+  if (safeMarks === 1) {
+    return `
+      <div style="
+        position:relative;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        min-width:48px;
+        min-height:22px;
+        font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;
+        color:#ffffff;
+        line-height:1;
+      ">
+        <span style="
+          font-size:14pt;
+          font-weight:bold;
+        ">/</span>
+      </div>
+    `;
+  }
+
+  if (safeMarks === 2) {
+    return `
+      <div style="
+        position:relative;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        min-width:48px;
+        min-height:22px;
+        font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;
+        color:#ffffff;
+        line-height:1;
+      ">
+        <span style="
+          font-size:15pt;
+          font-weight:400;
+        ">X</span>
+      </div>
+    `;
+  }
+
+  return `
+    <div style="
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-width:48px;
+      min-height:22px;
+      font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;
+      color:#ffffff;
+      line-height:1;
+    ">
+      <span style="
+        position:absolute;
+        left:50%;
+        top:50%;
+        transform:translate(-50%, -50%);
+        font-size:15pt;
+        font-weight:400;
+      ">X</span>
+
+      <span style="
+        position:absolute;
+        left:50%;
+        top:50%;
+        transform:translate(-50%, -52%);
+        font-size:19pt;
+        font-weight:400;
+      ">O</span>
+    </div>
+  `;
 }
 
 function formatThrowLabel(throwRecord) {
@@ -212,11 +297,11 @@ function renderGame(container, state) {
       font-weight:bold;
       color:#facc15;
     ">
-      🏏 Current Player 🏏
+      🎯 Current Player 🎯
     </div>
 
     <div style="
-      margin-bottom:12px;
+      margin-bottom:8px;
       padding:14px;
       border-radius:12px;
       background:#11361a;
@@ -236,13 +321,9 @@ function renderGame(container, state) {
       </div>
     </div>
 
-    <div id="throwControls"></div>
-
-    <div id="cricketBoard"></div>
-
     <div style="
-      min-height:54px;
-      margin:12px 0;
+      min-height:42px;
+      margin:8px 0 10px;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -252,6 +333,8 @@ function renderGame(container, state) {
       </div>
     </div>
 
+    <div id="throwControls"></div>
+    <div id="cricketBoard"></div>
     <div id="turnSummary"></div>
     <div id="utilityControls"></div>
     <div id="modal"></div>
@@ -261,6 +344,10 @@ function renderGame(container, state) {
   renderCricketBoard(state);
   renderTurnSummary(state);
   renderUtilityControls(container);
+
+  if (state.pendingShanghai) {
+    renderShanghaiConfirm(container, state.pendingShanghai);
+  }
 }
 
 /* -------------------------
@@ -273,6 +360,7 @@ function renderThrowControls(container, state) {
 
   const canThrow =
     !state.winner &&
+    !state.pendingShanghai &&
     !state.turnReadyForNext &&
     state.dartsThrown < 3;
 
@@ -293,9 +381,9 @@ function renderThrowControls(container, state) {
     btn.innerText = type.label;
     btn.style = `
       ${buttonStyle()}
-      padding:12px;
-      min-height:52px;
-      font-size:18px;
+      padding:10px;
+      min-height:42px;
+      font-size:15px;
       ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
     `;
 
@@ -312,16 +400,16 @@ function renderThrowControls(container, state) {
     display:grid;
     grid-template-columns:1fr 1fr;
     gap:8px;
-    margin-top:10px;
+    margin-top:8px;
   `;
 
   const missBtn = document.createElement("div");
   missBtn.innerText = "Miss";
   missBtn.style = `
     ${buttonStyle()}
-    padding:12px;
-    min-height:52px;
-    font-size:18px;
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
     ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
   `;
   attachButtonClick(missBtn, () => {
@@ -334,9 +422,9 @@ function renderThrowControls(container, state) {
   nextBtn.innerText = "Next Player";
   nextBtn.style = `
     ${buttonStyle()}
-    padding:12px;
-    min-height:52px;
-    font-size:18px;
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
   `;
   attachButtonClick(nextBtn, () => {
     nextPlayer();
@@ -389,39 +477,45 @@ function renderCricketBoard(state) {
   `;
 
   targets.forEach(target => {
-    const closedByAll = targetClosedByAll(target);
+  const closedByAll = targetClosedByAll(target);
 
-    html += `
-      <tr style="${closedByAll ? "opacity:0.55;" : ""}">
-        <td style="
-          padding:8px;
-          border:1px solid rgba(255,255,255,0.2);
-          font-weight:bold;
-          color:${closedByAll ? "#9ca3af" : "#facc15"};
-        ">
-          ${formatCricketTarget(target)}
-        </td>
+  html += `
+    <tr style="
+      position:relative;
+      ${closedByAll ? "opacity:0.6;" : ""}
+      ${closedByAll ? "background:linear-gradient(to bottom, transparent 48%, #9ca3af 48%, #9ca3af 53%, transparent 53%);" : ""}
+    ">
+      <td style="
+        padding:8px;
+        border:1px solid rgba(255,255,255,0.2);
+        font-weight:bold;
+        color:${closedByAll ? "#9ca3af" : "#facc15"};
+      ">
+        ${formatCricketTarget(target)}
+      </td>
 
-        ${state.players.map((player, index) => {
-          const marks = player.marks[target] || 0;
-          const closed = marks >= 3;
+      ${state.players.map((player, index) => {
+        const marks = player.marks[target] || 0;
+        const closed = marks >= 3;
 
-          return `
-            <td style="
-              padding:8px;
-              border:1px solid rgba(255,255,255,0.2);
-              font-size:24px;
-              font-weight:bold;
-              background:${index === state.currentPlayer ? "rgba(250,204,21,0.08)" : "transparent"};
-              color:${closed ? "#22c55e" : "#ffffff"};
-            ">
-              ${getMarkDisplay(marks)}
-            </td>
-          `;
-        }).join("")}
-      </tr>
-    `;
-  });
+        return `
+          <td style="
+  padding:4px 4px;
+  border:1px solid rgba(255,255,255,0.2);
+  font-size:16px;
+  background:${index === state.currentPlayer ? "rgba(250,204,21,0.08)" : "transparent"};
+  color:#ffffff;
+  min-width:56px;
+  height:30px;
+  vertical-align:middle;
+">
+  ${getMarkDisplay(marks)}
+</td>
+        `;
+      }).join("")}
+    </tr>
+  `;
+});
 
   html += `
       </table>
@@ -781,6 +875,45 @@ function renderStatsModal(stats) {
   });
 
   attachButtonClick(document.getElementById("closeModalBtn"), closeModal);
+}
+
+function renderShanghaiConfirm(container, pendingShanghai) {
+  renderModalShell(`
+    <h2 style="text-align:center;margin-top:0;color:#facc15;">🔥 SHANGHAI? 🔥</h2>
+    <div style="text-align:center;margin-bottom:14px;line-height:1.45;">
+      ${pendingShanghai.playerName} hit Single + Dub + Trip on ${formatCricketTarget(pendingShanghai.target)}.<br>
+      Confirm Shanghai and end the game?
+    </div>
+    <div style="
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    ">
+      <div id="cancelShanghaiBtn" style="
+        ${lightButtonStyle()}
+        padding:12px;
+        min-height:48px;
+      ">Cancel</div>
+      <div id="confirmShanghaiBtn" style="
+        ${buttonStyle()}
+        padding:12px;
+        min-height:48px;
+        border:1px solid #facc15;
+      ">Confirm</div>
+    </div>
+  `);
+
+  attachButtonClick(document.getElementById("cancelShanghaiBtn"), () => {
+    cancelPendingShanghai();
+    closeModal();
+    renderUI(container);
+  });
+
+  attachButtonClick(document.getElementById("confirmShanghaiBtn"), () => {
+    confirmShanghaiWinner();
+    closeModal();
+    renderUI(container);
+  });
 }
 
 function renderEndGameConfirm(container) {
