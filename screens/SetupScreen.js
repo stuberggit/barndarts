@@ -175,6 +175,23 @@ function getOrderedProfiles(profiles, selectedOrderIds) {
     .filter(Boolean);
 }
 
+const gameDisplayNames = {
+  "ahman-green": "Ahman Green",
+  "GolfDarts": "GolfDarts",
+  "hammer-cricket": "Hammered",
+  "killer": "Killer",
+  "survivor-301": "Survivor 301",
+  "gotcha": "Gotcha 301",
+  "301": "301",
+  "x01": "X01",
+  "cricket-standard": "Cricket (Points)",
+  "cricket-no-score": "Cricket (No Points)"
+};
+
+function getGameDisplayName(gameId) {
+  return gameDisplayNames[gameId] || gameId;
+}
+
 export function renderSetup(container) {
   let profiles = loadProfiles();
 
@@ -195,7 +212,7 @@ export function renderSetup(container) {
   store.selectedPlayerProfiles = [];
 
   container.innerHTML = `
-    <h1>${store.selectedGame}</h1>
+    <h1>${getGameDisplayName(store.selectedGame)}</h1>
 
     <div style="
       background:#111111;
