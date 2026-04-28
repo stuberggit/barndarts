@@ -25,6 +25,23 @@ const gameMap = {
   "gotcha": Gotcha
 };
 
+const gameDisplayNames = {
+  "ahman-green": "Ahman Green",
+  "GolfDarts": "GolfDarts",
+  "hammer-cricket": "Hammered",
+  "killer": "Killer",
+  "survivor-301": "Survivor 301",
+  "gotcha": "Gotcha 301",
+  "301": "301",
+  "x01": "X01",
+  "cricket-standard": "Cricket (Points)",
+  "cricket-no-score": "Cricket (No Points)"
+};
+
+function getGameDisplayName(gameId, game) {
+  return gameDisplayNames[gameId] || game?.name || gameId;
+}
+
 export function renderGame(container) {
   const gameId = store.selectedGame;
   const game = gameMap[gameId];
@@ -35,7 +52,7 @@ export function renderGame(container) {
   }
 
   container.innerHTML = `
-    <h1>${game.name}</h1>
+    <h1>${getGameDisplayName(gameId, game)}</h1>
     <div id="gameArea"></div>
   `;
 
@@ -43,5 +60,4 @@ export function renderGame(container) {
 
   game.start(store.players);
   game.render(gameArea);
-
 }
