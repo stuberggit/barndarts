@@ -6,7 +6,6 @@ import {
   isGameOver,
   initGame,
   endGameEarly,
-  getStats,
   getWinningScore,
   confirmShanghaiWinner,
   cancelPendingShanghai,
@@ -147,9 +146,15 @@ function renderModalShell(innerHtml) {
   };
 }
 
+function rotatePlayers(players) {
+  if (!players || players.length <= 1) return [...(players || [])];
+  return [...players.slice(1), players[0]];
+}
+
 function formatThrowLabel(throwRecord) {
   if (!throwRecord) return "";
 
+  if (throwRecord.label) return throwRecord.label;
   if (throwRecord.hitType === "miss") return "Miss";
   if (throwRecord.hitType === "greenBull") return "Sing Bull";
   if (throwRecord.hitType === "redBull") return "Dub Bull";
@@ -160,18 +165,13 @@ function formatThrowLabel(throwRecord) {
     triple: "Trip"
   };
 
-  return `${labels[throwRecord.hitType]} ${throwRecord.target}`;
+  return `${labels[throwRecord.hitType] || "Hit"} ${throwRecord.target}`;
 }
 
 function getThrowValue(throwRecord) {
   if (!throwRecord) return 0;
   if (typeof throwRecord.value === "number") return throwRecord.value;
   return 0;
-}
-
-function rotatePlayers(players) {
-  if (!players || players.length <= 1) return [...(players || [])];
-  return [...players.slice(1), players[0]];
 }
 
 function getPpd(player) {
@@ -233,7 +233,7 @@ function renderGame(container, state) {
     </div>
 
     <div style="
-      margin-bottom:12px;
+      margin-bottom:8px;
       padding:14px;
       border-radius:12px;
       background:#11361a;
@@ -253,13 +253,9 @@ function renderGame(container, state) {
       </div>
     </div>
 
-    <div id="throwControls"></div>
-
-    <div id="playerBoard"></div>
-
     <div style="
-      min-height:54px;
-      margin:12px 0;
+      min-height:42px;
+      margin:8px 0 10px;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -269,6 +265,8 @@ function renderGame(container, state) {
       </div>
     </div>
 
+    <div id="throwControls"></div>
+    <div id="playerBoard"></div>
     <div id="turnSummary"></div>
     <div id="utilityControls"></div>
     <div id="modal"></div>
@@ -278,9 +276,10 @@ function renderGame(container, state) {
   renderPlayerBoard(state);
   renderTurnSummary(state);
   renderUtilityControls(container);
+
   if (state.pendingShanghai) {
-  renderShanghaiConfirm(container, state.pendingShanghai);
-}
+    renderShanghaiConfirm(container, state.pendingShanghai);
+  }
 }
 
 /* -------------------------
@@ -292,10 +291,10 @@ function renderThrowControls(container, state) {
   controls.innerHTML = "";
 
   const canThrow =
-  !state.winner &&
-  !state.pendingShanghai &&
-  !state.turnReadyForNext &&
-  state.dartsThrown < 3;
+    !state.winner &&
+    !state.pendingShanghai &&
+    !state.turnReadyForNext &&
+    state.dartsThrown < 3;
 
   const hitTypeRow = document.createElement("div");
   hitTypeRow.style = `
@@ -316,9 +315,9 @@ function renderThrowControls(container, state) {
     btn.innerText = type.label;
     btn.style = `
       ${buttonStyle()}
-      padding:12px;
-      min-height:52px;
-      font-size:18px;
+      padding:10px;
+      min-height:42px;
+      font-size:15px;
       ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
     `;
 
@@ -335,16 +334,16 @@ function renderThrowControls(container, state) {
     display:grid;
     grid-template-columns:1fr 1fr;
     gap:8px;
-    margin-top:10px;
+    margin-top:8px;
   `;
 
   const missBtn = document.createElement("div");
   missBtn.innerText = "Miss";
   missBtn.style = `
     ${buttonStyle()}
-    padding:12px;
-    min-height:52px;
-    font-size:18px;
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
     ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
   `;
   attachButtonClick(missBtn, () => {
@@ -357,9 +356,9 @@ function renderThrowControls(container, state) {
   nextBtn.innerText = "Next Player";
   nextBtn.style = `
     ${buttonStyle()}
-    padding:12px;
-    min-height:52px;
-    font-size:18px;
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
   `;
   attachButtonClick(nextBtn, () => {
     nextPlayer();
@@ -481,16 +480,16 @@ function renderUtilityControls(container) {
   `;
 
   const statsBtn = document.createElement("div");
-statsBtn.innerText = "Stats";
-statsBtn.style = `
-  ${lightButtonStyle()}
-  padding:10px;
-  min-height:42px;
-  font-size:15px;
-`;
-attachButtonClick(statsBtn, () => {
-  renderStatsModal(getThrowLog());
-});
+  statsBtn.innerText = "Stats";
+  statsBtn.style = `
+    ${lightButtonStyle()}
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
+  `;
+  attachButtonClick(statsBtn, () => {
+    renderStatsModal(getThrowLog());
+  });
 
   const undoBtn = document.createElement("div");
   undoBtn.innerText = "Undo";
@@ -533,6 +532,7 @@ function renderNumberPicker(container, hitType) {
   const isTriple = hitType === "triple";
   const canThrow =
     !state.winner &&
+    !state.pendingShanghai &&
     !state.turnReadyForNext &&
     state.dartsThrown < 3;
 
@@ -654,6 +654,7 @@ function renderNumberPicker(container, hitType) {
 
       if (
         freshState.winner ||
+        freshState.pendingShanghai ||
         freshState.turnReadyForNext ||
         freshState.dartsThrown >= 3
       ) return;
@@ -666,6 +667,7 @@ function renderNumberPicker(container, hitType) {
 
       if (
         !updatedState.winner &&
+        !updatedState.pendingShanghai &&
         !updatedState.turnReadyForNext &&
         updatedState.dartsThrown < 3
       ) {
@@ -685,6 +687,7 @@ function renderNumberPicker(container, hitType) {
 
       if (
         freshState.winner ||
+        freshState.pendingShanghai ||
         freshState.turnReadyForNext ||
         freshState.dartsThrown >= 3
       ) return;
@@ -697,6 +700,7 @@ function renderNumberPicker(container, hitType) {
 
       if (
         !updatedState.winner &&
+        !updatedState.pendingShanghai &&
         !updatedState.turnReadyForNext &&
         updatedState.dartsThrown < 3
       ) {
@@ -712,12 +716,10 @@ function renderNumberPicker(container, hitType) {
    MODALS
 --------------------------*/
 
-function renderLeaderboardModal(state) {
-  const rankedPlayers = [...state.players].sort((a, b) => a.score - b.score);
-
+function renderStatsModal(throwLog) {
   renderModalShell(`
-    <h2 style="text-align:center;margin-top:0;">Leaderboard</h2>
-    <div id="leaderboardList"></div>
+    <h2 style="text-align:center;margin-top:0;">Throw Log</h2>
+    <div id="throwLogList"></div>
     <div style="
       display:flex;
       justify-content:center;
@@ -733,28 +735,38 @@ function renderLeaderboardModal(state) {
     </div>
   `);
 
-  const list = document.getElementById("leaderboardList");
+  const list = document.getElementById("throwLogList");
   list.innerHTML = "";
 
-  rankedPlayers.forEach((player, index) => {
+  throwLog.forEach(player => {
     const row = document.createElement("div");
     row.style = `
-      margin-bottom:10px;
-      padding:12px;
+      margin-bottom:12px;
+      padding:14px;
       border-radius:10px;
       background:#111111;
       border:1px solid #ffffff;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:12px;
       color:#ffffff;
-      font-weight:bold;
     `;
 
+    const throwsHtml = player.throws.length
+      ? player.throws.map(t => `
+          <div style="
+            padding:6px 0;
+            border-top:1px solid rgba(255,255,255,0.16);
+            font-size:14px;
+            line-height:1.4;
+          ">
+            Turn ${t.turnNumber}, Dart ${t.dartNumber}: ${t.label}
+            (${t.scoreBefore} → ${t.scoreAfter})
+            ${t.result !== "scored" ? `<span style="color:#facc15;"> — ${t.result}</span>` : ""}
+          </div>
+        `).join("")
+      : `<div style="opacity:0.8;">No throws recorded.</div>`;
+
     row.innerHTML = `
-      <div>${index + 1}. ${player.name}</div>
-      <div>${player.score}</div>
+      <div style="font-size:18px;font-weight:bold;margin-bottom:8px;">${player.name}</div>
+      ${throwsHtml}
     `;
 
     list.appendChild(row);
@@ -830,9 +842,8 @@ function renderEndGameConfirm(container) {
 
   attachButtonClick(document.getElementById("confirmEndBtn"), () => {
     closeModal();
-    store.screen = "HOME";
-    store.players = [];
-    renderApp();
+    endGameEarly();
+    renderUI(container);
   });
 }
 
@@ -844,7 +855,9 @@ function renderEnd(container, state) {
   const winner = state.players.find(player => player.name === state.winner) || null;
 
   container.innerHTML = `
-    <h2 style="text-align:center;">🏆 ${state.winner} Wins Gotcha 301!</h2>
+    <h2 style="text-align:center;">
+      ${state.shanghaiWinner ? "🔥 SHANGHAI 🔥" : "🏆"} ${state.winner} Wins Gotcha 301!
+    </h2>
 
     <div style="
       margin:12px 0;
@@ -903,7 +916,7 @@ function renderEnd(container, state) {
     font-size:18px;
   `;
   attachButtonClick(statsBtn, () => {
-    renderStatsModal(getStats());
+    renderStatsModal(getThrowLog());
   });
 
   const mainMenuBtn = document.createElement("div");
@@ -923,63 +936,4 @@ function renderEnd(container, state) {
   controls.appendChild(playAgainBtn);
   controls.appendChild(statsBtn);
   controls.appendChild(mainMenuBtn);
-}
-
-function renderStatsModal(throwLog) {
-  renderModalShell(`
-    <h2 style="text-align:center;margin-top:0;">Throw Log</h2>
-    <div id="throwLogList"></div>
-    <div style="
-      display:flex;
-      justify-content:center;
-      margin-top:12px;
-    ">
-      <div id="closeModalBtn" style="
-        ${buttonStyle()}
-        width:110px;
-        min-height:38px;
-        font-size:15px;
-        border:1px solid #ff4c4c;
-      ">Close</div>
-    </div>
-  `);
-
-  const list = document.getElementById("throwLogList");
-  list.innerHTML = "";
-
-  throwLog.forEach(player => {
-    const row = document.createElement("div");
-    row.style = `
-      margin-bottom:12px;
-      padding:14px;
-      border-radius:10px;
-      background:#111111;
-      border:1px solid #ffffff;
-      color:#ffffff;
-    `;
-
-    const throwsHtml = player.throws.length
-      ? player.throws.map(t => `
-          <div style="
-            padding:6px 0;
-            border-top:1px solid rgba(255,255,255,0.16);
-            font-size:14px;
-            line-height:1.4;
-          ">
-            Turn ${t.turnNumber}, Dart ${t.dartNumber}: ${t.label}
-            (${t.scoreBefore} → ${t.scoreAfter})
-            ${t.result !== "scored" ? `<span style="color:#facc15;"> — ${t.result}</span>` : ""}
-          </div>
-        `).join("")
-      : `<div style="opacity:0.8;">No throws recorded.</div>`;
-
-    row.innerHTML = `
-      <div style="font-size:18px;font-weight:bold;margin-bottom:8px;">${player.name}</div>
-      ${throwsHtml}
-    `;
-
-    list.appendChild(row);
-  });
-
-  attachButtonClick(document.getElementById("closeModalBtn"), closeModal);
 }
