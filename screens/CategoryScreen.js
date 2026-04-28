@@ -1,22 +1,28 @@
 import { store } from "../core/store.js";
 import { renderApp } from "../core/router.js";
 
+const categoryTitles = {
+  fun: "FUN!",
+  x01: "X01",
+  cricket: "Cricket"
+};
+
 const gamesByCategory = {
   fun: [
     { id: "ahman-green", label: "Ahman Green", built: true },
     { id: "GolfDarts", label: "GolfDarts", built: true },
-    { id: "hammer-cricket", label: "Hammer Cricket", built: true },
+    { id: "hammer-cricket", label: "Hammered", built: true },
     { id: "killer", label: "Killer", built: true },
     { id: "survivor-301", label: "Survivor 301", built: true },
   ],
   x01: [
-    { id: "gotcha", label: "Gotcha", built: true },
+    { id: "gotcha", label: "Gotcha 301", built: true },
     { id: "301", label: "301", built: true },
     { id: "x01", label: "X01", built: true },
   ],
   cricket: [
-    { id: "cricket-no-score", label: "No Score", built: true },
-    { id: "cricket-standard", label: "Standard", built: true }
+    { id: "cricket-no-score", label: "Cricket (No Points)", built: true },
+    { id: "cricket-standard", label: "Cricket (Points)", built: true }
   ]
 };
 
@@ -54,11 +60,15 @@ function backButtonStyle() {
   `;
 }
 
+function getCategoryTitle(categoryId) {
+  return categoryTitles[categoryId] || categoryId;
+}
+
 export function renderCategory(container) {
   const games = gamesByCategory[store.selectedCategory] || [];
 
   container.innerHTML = `
-    <h1>${store.selectedCategory.toUpperCase()}</h1>
+    <h1>${getCategoryTitle(store.selectedCategory)}</h1>
     <div id="list"></div>
     <div id="back" style="${backButtonStyle()}">Back</div>
   `;
