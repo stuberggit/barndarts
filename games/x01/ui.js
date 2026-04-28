@@ -1,12 +1,15 @@
 import {
   getState,
+  configureGame,
   submitThrow,
   nextPlayer,
   undo,
   isGameOver,
   initGame,
-  configureGame,
-  endGameEarly
+  endGameEarly,
+  confirmShanghaiWinner,
+  cancelPendingShanghai,
+  getThrowLog
 } from "./logic.js";
 import { store } from "../../core/store.js";
 import { renderApp } from "../../core/router.js";
@@ -289,7 +292,7 @@ function renderGame(container, state) {
     </div>
 
     <div style="
-      margin-bottom:12px;
+      margin-bottom:8px;
       padding:14px;
       border-radius:12px;
       background:#11361a;
@@ -302,20 +305,16 @@ function renderGame(container, state) {
         ${currentPlayer ? currentPlayer.name : "—"}
       </div>
       <div style="font-size:34px;line-height:1;margin-bottom:6px;">
-        ${currentPlayer ? currentPlayer.score : "—"}
+        ${currentPlayer ? currentPlayer.score : "—"} / ${state.startingScore}
       </div>
       <div style="font-size:16px;color:#facc15;">
         ${dartDisplay}
       </div>
     </div>
 
-    <div id="throwControls"></div>
-
-    <div id="playerBoard"></div>
-
     <div style="
-      min-height:54px;
-      margin:12px 0;
+      min-height:42px;
+      margin:8px 0 10px;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -325,6 +324,8 @@ function renderGame(container, state) {
       </div>
     </div>
 
+    <div id="throwControls"></div>
+    <div id="playerBoard"></div>
     <div id="turnSummary"></div>
     <div id="utilityControls"></div>
     <div id="modal"></div>
@@ -334,6 +335,10 @@ function renderGame(container, state) {
   renderPlayerBoard(state);
   renderTurnSummary(state);
   renderUtilityControls(container);
+
+  if (state.pendingShanghai) {
+    renderShanghaiConfirm(container, state.pendingShanghai);
+  }
 }
 
 /* -------------------------
@@ -346,6 +351,7 @@ function renderThrowControls(container, state) {
 
   const canThrow =
     !state.winner &&
+    !state.pendingShanghai &&
     !state.turnReadyForNext &&
     state.dartsThrown < 3;
 
@@ -368,9 +374,9 @@ function renderThrowControls(container, state) {
     btn.innerText = type.label;
     btn.style = `
       ${buttonStyle()}
-      padding:12px;
-      min-height:52px;
-      font-size:18px;
+      padding:10px;
+      min-height:42px;
+      font-size:15px;
       ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
     `;
 
@@ -387,16 +393,16 @@ function renderThrowControls(container, state) {
     display:grid;
     grid-template-columns:1fr 1fr;
     gap:8px;
-    margin-top:10px;
+    margin-top:8px;
   `;
 
   const missBtn = document.createElement("div");
   missBtn.innerText = "Miss";
   missBtn.style = `
     ${buttonStyle()}
-    padding:12px;
-    min-height:52px;
-    font-size:18px;
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
     ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
   `;
   attachButtonClick(missBtn, () => {
@@ -409,9 +415,9 @@ function renderThrowControls(container, state) {
   nextBtn.innerText = "Next Player";
   nextBtn.style = `
     ${buttonStyle()}
-    padding:12px;
-    min-height:52px;
-    font-size:18px;
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
   `;
   attachButtonClick(nextBtn, () => {
     nextPlayer();
@@ -516,6 +522,104 @@ function renderTurnSummary(state) {
   `;
 }
 
+function renderShanghaiConfirm(container, pendingShanghai) {
+  renderModalShell(`
+    <h2 style="text-align:center;margin-top:0;color:#facc15;">🔥 SHANGHAI? 🔥</h2>
+    <div style="text-align:center;margin-bottom:14px;line-height:1.45;">
+      ${pendingShanghai.playerName} hit Single + Dub + Trip on ${pendingShanghai.target}.<br>
+      Confirm Shanghai and end the game?
+    </div>
+    <div style="
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    ">
+      <div id="cancelShanghaiBtn" style="
+        ${lightButtonStyle()}
+        padding:12px;
+        min-height:48px;
+      ">Cancel</div>
+      <div id="confirmShanghaiBtn" style="
+        ${buttonStyle()}
+        padding:12px;
+        min-height:48px;
+        border:1px solid #facc15;
+      ">Confirm</div>
+    </div>
+  `);
+
+  attachButtonClick(document.getElementById("cancelShanghaiBtn"), () => {
+    cancelPendingShanghai();
+    closeModal();
+    renderUI(container);
+  });
+
+  attachButtonClick(document.getElementById("confirmShanghaiBtn"), () => {
+    confirmShanghaiWinner();
+    closeModal();
+    renderUI(container);
+  });
+}
+
+function renderStatsModal(throwLog) {
+  renderModalShell(`
+    <h2 style="text-align:center;margin-top:0;">Throw Log</h2>
+    <div id="throwLogList"></div>
+    <div style="
+      display:flex;
+      justify-content:center;
+      margin-top:12px;
+    ">
+      <div id="closeModalBtn" style="
+        ${buttonStyle()}
+        width:110px;
+        min-height:38px;
+        font-size:15px;
+        border:1px solid #ff4c4c;
+      ">Close</div>
+    </div>
+  `);
+
+  const list = document.getElementById("throwLogList");
+  list.innerHTML = "";
+
+  throwLog.forEach(player => {
+    const row = document.createElement("div");
+    row.style = `
+      margin-bottom:12px;
+      padding:14px;
+      border-radius:10px;
+      background:#111111;
+      border:1px solid #ffffff;
+      color:#ffffff;
+    `;
+
+    const throwsHtml = player.throws.length
+      ? player.throws.map(t => `
+          <div style="
+            padding:6px 0;
+            border-top:1px solid rgba(255,255,255,0.16);
+            font-size:14px;
+            line-height:1.4;
+          ">
+            Turn ${t.turnNumber}, Dart ${t.dartNumber}: ${t.label}
+            (${t.scoreBefore} → ${t.scoreAfter})
+            ${t.result !== "scored" ? `<span style="color:#facc15;"> — ${t.result}</span>` : ""}
+          </div>
+        `).join("")
+      : `<div style="opacity:0.8;">No throws recorded.</div>`;
+
+    row.innerHTML = `
+      <div style="font-size:18px;font-weight:bold;margin-bottom:8px;">${player.name}</div>
+      ${throwsHtml}
+    `;
+
+    list.appendChild(row);
+  });
+
+  attachButtonClick(document.getElementById("closeModalBtn"), closeModal);
+}
+
 /* -------------------------
    UTILITY CONTROLS
 --------------------------*/
@@ -532,16 +636,16 @@ function renderUtilityControls(container) {
     margin-top:10px;
   `;
 
-  const leaderboardBtn = document.createElement("div");
-  leaderboardBtn.innerText = "Leaderboard";
-  leaderboardBtn.style = `
+  const statsBtn = document.createElement("div");
+  statsBtn.innerText = "Stats";
+  statsBtn.style = `
     ${lightButtonStyle()}
     padding:10px;
     min-height:42px;
     font-size:15px;
   `;
-  attachButtonClick(leaderboardBtn, () => {
-    renderLeaderboardModal(getState());
+  attachButtonClick(statsBtn, () => {
+    renderStatsModal(getThrowLog());
   });
 
   const undoBtn = document.createElement("div");
@@ -569,7 +673,7 @@ function renderUtilityControls(container) {
     renderEndGameConfirm(container);
   });
 
-  utilityRow.appendChild(leaderboardBtn);
+  utilityRow.appendChild(statsBtn);
   utilityRow.appendChild(undoBtn);
   utilityRow.appendChild(endBtn);
 
@@ -842,10 +946,10 @@ function renderEndGameConfirm(container) {
   attachButtonClick(document.getElementById("cancelEndBtn"), closeModal);
 
   attachButtonClick(document.getElementById("confirmEndBtn"), () => {
-  closeModal();
-  endGameEarly();
-  renderUI(container);
-});
+    closeModal();
+    endGameEarly();
+    renderUI(container);
+  });
 }
 
 /* -------------------------
@@ -856,7 +960,9 @@ function renderEnd(container, state) {
   const winner = state.players.find(player => player.name === state.winner) || null;
 
   container.innerHTML = `
-    <h2 style="text-align:center;">🏆 ${state.winner} Wins!</h2>
+    <h2 style="text-align:center;">
+      ${state.shanghaiWinner ? "🔥 SHANGHAI 🔥" : "🏆"} ${state.winner} Wins X01!
+    </h2>
 
     <div style="
       margin:12px 0;
@@ -868,10 +974,14 @@ function renderEnd(container, state) {
       text-align:center;
       font-weight:bold;
     ">
-      <div style="font-size:18px;color:#facc15;margin-bottom:6px;">Checkout</div>
-      <div style="font-size:28px;">${winner ? winner.name : state.winner}</div>
+      <div style="font-size:18px;color:#facc15;margin-bottom:6px;">Final Score</div>
+      <div style="font-size:28px;">${winner ? winner.score : 0} / ${state.startingScore}</div>
       <div style="font-size:14px;margin-top:6px;opacity:0.85;">
-        PPD ${winner ? getPpd(winner) : "0.00"}
+        PPD ${
+          winner && winner.stats?.dartsThrown
+            ? (winner.stats.totalPoints / winner.stats.dartsThrown).toFixed(2)
+            : "0.00"
+        }
       </div>
     </div>
 
@@ -900,22 +1010,25 @@ function renderEnd(container, state) {
     font-size:18px;
   `;
   attachButtonClick(playAgainBtn, () => {
-    const rotatedPlayers = rotatePlayers(state.originalPlayers || store.players || []);
+    const rotatedPlayers = state.originalPlayers?.length
+      ? [...state.originalPlayers.slice(1), state.originalPlayers[0]]
+      : [];
+
     store.players = [...rotatedPlayers];
     initGame(rotatedPlayers);
     renderUI(container);
   });
 
-  const leaderboardBtn = document.createElement("div");
-  leaderboardBtn.innerText = "Leaderboard";
-  leaderboardBtn.style = `
+  const statsBtn = document.createElement("div");
+  statsBtn.innerText = "Stats";
+  statsBtn.style = `
     ${lightButtonStyle()}
     padding:14px;
     min-height:52px;
     font-size:18px;
   `;
-  attachButtonClick(leaderboardBtn, () => {
-    renderLeaderboardModal(getState());
+  attachButtonClick(statsBtn, () => {
+    renderStatsModal(getThrowLog());
   });
 
   const mainMenuBtn = document.createElement("div");
@@ -933,6 +1046,6 @@ function renderEnd(container, state) {
   });
 
   controls.appendChild(playAgainBtn);
-  controls.appendChild(leaderboardBtn);
+  controls.appendChild(statsBtn);
   controls.appendChild(mainMenuBtn);
 }
