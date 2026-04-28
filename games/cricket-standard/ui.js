@@ -9,7 +9,9 @@ import {
   endGameEarly,
   undo,
   isGameOver,
-  initGame
+  initGame,
+  confirmShanghaiWinner,
+  cancelPendingShanghai
 } from "./logic.js";
 import { store } from "../../core/store.js";
 import { renderApp } from "../../core/router.js";
@@ -153,10 +155,47 @@ function rotatePlayers(players) {
 
 function getMarkDisplay(marks) {
   const safeMarks = Math.max(0, Math.min(3, marks || 0));
-  if (safeMarks === 0) return "";
-  if (safeMarks === 1) return "／";
-  if (safeMarks === 2) return "✕";
-  return "Ⓧ";
+
+  const dotStyle = `
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:14px;
+    height:14px;
+    margin:0 1px;
+    border-radius:999px;
+    background:#facc15;
+    color:#111111;
+    font-size:10px;
+    font-weight:bold;
+    line-height:1;
+  `;
+
+  let html = "";
+
+  for (let i = 0; i < 3; i++) {
+    const filled = i < safeMarks;
+
+    html += `
+      <span style="
+        ${dotStyle}
+        opacity:${filled ? "1" : "0.14"};
+        background:${filled ? "#facc15" : "#ffffff"};
+      "></span>
+    `;
+  }
+
+  return `
+    <div style="
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-width:54px;
+      min-height:22px;
+    ">
+      ${html}
+    </div>
+  `;
 }
 
 function formatThrowLabel(throwRecord) {
@@ -212,11 +251,11 @@ function renderGame(container, state) {
       font-weight:bold;
       color:#facc15;
     ">
-      🏏 Current Player 🏏
+      🎯 Current Player 🎯
     </div>
 
     <div style="
-      margin-bottom:12px;
+      margin-bottom:8px;
       padding:14px;
       border-radius:12px;
       background:#11361a;
@@ -236,13 +275,9 @@ function renderGame(container, state) {
       </div>
     </div>
 
-    <div id="throwControls"></div>
-
-    <div id="cricketBoard"></div>
-
     <div style="
-      min-height:54px;
-      margin:12px 0;
+      min-height:42px;
+      margin:8px 0 10px;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -252,6 +287,8 @@ function renderGame(container, state) {
       </div>
     </div>
 
+    <div id="throwControls"></div>
+    <div id="cricketBoard"></div>
     <div id="turnSummary"></div>
     <div id="utilityControls"></div>
     <div id="modal"></div>
@@ -261,6 +298,10 @@ function renderGame(container, state) {
   renderCricketBoard(state);
   renderTurnSummary(state);
   renderUtilityControls(container);
+
+  if (state.pendingShanghai) {
+    renderShanghaiConfirm(container, state.pendingShanghai);
+  }
 }
 
 /* -------------------------
@@ -273,6 +314,7 @@ function renderThrowControls(container, state) {
 
   const canThrow =
     !state.winner &&
+    !state.pendingShanghai &&
     !state.turnReadyForNext &&
     state.dartsThrown < 3;
 
@@ -293,9 +335,9 @@ function renderThrowControls(container, state) {
     btn.innerText = type.label;
     btn.style = `
       ${buttonStyle()}
-      padding:12px;
-      min-height:52px;
-      font-size:18px;
+      padding:10px;
+      min-height:42px;
+      font-size:15px;
       ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
     `;
 
@@ -312,16 +354,16 @@ function renderThrowControls(container, state) {
     display:grid;
     grid-template-columns:1fr 1fr;
     gap:8px;
-    margin-top:10px;
+    margin-top:8px;
   `;
 
   const missBtn = document.createElement("div");
   missBtn.innerText = "Miss";
   missBtn.style = `
     ${buttonStyle()}
-    padding:12px;
-    min-height:52px;
-    font-size:18px;
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
     ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
   `;
   attachButtonClick(missBtn, () => {
@@ -334,9 +376,9 @@ function renderThrowControls(container, state) {
   nextBtn.innerText = "Next Player";
   nextBtn.style = `
     ${buttonStyle()}
-    padding:12px;
-    min-height:52px;
-    font-size:18px;
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
   `;
   attachButtonClick(nextBtn, () => {
     nextPlayer();
@@ -408,15 +450,18 @@ function renderCricketBoard(state) {
 
           return `
             <td style="
-              padding:8px;
-              border:1px solid rgba(255,255,255,0.2);
-              font-size:24px;
-              font-weight:bold;
-              background:${index === state.currentPlayer ? "rgba(250,204,21,0.08)" : "transparent"};
-              color:${closed ? "#22c55e" : "#ffffff"};
-            ">
-              ${getMarkDisplay(marks)}
-            </td>
+  padding:8px 6px;
+  border:1px solid rgba(255,255,255,0.2);
+  font-size:18px;
+  font-weight:bold;
+  background:${index === state.currentPlayer ? "rgba(250,204,21,0.08)" : "transparent"};
+  color:${closed ? "#22c55e" : "#ffffff"};
+  min-width:64px;
+  height:42px;
+  vertical-align:middle;
+">
+  ${getMarkDisplay(marks)}
+</td>
           `;
         }).join("")}
       </tr>
@@ -781,6 +826,45 @@ function renderStatsModal(stats) {
   });
 
   attachButtonClick(document.getElementById("closeModalBtn"), closeModal);
+}
+
+function renderShanghaiConfirm(container, pendingShanghai) {
+  renderModalShell(`
+    <h2 style="text-align:center;margin-top:0;color:#facc15;">🔥 SHANGHAI? 🔥</h2>
+    <div style="text-align:center;margin-bottom:14px;line-height:1.45;">
+      ${pendingShanghai.playerName} hit Single + Dub + Trip on ${formatCricketTarget(pendingShanghai.target)}.<br>
+      Confirm Shanghai and end the game?
+    </div>
+    <div style="
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    ">
+      <div id="cancelShanghaiBtn" style="
+        ${lightButtonStyle()}
+        padding:12px;
+        min-height:48px;
+      ">Cancel</div>
+      <div id="confirmShanghaiBtn" style="
+        ${buttonStyle()}
+        padding:12px;
+        min-height:48px;
+        border:1px solid #facc15;
+      ">Confirm</div>
+    </div>
+  `);
+
+  attachButtonClick(document.getElementById("cancelShanghaiBtn"), () => {
+    cancelPendingShanghai();
+    closeModal();
+    renderUI(container);
+  });
+
+  attachButtonClick(document.getElementById("confirmShanghaiBtn"), () => {
+    confirmShanghaiWinner();
+    closeModal();
+    renderUI(container);
+  });
 }
 
 function renderEndGameConfirm(container) {
