@@ -452,43 +452,42 @@ function renderCricketBoard(state) {
   `;
 
   targets.forEach(target => {
-    <tr style="${closedByAll ? "opacity:0.55;text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:#22c55e;" : ""}">
   const closedByAll = targetClosedByAll(target);
 
-    html += `
-      <tr style="${closedByAll ? "opacity:0.55;" : ""}">
-        <td style="
-          padding:8px;
-          border:1px solid rgba(255,255,255,0.2);
-          font-weight:bold;
-          color:${closedByAll ? "#9ca3af" : "#facc15"};
-        ">
-          ${formatCricketTarget(target)}
-        </td>
+  html += `
+    <tr style="${closedByAll ? "opacity:0.55;text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:#22c55e;" : ""}">
+      <td style="
+        padding:8px;
+        border:1px solid rgba(255,255,255,0.2);
+        font-weight:bold;
+        color:${closedByAll ? "#9ca3af" : "#facc15"};
+      ">
+        ${formatCricketTarget(target)}
+      </td>
 
-        ${state.players.map((player, index) => {
-          const marks = player.marks[target] || 0;
-          const closed = marks >= 3;
+      ${state.players.map((player, index) => {
+        const marks = player.marks[target] || 0;
+        const closed = marks >= 3;
 
-          return `
-            <td style="
-  padding:8px 6px;
-  border:1px solid rgba(255,255,255,0.2);
-  font-size:18px;
-  font-weight:bold;
-  background:${index === state.currentPlayer ? "rgba(250,204,21,0.08)" : "transparent"};
-  color:${closed ? "#22c55e" : "#ffffff"};
-  min-width:64px;
-  height:42px;
-  vertical-align:middle;
-">
-  ${getMarkDisplay(marks)}
-</td>
-          `;
-        }).join("")}
-      </tr>
-    `;
-  });
+        return `
+          <td style="
+            padding:8px 6px;
+            border:1px solid rgba(255,255,255,0.2);
+            font-size:18px;
+            font-weight:bold;
+            background:${index === state.currentPlayer ? "rgba(250,204,21,0.08)" : "transparent"};
+            color:${closed ? "#22c55e" : "#ffffff"};
+            min-width:64px;
+            height:42px;
+            vertical-align:middle;
+          ">
+            ${getMarkDisplay(marks)}
+          </td>
+        `;
+      }).join("")}
+    </tr>
+  `;
+});
 
   html += `
       </table>
