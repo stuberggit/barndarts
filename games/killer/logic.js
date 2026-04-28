@@ -446,14 +446,6 @@ function isStandardShanghai(turnHits) {
   );
 }
 
-function isStandardShanghai(turnHitsOnOwnTarget) {
-  return (
-    turnHitsOnOwnTarget.includes("single") &&
-    turnHitsOnOwnTarget.includes("double") &&
-    turnHitsOnOwnTarget.includes("triple")
-  );
-}
-
 function getVisibleTargetNumbersForPlayer(playerIndex) {
   const player = gameState.players[playerIndex];
   if (!player) return [];
