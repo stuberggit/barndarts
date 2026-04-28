@@ -155,17 +155,59 @@ function rotatePlayers(players) {
 
 function getMarkDisplay(marks) {
   const safeMarks = Math.max(0, Math.min(3, marks || 0));
-  const isClosed = safeMarks >= 3;
 
   if (safeMarks === 0) {
     return `
       <div style="
+        position:relative;
         display:flex;
         align-items:center;
         justify-content:center;
         min-width:54px;
-        min-height:24px;
+        min-height:28px;
       "></div>
+    `;
+  }
+
+  if (safeMarks === 1) {
+    return `
+      <div style="
+        position:relative;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        min-width:54px;
+        min-height:28px;
+        font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;
+        color:#ffffff;
+        line-height:1;
+      ">
+        <span style="
+          font-size:11pt;
+          font-weight:bold;
+        ">/</span>
+      </div>
+    `;
+  }
+
+  if (safeMarks === 2) {
+    return `
+      <div style="
+        position:relative;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        min-width:54px;
+        min-height:28px;
+        font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;
+        color:#ffffff;
+        line-height:1;
+      ">
+        <span style="
+          font-size:12pt;
+          font-weight:400;
+        ">X</span>
+      </div>
     `;
   }
 
@@ -177,44 +219,27 @@ function getMarkDisplay(marks) {
       justify-content:center;
       min-width:54px;
       min-height:28px;
-      color:${isClosed ? "#22c55e" : "#ffffff"};
+      font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;
+      color:#ffffff;
       line-height:1;
     ">
-      ${
-        safeMarks >= 1
-          ? `<span style="
-              font-size:24px;
-              font-weight:300;
-              transform:translateX(-5px);
-            ">/</span>`
-          : ""
-      }
+      <span style="
+        position:absolute;
+        left:50%;
+        top:50%;
+        transform:translate(-50%, -50%);
+        font-size:12pt;
+        font-weight:400;
+      ">X</span>
 
-      ${
-        safeMarks >= 2
-          ? `<span style="
-              position:absolute;
-              left:50%;
-              top:50%;
-              transform:translate(-50%, -50%);
-              font-size:24px;
-              font-weight:900;
-            ">X</span>`
-          : ""
-      }
-
-      ${
-        safeMarks >= 3
-          ? `<span style="
-              position:absolute;
-              left:50%;
-              top:50%;
-              transform:translate(-50%, -52%);
-              font-size:24px;
-              font-weight:700;
-            ">O</span>`
-          : ""
-      }
+      <span style="
+        position:absolute;
+        left:50%;
+        top:50%;
+        transform:translate(-50%, -51%);
+        font-size:15pt;
+        font-weight:400;
+      ">O</span>
     </div>
   `;
 }
@@ -455,7 +480,11 @@ function renderCricketBoard(state) {
   const closedByAll = targetClosedByAll(target);
 
   html += `
-    <tr style="${closedByAll ? "opacity:0.55;text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:#22c55e;" : ""}">
+    <tr style="
+      position:relative;
+      ${closedByAll ? "opacity:0.6;" : ""}
+      ${closedByAll ? "background:linear-gradient(to bottom, transparent 48%, #9ca3af 48%, #9ca3af 53%, transparent 53%);" : ""}
+    ">
       <td style="
         padding:8px;
         border:1px solid rgba(255,255,255,0.2);
@@ -476,7 +505,7 @@ function renderCricketBoard(state) {
             font-size:18px;
             font-weight:bold;
             background:${index === state.currentPlayer ? "rgba(250,204,21,0.08)" : "transparent"};
-            color:${closed ? "#22c55e" : "#ffffff"};
+            color:${closed ? "#ffffff" : "#ffffff"};
             min-width:64px;
             height:42px;
             vertical-align:middle;
