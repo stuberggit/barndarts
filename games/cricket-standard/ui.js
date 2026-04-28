@@ -163,8 +163,8 @@ function getMarkDisplay(marks) {
         display:flex;
         align-items:center;
         justify-content:center;
-        min-width:54px;
-        min-height:28px;
+        min-width:48px;
+        min-height:22px;
       "></div>
     `;
   }
@@ -176,14 +176,14 @@ function getMarkDisplay(marks) {
         display:flex;
         align-items:center;
         justify-content:center;
-        min-width:54px;
-        min-height:28px;
+        min-width:48px;
+        min-height:22px;
         font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;
         color:#ffffff;
         line-height:1;
       ">
         <span style="
-          font-size:11pt;
+          font-size:14pt;
           font-weight:bold;
         ">/</span>
       </div>
@@ -197,14 +197,14 @@ function getMarkDisplay(marks) {
         display:flex;
         align-items:center;
         justify-content:center;
-        min-width:54px;
-        min-height:28px;
+        min-width:48px;
+        min-height:22px;
         font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;
         color:#ffffff;
         line-height:1;
       ">
         <span style="
-          font-size:12pt;
+          font-size:15pt;
           font-weight:400;
         ">X</span>
       </div>
@@ -217,8 +217,8 @@ function getMarkDisplay(marks) {
       display:flex;
       align-items:center;
       justify-content:center;
-      min-width:54px;
-      min-height:28px;
+      min-width:48px;
+      min-height:22px;
       font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;
       color:#ffffff;
       line-height:1;
@@ -228,7 +228,7 @@ function getMarkDisplay(marks) {
         left:50%;
         top:50%;
         transform:translate(-50%, -50%);
-        font-size:12pt;
+        font-size:15pt;
         font-weight:400;
       ">X</span>
 
@@ -236,8 +236,8 @@ function getMarkDisplay(marks) {
         position:absolute;
         left:50%;
         top:50%;
-        transform:translate(-50%, -51%);
-        font-size:15pt;
+        transform:translate(-50%, -52%);
+        font-size:19pt;
         font-weight:400;
       ">O</span>
     </div>
@@ -500,18 +500,17 @@ function renderCricketBoard(state) {
 
         return `
           <td style="
-            padding:8px 6px;
-            border:1px solid rgba(255,255,255,0.2);
-            font-size:18px;
-            font-weight:bold;
-            background:${index === state.currentPlayer ? "rgba(250,204,21,0.08)" : "transparent"};
-            color:${closed ? "#ffffff" : "#ffffff"};
-            min-width:64px;
-            height:42px;
-            vertical-align:middle;
-          ">
-            ${getMarkDisplay(marks)}
-          </td>
+  padding:4px 4px;
+  border:1px solid rgba(255,255,255,0.2);
+  font-size:16px;
+  background:${index === state.currentPlayer ? "rgba(250,204,21,0.08)" : "transparent"};
+  color:#ffffff;
+  min-width:56px;
+  height:30px;
+  vertical-align:middle;
+">
+  ${getMarkDisplay(marks)}
+</td>
         `;
       }).join("")}
     </tr>
