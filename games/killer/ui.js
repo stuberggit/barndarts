@@ -2,7 +2,9 @@ import {
   getState,
   getStats,
   getCurrentTargetDisplay,
+  getCurrentDartDisplay,
   getCurrentTargetOptions,
+  canCurrentPlayerThrow,
   submitNDHThrow,
   submitMiss,
   clearNDHTarget,
@@ -245,18 +247,21 @@ function attachButtonClick(el, handler) {
     }
 
     if (locked) return;
+    if (el.dataset.disabled === "true") return;
 
     locked = true;
-    handler(e);
 
-    setTimeout(() => {
-      locked = false;
-    }, 250);
+    try {
+      handler(e);
+    } finally {
+      setTimeout(() => {
+        locked = false;
+      }, 350);
+    }
   };
 
-  el.onclick = null;
-  el.ontouchstart = null;
-  el.onpointerup = run;
+  el.onclick = run;
+  el.ontouchstart = run;
 }
 
 function closeModal() {
@@ -771,7 +776,7 @@ function renderGame(container, state) {
       font-size:24px;
       font-weight:bold;
     ">
-      🎯 Target: ${getCurrentTargetDisplay()} | Dart ${state.dartsThrown + 1}/3
+      🎯 🎯 Target: ${getCurrentTargetDisplay()} | Dart ${getCurrentDartDisplay()}
     </div>
 
     <div id="playerBoard"></div>
@@ -831,6 +836,7 @@ function renderGameControls(container, state) {
 
   const currentPlayer = state.players[state.currentPlayer];
   const targets = getCurrentTargetOptions();
+  const canThrow = canCurrentPlayerThrow();
 
   const targetRow = document.createElement("div");
   targetRow.style = `
@@ -845,6 +851,8 @@ function renderGameControls(container, state) {
     const ownTargetIsDanger = info.isOwnTarget && currentPlayer.isKiller;
 
     const btn = document.createElement("div");
+    btn.dataset.disabled = canThrow ? "false" : "true";
+
     btn.innerHTML = `
       <div style="
         position:relative;
@@ -954,6 +962,7 @@ function renderGameControls(container, state) {
       flex-direction:column;
       position:relative;
       overflow:hidden;
+      ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
       ${
         info.isDormantDead
           ? `
@@ -981,14 +990,23 @@ function renderGameControls(container, state) {
     `;
 
     attachButtonClick(btn, () => {
-      if (info.isOwnTarget && !currentPlayer.isKiller) {
+      if (!canCurrentPlayerThrow()) {
+        renderUI(container);
+        return;
+      }
+
+      const freshState = getState();
+      const freshPlayer = freshState.players[freshState.currentPlayer];
+      const isOwnTarget = target === freshPlayer.target;
+
+      if (isOwnTarget && !freshPlayer.isKiller) {
         const autoHitType = target === 25 ? "greenBull" : "single";
         submitGameThrow(autoHitType, target);
         renderUI(container);
         return;
       }
 
-      renderGameHitTypePicker(container, state, target);
+      renderGameHitTypePicker(container, freshState, target);
     });
 
     targetRow.appendChild(btn);
@@ -1016,13 +1034,20 @@ function renderGameControls(container, state) {
 
   const missBtn = document.createElement("div");
   missBtn.innerText = "❌ Miss";
+  missBtn.dataset.disabled = canThrow ? "false" : "true";
   missBtn.style = `
     ${buttonStyle()}
     padding:8px;
     min-height:40px;
     font-size:15px;
+    ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
   `;
   attachButtonClick(missBtn, () => {
+    if (!canCurrentPlayerThrow()) {
+      renderUI(container);
+      return;
+    }
+
     submitMiss();
     renderUI(container);
   });
@@ -1340,7 +1365,15 @@ function renderNumberPicker(container, hitType) {
 }
 
 function renderGameHitTypePicker(container, state, target) {
-  const currentPlayer = state.players[state.currentPlayer];
+  const freshState = getState();
+
+  if (!canCurrentPlayerThrow()) {
+    closeModal();
+    renderUI(container);
+    return;
+  }
+
+  const currentPlayer = freshState.players[freshState.currentPlayer];
   const isSelfTarget = target === currentPlayer.target;
   const isBull = target === 25;
 
@@ -1391,6 +1424,7 @@ function renderGameHitTypePicker(container, state, target) {
   options.forEach(option => {
     const btn = document.createElement("div");
     btn.innerText = option.label;
+    btn.dataset.disabled = "false";
     btn.style = `
       ${buttonStyle()}
       padding:14px;
@@ -1399,6 +1433,16 @@ function renderGameHitTypePicker(container, state, target) {
     `;
 
     attachButtonClick(btn, () => {
+      if (!canCurrentPlayerThrow()) {
+        closeModal();
+        renderUI(container);
+        return;
+      }
+
+      btn.dataset.disabled = "true";
+      btn.style.opacity = "0.45";
+      btn.style.cursor = "not-allowed";
+
       submitGameThrow(option.value, target);
       closeModal();
       renderUI(container);
