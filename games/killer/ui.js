@@ -21,7 +21,7 @@ import { store } from "../../core/store.js";
 import { renderApp } from "../../core/router.js";
 
 /* -------------------------
-   HELPERS
+   STYLES / HELPERS
 --------------------------*/
 
 function buttonStyle() {
@@ -38,6 +38,7 @@ function buttonStyle() {
     box-sizing:border-box;
     text-align:center;
     user-select:none;
+    touch-action:manipulation;
   `;
 }
 
@@ -55,6 +56,7 @@ function lightButtonStyle() {
     box-sizing:border-box;
     text-align:center;
     user-select:none;
+    touch-action:manipulation;
   `;
 }
 
@@ -72,6 +74,7 @@ function undoButtonStyle() {
     box-sizing:border-box;
     text-align:center;
     user-select:none;
+    touch-action:manipulation;
   `;
 }
 
@@ -89,152 +92,8 @@ function dangerButtonStyle() {
     box-sizing:border-box;
     text-align:center;
     user-select:none;
+    touch-action:manipulation;
   `;
-}
-
-function formatAssignment(player) {
-  if (!player.target) return "Unassigned";
-
-  if (player.target === 25) {
-    return player.hitType === "redBull" ? "Red Bull" : "Green Bull";
-  }
-
-  const labelMap = {
-    single: "Single",
-    double: "Dub",
-    triple: "Trip"
-  };
-
-  return `${labelMap[player.hitType]} ${player.target}`;
-}
-
-function formatTargetNumber(target) {
-  return target === 25 ? "Bull" : String(target);
-}
-
-function getPlayerStatusHtml(player) {
-  const parts = [];
-
-  if (player.isKiller) {
-    parts.push(`<span style="color:#ff4c4c;font-weight:900;">K</span>`);
-  }
-
-  if (player.isRedemski && !player.isDormantDead) {
-    const count = player.redemskiCount || 0;
-
-    parts.push(
-      count <= 1
-        ? `<span style="color:#facc15;">Redemski</span>`
-        : `<span style="color:#facc15;">Rx${count}</span>`
-    );
-  }
-
-  if (player.isZombie) {
-    parts.push(`<span style="color:#84cc16;">🧟 Zombie</span>`);
-  }
-
-  if (player.isDormantDead) {
-    parts.push(`<span style="color:#9ca3af;">💀 Dormant Dead</span>`);
-  }
-
-  return parts.join(" | ");
-}
-function getRowBackground(player, isHighlighted) {
-  if (player.isDormantDead) {
-    return isHighlighted ? "#374151" : "#1f2937";
-  }
-
-  if (player.isZombie) {
-    return isHighlighted ? "#365314" : "#283618";
-  }
-
-  return isHighlighted ? "#11361a" : "#111111";
-}
-
-function getRowBorder(player, isHighlighted) {
-  if (isHighlighted) {
-    return "3px solid #facc15";
-  }
-
-  if (player.isDormantDead) {
-    return "1px solid #6b7280";
-  }
-
-  if (player.isZombie) {
-    return "1px solid #65a30d";
-  }
-
-  return "1px solid #ffffff";
-}
-
-function getRowOpacity(player) {
-  if (player.isDormantDead) return 0.7;
-  return player.isActive ? 1 : 0.75;
-}
-
-function getLivesEmoji(player) {
-  if (player.isDormantDead) {
-    return `<span style="font-size:18px;">💀</span>`;
-  }
-
-  const lives = Math.max(0, Math.min(6, player.lives || 0));
-
-  let heartColor = "#22c55e"; // green
-  if (lives === 1) {
-    heartColor = "#ef4444"; // red
-  } else if (lives === 2 || lives === 3) {
-    heartColor = "#facc15"; // yellow
-  }
-
-  let html = "";
-
-  for (let i = 0; i < 6; i++) {
-    const isFilled = i < lives;
-
-    html += `
-      <span style="
-        display:inline-block;
-        margin-right:${i < 5 ? "5px" : "0"};
-        opacity:${isFilled ? "1" : "0.18"};
-        color:${isFilled ? heartColor : "#ffffff"};
-        font-size:20px;
-        line-height:1;
-        font-weight:bold;
-      ">
-        ♥
-      </span>
-    `;
-  }
-
-  return html;
-}
-
-function buildFlashHtml(state) {
-  const flashHtml = state.lastMessage
-    ? `
-      <div style="
-        padding:8px 10px;
-        border-radius:10px;
-        background:rgba(255,255,255,0.08);
-        color:${state.lastMessageColor || "#ffffff"};
-        font-weight:bold;
-        text-align:center;
-      ">
-        ${state.lastMessage}
-      </div>
-    `
-    : `<div></div>`;
-
-  return { showFlash: false, flashHtml };
-}
-
-function stateSnapshot() {
-  return getState();
-}
-
-function rotatePlayers(players) {
-  if (!players || players.length <= 1) return [...(players || [])];
-  return [...players.slice(1), players[0]];
 }
 
 function attachButtonClick(el, handler) {
@@ -256,12 +115,21 @@ function attachButtonClick(el, handler) {
     } finally {
       setTimeout(() => {
         locked = false;
-      }, 350);
+      }, 450);
     }
   };
 
-  el.onclick = run;
-  el.ontouchstart = run;
+  el.onclick = null;
+  el.ontouchstart = null;
+  el.ontouchend = null;
+  el.onpointerup = null;
+
+  if (window.PointerEvent) {
+    el.onpointerup = run;
+  } else {
+    el.ontouchend = run;
+    el.onclick = run;
+  }
 }
 
 function closeModal() {
@@ -308,9 +176,7 @@ function renderModalShell(innerHtml) {
   const card = document.getElementById("overlayCard");
 
   overlay.onclick = e => {
-    if (e.target === overlay) {
-      closeModal();
-    }
+    if (e.target === overlay) closeModal();
   };
 
   card.onclick = e => {
@@ -318,15 +184,139 @@ function renderModalShell(innerHtml) {
   };
 }
 
-function getHitTypeLabel(hitType) {
-  if (hitType === "single" || hitType === "greenBull") return "Single";
-  if (hitType === "double" || hitType === "redBull") return "Dub";
-  if (hitType === "triple") return "Trip";
-  return "";
+function formatTargetNumber(target) {
+  return target === 25 ? "Bull" : String(target);
+}
+
+function formatAssignment(player) {
+  if (!player.target) return "Unassigned";
+
+  if (player.target === 25) {
+    return player.hitType === "redBull" ? "Dub Bull" : "Sing Bull";
+  }
+
+  const labelMap = {
+    single: "Single",
+    double: "Dub",
+    triple: "Trip"
+  };
+
+  return `${labelMap[player.hitType] || "Hit"} ${player.target}`;
+}
+
+function rotatePlayers(players) {
+  if (!players || players.length <= 1) return [...(players || [])];
+  return [...players.slice(1), players[0]];
+}
+
+function buildFlashHtml(state) {
+  if (!state.lastMessage) return `<div></div>`;
+
+  return `
+    <div style="
+      padding:8px 10px;
+      border-radius:10px;
+      background:rgba(255,255,255,0.08);
+      color:${state.lastMessageColor || "#ffffff"};
+      font-weight:bold;
+      text-align:center;
+    ">
+      ${state.lastMessage}
+    </div>
+  `;
+}
+
+function getPlayerStatusHtml(player) {
+  const parts = [];
+
+  if (player.isKiller) {
+    parts.push(`<span style="color:#ff4c4c;font-weight:900;">K</span>`);
+  }
+
+  if (player.isRedemski && !player.isDormantDead) {
+    const count = player.redemskiCount || 0;
+
+    parts.push(
+      count <= 1
+        ? `<span style="color:#facc15;">Redemski</span>`
+        : `<span style="color:#facc15;">Rx${count}</span>`
+    );
+  }
+
+  if (player.isZombie) {
+    parts.push(`<span style="color:#84cc16;">🧟 Zombie</span>`);
+  }
+
+  if (player.isDormantDead) {
+    parts.push(`<span style="color:#9ca3af;">💀 Dormant Dead</span>`);
+  }
+
+  return parts.join(" | ");
+}
+
+function getRowBackground(player, isHighlighted) {
+  if (player.isDormantDead) {
+    return isHighlighted ? "#374151" : "#1f2937";
+  }
+
+  if (player.isZombie) {
+    return isHighlighted ? "#365314" : "#283618";
+  }
+
+  return isHighlighted ? "#11361a" : "#111111";
+}
+
+function getRowBorder(player, isHighlighted) {
+  if (isHighlighted) return "3px solid #facc15";
+  if (player.isDormantDead) return "1px solid #6b7280";
+  if (player.isZombie) return "1px solid #65a30d";
+  return "1px solid #ffffff";
+}
+
+function getRowOpacity(player) {
+  if (player.isDormantDead) return 0.7;
+  return player.isActive ? 1 : 0.75;
+}
+
+function getLivesEmoji(player) {
+  if (player.isDormantDead) {
+    return `<span style="font-size:18px;">💀</span>`;
+  }
+
+  const lives = Math.max(0, Math.min(6, player.lives || 0));
+
+  let heartColor = "#22c55e";
+  if (lives === 1) {
+    heartColor = "#ef4444";
+  } else if (lives === 2 || lives === 3) {
+    heartColor = "#facc15";
+  }
+
+  let html = "";
+
+  for (let i = 0; i < 6; i++) {
+    const isFilled = i < lives;
+
+    html += `
+      <span style="
+        display:inline-block;
+        margin-right:${i < 5 ? "5px" : "0"};
+        opacity:${isFilled ? "1" : "0.18"};
+        color:${isFilled ? heartColor : "#ffffff"};
+        font-size:20px;
+        line-height:1;
+        font-weight:bold;
+      ">
+        ♥
+      </span>
+    `;
+  }
+
+  return html;
 }
 
 /* -------------------------
-   MAIN UI
+   MAIN UI ROUTER
 --------------------------*/
 
 export function renderUI(container) {
@@ -356,20 +346,22 @@ export function renderUI(container) {
 }
 
 /* -------------------------
-   SHARED BOARD
+   PLAYER BOARD
 --------------------------*/
 
 function renderPlayerBoard(state, activeIndex) {
   const board = document.getElementById("playerBoard");
+  if (!board) return;
+
   board.innerHTML = "";
 
   state.players.forEach((player, index) => {
     const isHighlighted = index === activeIndex;
-    rowForPlayer(board, player, isHighlighted, state.phase === "NDH");
+    rowForPlayer(board, player, isHighlighted, state.phase === "NDH" || state.phase === "READY");
   });
 }
 
-function rowForPlayer(parent, player, isHighlighted, showTargetInNdh = false) {
+function rowForPlayer(parent, player, isHighlighted, showTargetDetail = false) {
   const row = document.createElement("div");
   row.style = `
     margin-bottom:10px;
@@ -387,7 +379,7 @@ function rowForPlayer(parent, player, isHighlighted, showTargetInNdh = false) {
     gap:12px;
   `;
 
-  const leftMeta = getPlayerStatusHtml(player);
+  const statusHtml = getPlayerStatusHtml(player);
 
   const targetBadge = player.target
     ? `
@@ -428,7 +420,7 @@ function rowForPlayer(parent, player, isHighlighted, showTargetInNdh = false) {
       </div>
     `;
 
-  const targetDetailHtml = showTargetInNdh && player.target
+  const targetDetailHtml = showTargetDetail && player.target
     ? `
       <div style="
         font-size:14px;
@@ -450,7 +442,7 @@ function rowForPlayer(parent, player, isHighlighted, showTargetInNdh = false) {
     <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;">
       <div style="font-size:18px;line-height:1.2;word-break:break-word;">
         ${player.name}
-        ${leftMeta ? `<span style="font-size:15px;margin-left:8px;">${leftMeta}</span>` : ""}
+        ${statusHtml ? `<span style="font-size:15px;margin-left:8px;">${statusHtml}</span>` : ""}
       </div>
       ${targetDetailHtml}
     </div>
@@ -468,12 +460,11 @@ function rowForPlayer(parent, player, isHighlighted, showTargetInNdh = false) {
 --------------------------*/
 
 function renderNDH(container, state) {
-  const { showFlash, flashHtml } = buildFlashHtml(state);
   const currentPlayer = state.players[state.currentPlayer];
 
   container.innerHTML = `
     <div style="text-align:center;margin-bottom:12px;font-size:22px;font-weight:bold;">
-      NDH Throw: ${currentPlayer.name}
+      NDH Throw: ${currentPlayer ? currentPlayer.name : "—"}
     </div>
 
     <div id="playerBoard"></div>
@@ -486,7 +477,7 @@ function renderNDH(container, state) {
       justify-content:center;
     ">
       <div style="width:100%;">
-        ${flashHtml}
+        ${buildFlashHtml(state)}
       </div>
     </div>
 
@@ -496,12 +487,6 @@ function renderNDH(container, state) {
 
   renderPlayerBoard(state, state.currentPlayer);
   renderNDHControls(container);
-
-  if (showFlash) {
-    setTimeout(() => {
-      renderUI(container);
-    }, 700);
-  }
 }
 
 function renderNDHControls(container) {
@@ -628,9 +613,11 @@ function renderNDHControls(container) {
   controls.appendChild(utilityRow);
 }
 
-function renderReady(container, state) {
-  const { showFlash, flashHtml } = buildFlashHtml(state);
+/* -------------------------
+   READY SCREEN
+--------------------------*/
 
+function renderReady(container, state) {
   container.innerHTML = `
     <div style="
       text-align:center;
@@ -649,7 +636,7 @@ function renderReady(container, state) {
       opacity:0.9;
       line-height:1.4;
     ">
-      Confirm everyone has the correct target. Use Undo or Clear Target before starting.
+      Confirm everyone has the correct target. Use Undo or Clear Current before starting.
     </div>
 
     <div id="playerBoard"></div>
@@ -662,7 +649,7 @@ function renderReady(container, state) {
       justify-content:center;
     ">
       <div style="width:100%;">
-        ${flashHtml}
+        ${buildFlashHtml(state)}
       </div>
     </div>
 
@@ -672,25 +659,11 @@ function renderReady(container, state) {
 
   renderPlayerBoard(state, state.currentPlayer);
   renderReadyControls(container);
-
-  if (showFlash) {
-    setTimeout(() => {
-      renderUI(container);
-    }, 700);
-  }
 }
 
 function renderReadyControls(container) {
   const controls = document.getElementById("controls");
   controls.innerHTML = "";
-
-  const topRow = document.createElement("div");
-  topRow.style = `
-    display:grid;
-    grid-template-columns:1fr;
-    gap:8px;
-    margin-top:8px;
-  `;
 
   const startBtn = document.createElement("div");
   startBtn.innerText = "Start Game";
@@ -705,8 +678,6 @@ function renderReadyControls(container) {
     startGame();
     renderUI(container);
   });
-
-  topRow.appendChild(startBtn);
 
   const utilityRow = document.createElement("div");
   utilityRow.style = `
@@ -758,7 +729,7 @@ function renderReadyControls(container) {
   utilityRow.appendChild(undoBtn);
   utilityRow.appendChild(endBtn);
 
-  controls.appendChild(topRow);
+  controls.appendChild(startBtn);
   controls.appendChild(utilityRow);
 }
 
@@ -767,8 +738,6 @@ function renderReadyControls(container) {
 --------------------------*/
 
 function renderGame(container, state) {
-  const { showFlash, flashHtml } = buildFlashHtml(state);
-
   container.innerHTML = `
     <div style="
       text-align:center;
@@ -776,7 +745,7 @@ function renderGame(container, state) {
       font-size:24px;
       font-weight:bold;
     ">
-      🎯 🎯 Target: ${getCurrentTargetDisplay()} | Dart ${getCurrentDartDisplay()}
+      🎯 Target: ${getCurrentTargetDisplay()} | Dart ${getCurrentDartDisplay()}
     </div>
 
     <div id="playerBoard"></div>
@@ -789,7 +758,7 @@ function renderGame(container, state) {
       justify-content:center;
     ">
       <div style="width:100%;">
-        ${flashHtml}
+        ${buildFlashHtml(state)}
       </div>
     </div>
 
@@ -799,12 +768,6 @@ function renderGame(container, state) {
 
   renderPlayerBoard(state, state.currentPlayer);
   renderGameControls(container, state);
-
-  if (showFlash) {
-    setTimeout(() => {
-      renderUI(container);
-    }, 700);
-  }
 }
 
 function getTileInfoForTarget(state, target) {
@@ -1006,7 +969,7 @@ function renderGameControls(container, state) {
         return;
       }
 
-      renderGameHitTypePicker(container, freshState, target);
+      renderGameHitTypePicker(container, target);
     });
 
     targetRow.appendChild(btn);
@@ -1121,12 +1084,12 @@ function renderGameControls(container, state) {
   controls.appendChild(actionRow);
   controls.appendChild(utilityRow);
 }
+
 /* -------------------------
    REDEMSKI SCREEN
 --------------------------*/
 
 function renderRedemski(container, state) {
-  const { showFlash, flashHtml } = buildFlashHtml(state);
   const redemskiPlayer = state.players[state.redemskiPlayerIndex];
 
   container.innerHTML = `
@@ -1137,7 +1100,7 @@ function renderRedemski(container, state) {
       font-weight:bold;
       color:#facc15;
     ">
-      ⚡ Redemski: ${redemskiPlayer.name}
+      ⚡ Redemski: ${redemskiPlayer ? redemskiPlayer.name : "—"}
     </div>
 
     <div id="playerBoard"></div>
@@ -1150,7 +1113,7 @@ function renderRedemski(container, state) {
       justify-content:center;
     ">
       <div style="width:100%;">
-        ${flashHtml}
+        ${buildFlashHtml(state)}
       </div>
     </div>
 
@@ -1160,7 +1123,7 @@ function renderRedemski(container, state) {
       font-size:20px;
       font-weight:bold;
     ">
-      Hit Dub or Trip ${formatTargetNumber(redemskiPlayer.target)} to stay alive
+      Hit Dub or Trip ${redemskiPlayer ? formatTargetNumber(redemskiPlayer.target) : "—"} to stay alive
     </div>
 
     <div style="
@@ -1170,7 +1133,7 @@ function renderRedemski(container, state) {
       color:#facc15;
       font-weight:bold;
     ">
-      Dart ${state.dartsThrown + 1}/3
+      Dart ${Math.min((state.dartsThrown || 0) + 1, 3)}/3
     </div>
 
     <div id="controls"></div>
@@ -1179,30 +1142,26 @@ function renderRedemski(container, state) {
 
   renderPlayerBoard(state, state.redemskiPlayerIndex);
   renderRedemskiControls(container, redemskiPlayer);
-
-  if (showFlash) {
-    setTimeout(() => {
-      renderUI(container);
-    }, 700);
-  }
 }
 
 function renderRedemskiControls(container, player) {
   const controls = document.getElementById("controls");
   controls.innerHTML = "";
 
+  if (!player) return;
+
   const typeRow = document.createElement("div");
   typeRow.style = `
     display:grid;
-    grid-template-columns:${player.target === 25 ? "1fr 1fr" : "1fr 1fr"};
+    grid-template-columns:1fr 1fr;
     gap:8px;
     margin-top:8px;
   `;
 
   const validTypes = player.target === 25
     ? [
-        { label: "Green Bull", value: "greenBull" },
-        { label: "Red Bull", value: "redBull" }
+        { label: "Sing Bull", value: "greenBull" },
+        { label: "Dub Bull", value: "redBull" }
       ]
     : [
         { label: "Dub", value: "double" },
@@ -1359,21 +1318,22 @@ function renderNumberPicker(container, hitType) {
       closeModal();
       renderUI(container);
     });
+  } else {
+    bullBtn.dataset.disabled = "true";
   }
 
   attachButtonClick(closeBtn, closeModal);
 }
 
-function renderGameHitTypePicker(container, state, target) {
-  const freshState = getState();
-
+function renderGameHitTypePicker(container, target) {
   if (!canCurrentPlayerThrow()) {
     closeModal();
     renderUI(container);
     return;
   }
 
-  const currentPlayer = freshState.players[freshState.currentPlayer];
+  const state = getState();
+  const currentPlayer = state.players[state.currentPlayer];
   const isSelfTarget = target === currentPlayer.target;
   const isBull = target === 25;
 
@@ -1440,9 +1400,6 @@ function renderGameHitTypePicker(container, state, target) {
       }
 
       btn.dataset.disabled = "true";
-      btn.style.opacity = "0.45";
-      btn.style.cursor = "not-allowed";
-
       submitGameThrow(option.value, target);
       closeModal();
       renderUI(container);
@@ -1456,7 +1413,7 @@ function renderGameHitTypePicker(container, state, target) {
 }
 
 function renderTargetsModal() {
-  const state = stateSnapshot();
+  const state = getState();
 
   renderModalShell(`
     <h2 style="text-align:center;margin-top:0;">Assigned Targets</h2>
@@ -1596,7 +1553,7 @@ function renderEndGameConfirm(container) {
 }
 
 /* -------------------------
-   END
+   END SCREEN
 --------------------------*/
 
 function renderEnd(container, state) {
