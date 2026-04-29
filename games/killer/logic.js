@@ -495,25 +495,6 @@ function getVisibleTargetNumbersForPlayer(playerIndex) {
   return sortTargets(targets);
 }
 
-export function getCurrentTargetDisplay() {
-  return getCurrentTargetText();
-}
-
-export function getCurrentDartDisplay() {
-  const dartNumber = Math.min((gameState.dartsThrown || 0) + 1, 3);
-  return `${dartNumber}/3`;
-}
-
-export function canCurrentPlayerThrow() {
-  if (gameState.winner || gameState.shanghaiWinner) return false;
-  if (gameState.phase !== "GAME") return false;
-
-  const player = gameState.players[gameState.currentPlayer];
-  if (!player || !isPlayerActive(player)) return false;
-
-  return (gameState.dartsThrown || 0) < 3;
-}
-
 function recordOpponentTargetHitForShanghai(playerIndex, hitType, target) {
   const player = gameState.players[playerIndex];
   if (!player || !player.isKiller) return;
@@ -692,6 +673,21 @@ export function getStats() {
 
 export function getCurrentTargetDisplay() {
   return getCurrentTargetText();
+}
+
+export function getCurrentDartDisplay() {
+  const dartNumber = Math.min((gameState.dartsThrown || 0) + 1, 3);
+  return `${dartNumber}/3`;
+}
+
+export function canCurrentPlayerThrow() {
+  if (gameState.winner || gameState.shanghaiWinner) return false;
+  if (gameState.phase !== "GAME") return false;
+
+  const player = gameState.players[gameState.currentPlayer];
+  if (!player || !isPlayerActive(player)) return false;
+
+  return (gameState.dartsThrown || 0) < 3;
 }
 
 export function getCurrentTargetOptions() {
