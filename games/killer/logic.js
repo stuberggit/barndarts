@@ -19,7 +19,7 @@ function normalizePlayerName(player, index) {
 }
 
 function getWinnerName() {
-  return gameState.winner || gameState.shanghaiWinner || null;
+  return gameState.winner || gameState.Winner || null;
 }
 
 function saveKillerHistory() {
@@ -65,7 +65,7 @@ function saveKillerHistory() {
         }
       : null,
     meta: {
-      shanghaiWinner: gameState.shanghaiWinner || null,
+      Winner: gameState.Winner || null,
       finalStats: gameState.finalStats || buildStatsSummary()
     }
   });
@@ -174,6 +174,7 @@ function resetTurnTracking() {
   gameState.dartsThrown = 0;
   gameState.currentTurnThrows = [];
   gameState.currentTurnHits = [];
+  gameState.currentTurnHitsOnOwnTarget = [];
   gameState.currentTurnHitsByOpponentTarget = {};
   gameState.livesTakenThisTurn = 0;
 }
@@ -237,6 +238,23 @@ function advanceTurn() {
   );
 
   maybeDeclareWinner();
+}
+
+function advanceNDHTurn() {
+  const unassigned = getUnassignedPlayerIndexes();
+
+  if (unassigned.length === 0) {
+    maybeAdvancePhase();
+    return;
+  }
+
+  const currentPosition = unassigned.indexOf(gameState.currentPlayer);
+  const nextPosition =
+    currentPosition === -1
+      ? 0
+      : (currentPosition + 1) % unassigned.length;
+
+  gameState.currentPlayer = unassigned[nextPosition];
 }
 
 function assignTargetToPlayer(playerIndex, assignment) {
@@ -427,7 +445,7 @@ function finishSuccessfulRedemski() {
   advanceTurn();
 }
 
-function isBullShanghai(turnHits) {
+function isBull(turnHits) {
   if (!Array.isArray(turnHits) || turnHits.length !== 3) return false;
 
   const greenCount = turnHits.filter(hit => hit === "greenBull").length;
@@ -436,7 +454,7 @@ function isBullShanghai(turnHits) {
   return greenCount === 2 && redCount === 1;
 }
 
-function isStandardShanghai(turnHits) {
+function isStandard(turnHits) {
   if (!Array.isArray(turnHits)) return false;
 
   return (
@@ -444,6 +462,14 @@ function isStandardShanghai(turnHits) {
     turnHits.includes("double") &&
     turnHits.includes("triple")
   );
+}
+
+function sortTargets(targets) {
+  return [...new Set(targets)].sort((a, b) => {
+    if (a === 25) return 1;
+    if (b === 25) return -1;
+    return a - b;
+  });
 }
 
 function getVisibleTargetNumbersForPlayer(playerIndex) {
@@ -454,18 +480,18 @@ function getVisibleTargetNumbersForPlayer(playerIndex) {
     return player.target != null ? [player.target] : [];
   }
 
-  return gameState.players
-    .filter((other, index) => {
-      if (index === playerIndex) return false;
+  const targets = gameState.players
+    .filter(other => {
       if (other.target == null) return false;
       return other.isActive || other.isDormantDead;
     })
-    .map(other => other.target)
-    .sort((a, b) => {
-      if (a === 25) return 1;
-      if (b === 25) return -1;
-      return a - b;
-    });
+    .map(other => other.target);
+
+  if (player.target != null) {
+    targets.unshift(player.target);
+  }
+
+  return sortTargets(targets);
 }
 
 function getCurrentTargetText() {
@@ -632,6 +658,7 @@ export function initGame(players) {
     dartsThrown: 0,
     currentTurnThrows: [],
     currentTurnHits: [],
+    currentTurnHitsOnOwnTarget: [],
     currentTurnHitsByOpponentTarget: {},
     livesTakenThisTurn: 0,
 
@@ -735,12 +762,51 @@ export function submitNDHThrow(hitType, target = null) {
    GAME PHASE
 --------------------------*/
 
+export function submitMiss() {
+  if (gameState.winner || gameState.shanghaiWinner) return;
+
+  if (gameState.phase === "NDH") {
+    const player = gameState.players[gameState.currentPlayer];
+    if (!player || player.target) return;
+
+    history.push(cloneState(gameState));
+    updateMessage(`${player.name} missed. Tap Next Player or throw again.`, "#ffffff");
+    return;
+  }
+
+  if (gameState.phase !== "GAME") return;
+
+  const player = gameState.players[gameState.currentPlayer];
+  if (!player || !isPlayerActive(player)) return;
+
+  history.push(cloneState(gameState));
+
+  gameState.currentTurnThrows.push({
+    target: null,
+    hitType: "miss"
+  });
+
+  gameState.dartsThrown++;
+
+  if (gameState.dartsThrown >= 3) {
+    updateMessage(`${player.name}'s turn is complete. Tap Next Player.`, "#facc15");
+    return;
+  }
+
+  updateMessage(`${player.name} missed.`, "#ffffff");
+}
+
 export function submitGameThrow(hitType, target) {
   if (gameState.phase !== "GAME" || gameState.winner || gameState.shanghaiWinner) return;
 
   const playerIndex = gameState.currentPlayer;
   const player = gameState.players[playerIndex];
   if (!player || !isPlayerActive(player)) return;
+
+  if (gameState.dartsThrown >= 3) {
+    updateMessage(`${player.name}'s turn is complete. Tap Next Player.`, "#facc15");
+    return;
+  }
 
   history.push(cloneState(gameState));
 
@@ -808,25 +874,8 @@ export function submitGameThrow(hitType, target) {
   if (maybeDeclareWinner()) return;
 
   if (gameState.dartsThrown >= 3) {
-    advanceTurn();
+    updateMessage(`${player.name}'s turn is complete. Tap Next Player.`, "#facc15");
   }
-}
-
-export function submitShanghai() {
-  if (gameState.phase !== "GAME" || gameState.winner || gameState.shanghaiWinner) return;
-
-  const player = gameState.players[gameState.currentPlayer];
-  if (!player || !isPlayerActive(player) || !player.isKiller) return;
-
-  const shanghaiTarget = getShanghaiTargetForCurrentPlayer();
-
-  if (shanghaiTarget == null) {
-    updateMessage(`${player.name} needs a valid Shanghai on an opponent's target.`, "#facc15");
-    return;
-  }
-
-  history.push(cloneState(gameState));
-  finishShanghaiWin(player.name);
 }
 
 /* -------------------------
@@ -867,6 +916,11 @@ export function nextPlayer() {
   if (gameState.winner || gameState.shanghaiWinner) return;
 
   history.push(cloneState(gameState));
+
+  if (gameState.phase === "NDH") {
+    advanceNDHTurn();
+    return;
+  }
 
   if (gameState.phase === "GAME") {
     advanceTurn();
