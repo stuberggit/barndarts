@@ -4,9 +4,9 @@ import {
   getCurrentTargetDisplay,
   getCurrentTargetOptions,
   submitNDHThrow,
+  submitMiss,
   submitGameThrow,
   submitRedemskiThrow,
-  submitShanghai,
   nextPlayer,
   endGameEarly,
   undo,
@@ -112,13 +112,16 @@ function getPlayerStatusHtml(player) {
   const parts = [];
 
   if (player.isKiller) {
-    parts.push(`<span style="color:#ff4c4c;">Killer</span>`);
+    parts.push(`<span style="color:#ff4c4c;font-weight:900;">K</span>`);
   }
 
   if (player.isRedemski && !player.isDormantDead) {
     const count = player.redemskiCount || 0;
+
     parts.push(
-      `<span style="color:#facc15;">Redemski${count > 1 ? ` x${count}` : ""}</span>`
+      count <= 1
+        ? `<span style="color:#facc15;">Redemski</span>`
+        : `<span style="color:#facc15;">Rx${count}</span>`
     );
   }
 
@@ -132,7 +135,6 @@ function getPlayerStatusHtml(player) {
 
   return parts.join(" | ");
 }
-
 function getRowBackground(player, isHighlighted) {
   if (player.isDormantDead) {
     return isHighlighted ? "#374151" : "#1f2937";
@@ -358,12 +360,52 @@ function rowForPlayer(parent, player, isHighlighted, showTargetInNdh = false) {
   `;
 
   const leftMeta = getPlayerStatusHtml(player);
-  const targetHtml = showTargetInNdh && player.target
+
+  const targetBadge = player.target
     ? `
       <div style="
-        font-size:18px;
+        min-width:54px;
+        min-height:42px;
+        padding:5px 8px;
+        border-radius:10px;
+        border:2px solid ${player.isDormantDead ? "#6b7280" : "#facc15"};
+        background:${player.isDormantDead ? "#27272a" : "rgba(250,204,21,0.12)"};
+        color:${player.isDormantDead ? "#d4d4d8" : "#facc15"};
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        line-height:1.05;
+        flex-shrink:0;
+      ">
+        <div style="font-size:10px;letter-spacing:0.6px;opacity:0.9;">TARGET</div>
+        <div style="font-size:22px;font-weight:900;">${formatTargetNumber(player.target)}</div>
+      </div>
+    `
+    : `
+      <div style="
+        min-width:54px;
+        min-height:42px;
+        padding:5px 8px;
+        border-radius:10px;
+        border:1px solid rgba(255,255,255,0.35);
+        color:rgba(255,255,255,0.55);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        flex-shrink:0;
+        font-size:13px;
+      ">
+        —
+      </div>
+    `;
+
+  const targetDetailHtml = showTargetInNdh && player.target
+    ? `
+      <div style="
+        font-size:14px;
         line-height:1.1;
-        margin-top:2px;
+        margin-top:3px;
         color:#facc15;
         white-space:nowrap;
         overflow:hidden;
@@ -375,13 +417,16 @@ function rowForPlayer(parent, player, isHighlighted, showTargetInNdh = false) {
     : "";
 
   row.innerHTML = `
+    ${targetBadge}
+
     <div style="display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;">
       <div style="font-size:18px;line-height:1.2;word-break:break-word;">
         ${player.name}
         ${leftMeta ? `<span style="font-size:15px;margin-left:8px;">${leftMeta}</span>` : ""}
       </div>
-      ${targetHtml}
+      ${targetDetailHtml}
     </div>
+
     <div style="text-align:right;flex-shrink:0;">
       <div style="font-size:16px;line-height:1.2;">${getLivesEmoji(player)}</div>
     </div>
@@ -454,15 +499,52 @@ function renderNDHControls(container) {
     btn.innerText = type.label;
     btn.style = `
       ${buttonStyle()}
-      padding:12px;
-      min-height:52px;
-      font-size:18px;
+      padding:8px;
+      min-height:40px;
+      font-size:16px;
     `;
     attachButtonClick(btn, () => {
       renderNumberPicker(container, type.value);
     });
     hitTypeRow.appendChild(btn);
   });
+
+  const middleRow = document.createElement("div");
+  middleRow.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:8px;
+  `;
+
+  const missBtn = document.createElement("div");
+  missBtn.innerText = "❌ Miss";
+  missBtn.style = `
+    ${buttonStyle()}
+    padding:8px;
+    min-height:40px;
+    font-size:15px;
+  `;
+  attachButtonClick(missBtn, () => {
+    submitMiss();
+    renderUI(container);
+  });
+
+  const nextBtn = document.createElement("div");
+  nextBtn.innerText = "➡️ Next Player";
+  nextBtn.style = `
+    ${buttonStyle()}
+    padding:8px;
+    min-height:40px;
+    font-size:15px;
+  `;
+  attachButtonClick(nextBtn, () => {
+    nextPlayer();
+    renderUI(container);
+  });
+
+  middleRow.appendChild(missBtn);
+  middleRow.appendChild(nextBtn);
 
   const utilityRow = document.createElement("div");
   utilityRow.style = `
@@ -514,6 +596,7 @@ function renderNDHControls(container) {
   utilityRow.appendChild(endBtn);
 
   controls.appendChild(hitTypeRow);
+  controls.appendChild(middleRow);
   controls.appendChild(utilityRow);
 }
 
@@ -564,12 +647,14 @@ function renderGame(container, state) {
 
 function getTileInfoForTarget(state, target) {
   const currentPlayer = state.players[state.currentPlayer];
+  const isOwnTarget = target === currentPlayer.target;
 
-  if (target === currentPlayer.target) {
+  if (isOwnTarget) {
     return {
       number: formatTargetNumber(target),
       name: currentPlayer.name,
-      isDormantDead: false
+      isDormantDead: false,
+      isOwnTarget: true
     };
   }
 
@@ -578,7 +663,8 @@ function getTileInfoForTarget(state, target) {
   return {
     number: formatTargetNumber(target),
     name: targetPlayer?.name || "",
-    isDormantDead: !!targetPlayer?.isDormantDead
+    isDormantDead: !!targetPlayer?.isDormantDead,
+    isOwnTarget: false
   };
 }
 
@@ -586,7 +672,6 @@ function renderGameControls(container, state) {
   const controls = document.getElementById("controls");
   controls.innerHTML = "";
 
-  const currentPlayer = state.players[state.currentPlayer];
   const targets = getCurrentTargetOptions();
 
   const targetRow = document.createElement("div");
@@ -612,9 +697,10 @@ function renderGameControls(container, state) {
         height:100%;
       ">
         <div style="
-          font-size:34px;
+          font-size:${info.isOwnTarget ? "30px" : "34px"};
           line-height:1;
           ${info.isDormantDead ? "color:#d4d4d8;" : ""}
+          ${info.isOwnTarget ? "color:#facc15;" : ""}
         ">
           ${info.number}
         </div>
@@ -642,12 +728,36 @@ function renderGameControls(container, state) {
             : ""
         }
 
+        ${
+          info.isOwnTarget
+            ? `
+              <div style="
+                position:absolute;
+                top:8px;
+                left:50%;
+                transform:translateX(-50%) rotate(-6deg);
+                background:rgba(127,29,29,0.98);
+                color:#fecaca;
+                border:1px solid #fca5a5;
+                border-radius:6px;
+                padding:2px 8px;
+                font-size:12px;
+                font-weight:bold;
+                letter-spacing:1px;
+              ">
+                BEWARE
+              </div>
+            `
+            : ""
+        }
+
         <div style="
           font-size:12px;
           line-height:1.1;
           margin-top:6px;
           opacity:0.9;
           ${info.isDormantDead ? "color:#d4d4d8;" : ""}
+          ${info.isOwnTarget ? "color:#facc15;font-weight:bold;" : ""}
         ">
           ${info.name}
         </div>
@@ -671,18 +781,18 @@ function renderGameControls(container, state) {
           `
           : ""
       }
+      ${
+        info.isOwnTarget
+          ? `
+            background:#451a1a;
+            color:#facc15;
+            border:2px solid #facc15;
+          `
+          : ""
+      }
     `;
 
     attachButtonClick(btn, () => {
-      const isOwnTarget = target === currentPlayer.target;
-
-      if (!currentPlayer.isKiller && isOwnTarget) {
-        const autoHitType = target === 25 ? "greenBull" : "single";
-        submitGameThrow(autoHitType, target);
-        renderUI(container);
-        return;
-      }
-
       renderGameHitTypePicker(container, state, target);
     });
 
@@ -704,60 +814,38 @@ function renderGameControls(container, state) {
   const actionRow = document.createElement("div");
   actionRow.style = `
     display:grid;
-    grid-template-columns:1fr 1fr 1fr;
+    grid-template-columns:1fr 1fr;
     gap:8px;
     margin-top:10px;
   `;
 
-  const selfBtn = document.createElement("div");
-  selfBtn.innerText = currentPlayer.isKiller ? "Self Hit" : "Unlock Killer";
-  selfBtn.style = `
+  const missBtn = document.createElement("div");
+  missBtn.innerText = "❌ Miss";
+  missBtn.style = `
     ${buttonStyle()}
-    padding:12px;
-    min-height:52px;
-    font-size:18px;
+    padding:8px;
+    min-height:40px;
+    font-size:15px;
   `;
-
-  attachButtonClick(selfBtn, () => {
-    if (!currentPlayer.isKiller) {
-      const autoHitType = currentPlayer.target === 25 ? "greenBull" : "single";
-      submitGameThrow(autoHitType, currentPlayer.target);
-      renderUI(container);
-      return;
-    }
-
-    renderGameHitTypePicker(container, state, currentPlayer.target);
-  });
-
-  const shanghaiBtn = document.createElement("div");
-  shanghaiBtn.innerText = "Shanghai";
-  shanghaiBtn.style = `
-    ${lightButtonStyle()}
-    padding:12px;
-    min-height:52px;
-    font-size:18px;
-    ${!currentPlayer.isKiller ? "opacity:0.45;" : ""}
-  `;
-  attachButtonClick(shanghaiBtn, () => {
-    if (!currentPlayer.isKiller) return;
-    renderShanghaiConfirm(container);
+  attachButtonClick(missBtn, () => {
+    submitMiss();
+    renderUI(container);
   });
 
   const nextBtn = document.createElement("div");
-  nextBtn.innerText = "Next Player";
+  nextBtn.innerText = "➡️ Next Player";
   nextBtn.style = `
     ${buttonStyle()}
-    padding:12px;
-    min-height:52px;
-    font-size:18px;
+    padding:8px;
+    min-height:40px;
+    font-size:15px;
   `;
   attachButtonClick(nextBtn, () => {
     nextPlayer();
     renderUI(container);
   });
 
-  actionRow.appendChild(selfBtn);
-  actionRow.appendChild(shanghaiBtn);
+  actionRow.appendChild(missBtn);
   actionRow.appendChild(nextBtn);
 
   const utilityRow = document.createElement("div");
@@ -976,7 +1064,7 @@ function renderRedemskiControls(container, player) {
    MODALS
 --------------------------*/
 
-function renderNumberPicker(container, hitType) {
+function renderNumberPicker(container, hitType, lastPick = "") {
   const allowSingleBull = hitType === "single";
   const allowDoubleBull = hitType === "double";
 
@@ -984,7 +1072,24 @@ function renderNumberPicker(container, hitType) {
     <h2 style="text-align:center;margin-top:0;">
       ${hitType === "single" ? "Single" : hitType === "double" ? "Dub" : "Trip"} Target
     </h2>
+
+    ${
+      lastPick
+        ? `
+          <div style="
+            text-align:center;
+            margin-bottom:12px;
+            color:#facc15;
+            font-weight:bold;
+          ">
+            Entered: ${lastPick}
+          </div>
+        `
+        : ""
+    }
+
     <div id="numberGrid"></div>
+
     <div style="
       display:grid;
       grid-template-columns:1fr 1fr;
@@ -998,6 +1103,7 @@ function renderNumberPicker(container, hitType) {
         font-size:20px;
         ${hitType === "triple" ? "background:#555;color:#bbb;border:1px solid #999;cursor:not-allowed;" : ""}
       ">Bull</div>
+
       <div id="closeModalBtn" style="
         ${buttonStyle()}
         padding:12px;
@@ -1023,12 +1129,19 @@ function renderNumberPicker(container, hitType) {
       padding:12px;
       min-height:52px;
       font-size:20px;
+      ${lastPick === String(i) ? "background:#facc15;color:#111111;border:2px solid #ffffff;" : ""}
     `;
+
     attachButtonClick(btn, () => {
       submitNDHThrow(hitType, i);
-      closeModal();
       renderUI(container);
+
+      const freshState = getState();
+      if (freshState.phase === "NDH") {
+        renderNumberPicker(container, hitType, String(i));
+      }
     });
+
     grid.appendChild(btn);
   }
 
@@ -1038,28 +1151,36 @@ function renderNumberPicker(container, hitType) {
   if (allowSingleBull) {
     attachButtonClick(bullBtn, () => {
       submitNDHThrow("greenBull");
-      closeModal();
       renderUI(container);
+
+      const freshState = getState();
+      if (freshState.phase === "NDH") {
+        renderNumberPicker(container, hitType, "Bull");
+      }
     });
   } else if (allowDoubleBull) {
     attachButtonClick(bullBtn, () => {
       submitNDHThrow("redBull");
-      closeModal();
       renderUI(container);
+
+      const freshState = getState();
+      if (freshState.phase === "NDH") {
+        renderNumberPicker(container, hitType, "Bull");
+      }
     });
   }
 
   attachButtonClick(closeBtn, closeModal);
 }
 
-function renderGameHitTypePicker(container, state, target) {
+function renderGameHitTypePicker(container, state, target, lastPick = "") {
   const currentPlayer = state.players[state.currentPlayer];
   const isSelfTarget = target === currentPlayer.target;
   const isBull = target === 25;
 
   const options = isBull
     ? [
-        { label: "Single Bull", value: "greenBull" },
+        { label: "Sing Bull", value: "greenBull" },
         { label: "Dub Bull", value: "redBull" }
       ]
     : [
@@ -1070,12 +1191,30 @@ function renderGameHitTypePicker(container, state, target) {
 
   renderModalShell(`
     <h2 style="text-align:center;margin-top:0;">
-      ${isSelfTarget ? currentPlayer.name : formatTargetNumber(target)} Target
+      ${isSelfTarget ? `${currentPlayer.name}'s Target` : `${formatTargetNumber(target)} Target`}
     </h2>
+
     <div style="text-align:center;margin-bottom:12px;opacity:0.85;">
       Choose hit type
     </div>
+
+    ${
+      lastPick
+        ? `
+          <div style="
+            text-align:center;
+            margin-bottom:12px;
+            color:#facc15;
+            font-weight:bold;
+          ">
+            Entered: ${lastPick}
+          </div>
+        `
+        : ""
+    }
+
     <div id="hitTypeGrid"></div>
+
     <div style="
       display:flex;
       justify-content:center;
@@ -1106,12 +1245,19 @@ function renderGameHitTypePicker(container, state, target) {
       padding:14px;
       min-height:62px;
       font-size:20px;
+      ${lastPick === option.label ? "background:#facc15;color:#111111;border:2px solid #ffffff;" : ""}
     `;
+
     attachButtonClick(btn, () => {
       submitGameThrow(option.value, target);
-      closeModal();
       renderUI(container);
+
+      const freshState = getState();
+      if (freshState.phase === "GAME" && !isGameOver()) {
+        renderGameHitTypePicker(container, freshState, target, option.label);
+      }
     });
+
     grid.appendChild(btn);
   });
 
@@ -1255,41 +1401,6 @@ function renderEndGameConfirm(container) {
   attachButtonClick(confirmBtn, () => {
     closeModal();
     endGameEarly();
-    renderUI(container);
-  });
-}
-
-function renderShanghaiConfirm(container) {
-  renderModalShell(`
-    <h2 style="text-align:center;margin-top:0;color:#facc15;">Confirm Shanghai</h2>
-    <div style="text-align:center;margin-bottom:14px;">
-      Did the player hit a valid Shanghai this turn?
-    </div>
-    <div style="
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-    ">
-      <div id="cancelShanghaiBtn" style="
-        ${lightButtonStyle()}
-        padding:12px;
-        min-height:48px;
-      ">Cancel</div>
-      <div id="confirmShanghaiBtn" style="
-        ${buttonStyle()}
-        padding:12px;
-        min-height:48px;
-      ">Shanghai</div>
-    </div>
-  `);
-
-  const cancelBtn = document.getElementById("cancelShanghaiBtn");
-  const confirmBtn = document.getElementById("confirmShanghaiBtn");
-
-  attachButtonClick(cancelBtn, closeModal);
-  attachButtonClick(confirmBtn, () => {
-    closeModal();
-    submitShanghai();
     renderUI(container);
   });
 }
