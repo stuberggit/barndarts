@@ -5,6 +5,8 @@ import {
   getCurrentTargetOptions,
   submitNDHThrow,
   submitMiss,
+  clearNDHTarget,
+  startGame,
   submitGameThrow,
   submitRedemskiThrow,
   nextPlayer,
@@ -234,11 +236,27 @@ function rotatePlayers(players) {
 }
 
 function attachButtonClick(el, handler) {
-  el.onclick = handler;
-  el.ontouchstart = e => {
-    e.preventDefault();
-    handler();
+  let locked = false;
+
+  const run = e => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    if (locked) return;
+
+    locked = true;
+    handler(e);
+
+    setTimeout(() => {
+      locked = false;
+    }, 250);
   };
+
+  el.onclick = null;
+  el.ontouchstart = null;
+  el.onpointerup = run;
 }
 
 function closeModal() {
@@ -316,6 +334,11 @@ export function renderUI(container) {
 
   if (state.phase === "NDH") {
     renderNDH(container, state);
+    return;
+  }
+
+  if (state.phase === "READY") {
+    renderReady(container, state);
     return;
   }
 
@@ -517,16 +540,16 @@ function renderNDHControls(container) {
     margin-top:8px;
   `;
 
-  const missBtn = document.createElement("div");
-  missBtn.innerText = "❌ Miss";
-  missBtn.style = `
-    ${buttonStyle()}
+  const clearBtn = document.createElement("div");
+  clearBtn.innerText = "Clear Target";
+  clearBtn.style = `
+    ${lightButtonStyle()}
     padding:8px;
     min-height:40px;
     font-size:15px;
   `;
-  attachButtonClick(missBtn, () => {
-    submitMiss();
+  attachButtonClick(clearBtn, () => {
+    clearNDHTarget();
     renderUI(container);
   });
 
@@ -543,7 +566,7 @@ function renderNDHControls(container) {
     renderUI(container);
   });
 
-  middleRow.appendChild(missBtn);
+  middleRow.appendChild(clearBtn);
   middleRow.appendChild(nextBtn);
 
   const utilityRow = document.createElement("div");
@@ -597,6 +620,140 @@ function renderNDHControls(container) {
 
   controls.appendChild(hitTypeRow);
   controls.appendChild(middleRow);
+  controls.appendChild(utilityRow);
+}
+
+function renderReady(container, state) {
+  const { showFlash, flashHtml } = buildFlashHtml(state);
+
+  container.innerHTML = `
+    <div style="
+      text-align:center;
+      margin-bottom:12px;
+      font-size:24px;
+      font-weight:bold;
+      color:#facc15;
+    ">
+      Review Targets
+    </div>
+
+    <div style="
+      text-align:center;
+      margin-bottom:12px;
+      font-size:15px;
+      opacity:0.9;
+      line-height:1.4;
+    ">
+      Confirm everyone has the correct target. Use Undo or Clear Target before starting.
+    </div>
+
+    <div id="playerBoard"></div>
+
+    <div style="
+      min-height:54px;
+      margin:12px 0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    ">
+      <div style="width:100%;">
+        ${flashHtml}
+      </div>
+    </div>
+
+    <div id="controls"></div>
+    <div id="modal"></div>
+  `;
+
+  renderPlayerBoard(state, state.currentPlayer);
+  renderReadyControls(container);
+
+  if (showFlash) {
+    setTimeout(() => {
+      renderUI(container);
+    }, 700);
+  }
+}
+
+function renderReadyControls(container) {
+  const controls = document.getElementById("controls");
+  controls.innerHTML = "";
+
+  const topRow = document.createElement("div");
+  topRow.style = `
+    display:grid;
+    grid-template-columns:1fr;
+    gap:8px;
+    margin-top:8px;
+  `;
+
+  const startBtn = document.createElement("div");
+  startBtn.innerText = "Start Game";
+  startBtn.style = `
+    ${buttonStyle()}
+    padding:14px;
+    min-height:52px;
+    font-size:18px;
+    border:2px solid #facc15;
+  `;
+  attachButtonClick(startBtn, () => {
+    startGame();
+    renderUI(container);
+  });
+
+  topRow.appendChild(startBtn);
+
+  const utilityRow = document.createElement("div");
+  utilityRow.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:8px;
+    margin-top:10px;
+  `;
+
+  const clearBtn = document.createElement("div");
+  clearBtn.innerText = "Clear Current";
+  clearBtn.style = `
+    ${lightButtonStyle()}
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
+  `;
+  attachButtonClick(clearBtn, () => {
+    clearNDHTarget();
+    renderUI(container);
+  });
+
+  const undoBtn = document.createElement("div");
+  undoBtn.innerText = "Undo";
+  undoBtn.style = `
+    ${undoButtonStyle()}
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
+  `;
+  attachButtonClick(undoBtn, () => {
+    undo();
+    renderUI(container);
+  });
+
+  const endBtn = document.createElement("div");
+  endBtn.innerText = "End";
+  endBtn.style = `
+    ${dangerButtonStyle()}
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
+  `;
+  attachButtonClick(endBtn, () => {
+    renderEndGameConfirm(container);
+  });
+
+  utilityRow.appendChild(clearBtn);
+  utilityRow.appendChild(undoBtn);
+  utilityRow.appendChild(endBtn);
+
+  controls.appendChild(topRow);
   controls.appendChild(utilityRow);
 }
 
@@ -824,6 +981,13 @@ function renderGameControls(container, state) {
     `;
 
     attachButtonClick(btn, () => {
+      if (info.isOwnTarget && !currentPlayer.isKiller) {
+        const autoHitType = target === 25 ? "greenBull" : "single";
+        submitGameThrow(autoHitType, target);
+        renderUI(container);
+        return;
+      }
+
       renderGameHitTypePicker(container, state, target);
     });
 
@@ -1094,7 +1258,7 @@ function renderRedemskiControls(container, player) {
    MODALS
 --------------------------*/
 
-function renderNumberPicker(container, hitType, lastPick = "") {
+function renderNumberPicker(container, hitType) {
   const allowSingleBull = hitType === "single";
   const allowDoubleBull = hitType === "double";
 
@@ -1102,21 +1266,6 @@ function renderNumberPicker(container, hitType, lastPick = "") {
     <h2 style="text-align:center;margin-top:0;">
       ${hitType === "single" ? "Single" : hitType === "double" ? "Dub" : "Trip"} Target
     </h2>
-
-    ${
-      lastPick
-        ? `
-          <div style="
-            text-align:center;
-            margin-bottom:12px;
-            color:#facc15;
-            font-weight:bold;
-          ">
-            Entered: ${lastPick}
-          </div>
-        `
-        : ""
-    }
 
     <div id="numberGrid"></div>
 
@@ -1159,17 +1308,12 @@ function renderNumberPicker(container, hitType, lastPick = "") {
       padding:12px;
       min-height:52px;
       font-size:20px;
-      ${lastPick === String(i) ? "background:#facc15;color:#111111;border:2px solid #ffffff;" : ""}
     `;
 
     attachButtonClick(btn, () => {
       submitNDHThrow(hitType, i);
+      closeModal();
       renderUI(container);
-
-      const freshState = getState();
-      if (freshState.phase === "NDH") {
-        renderNumberPicker(container, hitType, String(i));
-      }
     });
 
     grid.appendChild(btn);
@@ -1181,29 +1325,21 @@ function renderNumberPicker(container, hitType, lastPick = "") {
   if (allowSingleBull) {
     attachButtonClick(bullBtn, () => {
       submitNDHThrow("greenBull");
+      closeModal();
       renderUI(container);
-
-      const freshState = getState();
-      if (freshState.phase === "NDH") {
-        renderNumberPicker(container, hitType, "Bull");
-      }
     });
   } else if (allowDoubleBull) {
     attachButtonClick(bullBtn, () => {
       submitNDHThrow("redBull");
+      closeModal();
       renderUI(container);
-
-      const freshState = getState();
-      if (freshState.phase === "NDH") {
-        renderNumberPicker(container, hitType, "Bull");
-      }
     });
   }
 
   attachButtonClick(closeBtn, closeModal);
 }
 
-function renderGameHitTypePicker(container, state, target, lastPick = "") {
+function renderGameHitTypePicker(container, state, target) {
   const currentPlayer = state.players[state.currentPlayer];
   const isSelfTarget = target === currentPlayer.target;
   const isBull = target === 25;
@@ -1227,21 +1363,6 @@ function renderGameHitTypePicker(container, state, target, lastPick = "") {
     <div style="text-align:center;margin-bottom:12px;opacity:0.85;">
       Choose hit type
     </div>
-
-    ${
-      lastPick
-        ? `
-          <div style="
-            text-align:center;
-            margin-bottom:12px;
-            color:#facc15;
-            font-weight:bold;
-          ">
-            Entered: ${lastPick}
-          </div>
-        `
-        : ""
-    }
 
     <div id="hitTypeGrid"></div>
 
@@ -1275,17 +1396,12 @@ function renderGameHitTypePicker(container, state, target, lastPick = "") {
       padding:14px;
       min-height:62px;
       font-size:20px;
-      ${lastPick === option.label ? "background:#facc15;color:#111111;border:2px solid #ffffff;" : ""}
     `;
 
     attachButtonClick(btn, () => {
       submitGameThrow(option.value, target);
+      closeModal();
       renderUI(container);
-
-      const freshState = getState();
-      if (freshState.phase === "GAME" && !isGameOver()) {
-        renderGameHitTypePicker(container, freshState, target, option.label);
-      }
     });
 
     grid.appendChild(btn);
