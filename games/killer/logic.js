@@ -244,7 +244,9 @@ function advanceNDHTurn() {
   const unassigned = getUnassignedPlayerIndexes();
 
   if (unassigned.length === 0) {
-    maybeAdvancePhase();
+    gameState.phase = "READY";
+    resetTurnTracking();
+    updateMessage("All targets assigned. Review targets, then start the game.", "#facc15");
     return;
   }
 
@@ -291,10 +293,9 @@ function maybeAdvancePhase() {
   const unassigned = getUnassignedPlayerIndexes();
 
   if (unassigned.length === 0) {
-    gameState.phase = "GAME";
-    gameState.currentPlayer = 0;
+    gameState.phase = "READY";
     resetTurnTracking();
-    updateMessage("NDH complete. Killer begins!", "#22c55e");
+    updateMessage("All targets assigned. Review targets, then start the game.", "#facc15");
   } else {
     gameState.currentPlayer = unassigned[0];
   }
@@ -462,6 +463,14 @@ function isStandard(turnHits) {
     turnHits.includes("double") &&
     turnHits.includes("triple")
   );
+}
+
+function sortTargets(targets) {
+  return [...new Set(targets)].sort((a, b) => {
+    if (a === 25) return 1;
+    if (b === 25) return -1;
+    return a - b;
+  });
 }
 
 function sortTargets(targets) {
@@ -727,7 +736,17 @@ export function submitNDHThrow(hitType, target = null) {
 
   if (existingIndex === -1) {
     assignTargetToPlayer(playerIndex, assignment);
-    maybeAdvancePhase();
+
+    const unassigned = getUnassignedPlayerIndexes();
+
+    if (unassigned.length === 0) {
+      gameState.phase = "READY";
+      resetTurnTracking();
+      updateMessage("All targets assigned. Review targets, then start the game.", "#facc15");
+    } else {
+      updateMessage(`${player.name} claims ${formatTarget(assignment.target, assignment.hitType)}. Tap Next Player.`, "#22c55e");
+    }
+
     return;
   }
 
@@ -744,11 +763,20 @@ export function submitNDHThrow(hitType, target = null) {
   if (canOverride(existingAssignment, assignment)) {
     bumpPlayerOffTarget(existingIndex);
     assignTargetToPlayer(playerIndex, assignment);
-    updateMessage(
-      `${player.name} takes ${formatTarget(assignment.target, assignment.hitType)} from ${existingPlayer.name}!`,
-      "#facc15"
-    );
-    maybeAdvancePhase();
+
+    const unassigned = getUnassignedPlayerIndexes();
+
+    if (unassigned.length === 0) {
+      gameState.phase = "READY";
+      resetTurnTracking();
+      updateMessage("All targets assigned. Review targets, then start the game.", "#facc15");
+    } else {
+      updateMessage(
+        `${player.name} takes ${formatTarget(assignment.target, assignment.hitType)} from ${existingPlayer.name}. Tap Next Player.`,
+        "#facc15"
+      );
+    }
+
     return;
   }
 
@@ -794,7 +822,75 @@ export function submitMiss() {
   }
 
   updateMessage(`${player.name} missed.`, "#ffffff");
+}export function submitMiss() {
+  if (gameState.winner || gameState.shanghaiWinner) return;
+
+  if (gameState.phase !== "GAME") return;
+
+  const player = gameState.players[gameState.currentPlayer];
+  if (!player || !isPlayerActive(player)) return;
+
+  if (gameState.dartsThrown >= 3) {
+    updateMessage(`${player.name}'s turn is complete. Tap Next Player.`, "#facc15");
+    return;
+  }
+
+  history.push(cloneState(gameState));
+
+  gameState.currentTurnThrows.push({
+    target: null,
+    hitType: "miss"
+  });
+
+  gameState.dartsThrown++;
+
+  if (gameState.dartsThrown >= 3) {
+    updateMessage(`${player.name}'s turn is complete. Tap Next Player.`, "#facc15");
+    return;
+  }
+
+  updateMessage(`${player.name} missed.`, "#ffffff");
 }
+
+export function clearNDHTarget(playerIndex = gameState.currentPlayer) {
+  if (gameState.phase !== "NDH" && gameState.phase !== "READY") return;
+
+  const player = gameState.players[playerIndex];
+  if (!player || !player.target) return;
+
+  history.push(cloneState(gameState));
+
+  bumpPlayerOffTarget(playerIndex);
+
+  gameState.phase = "NDH";
+  gameState.currentPlayer = playerIndex;
+  resetTurnTracking();
+
+  updateMessage(`${player.name}'s target was cleared. Enter a new target.`, "#facc15");
+}
+
+export function startGame() {
+  if (gameState.phase !== "READY") return;
+
+  const unassigned = getUnassignedPlayerIndexes();
+
+  if (unassigned.length > 0) {
+    gameState.phase = "NDH";
+    gameState.currentPlayer = unassigned[0];
+    updateMessage("Some players still need targets.", "#ff4c4c");
+    return;
+  }
+
+  history.push(cloneState(gameState));
+
+  gameState.phase = "GAME";
+  gameState.currentPlayer = 0;
+  resetTurnTracking();
+
+  updateMessage("Killer begins!", "#22c55e");
+}
+
+
 
 export function submitGameThrow(hitType, target) {
   if (gameState.phase !== "GAME" || gameState.winner || gameState.shanghaiWinner) return;
@@ -838,7 +934,7 @@ export function submitGameThrow(hitType, target) {
         updateMessage(`${player.name} has already used 3 total turn events.`, "#facc15");
       } else {
         player.isKiller = true;
-        updateMessage(`${player.name} is now a Killer!`, "#22c55e");
+        updateMessage(`${player.name} is now a Killer! Tap Next Player or keep throwing.`, "#22c55e");
       }
     } else if (player.isKiller && hitValue > 0) {
       const damage = Math.min(hitValue, 3 - gameState.livesTakenThisTurn);
@@ -919,6 +1015,11 @@ export function nextPlayer() {
 
   if (gameState.phase === "NDH") {
     advanceNDHTurn();
+    return;
+  }
+
+  if (gameState.phase === "READY") {
+    startGame();
     return;
   }
 
