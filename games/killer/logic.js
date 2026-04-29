@@ -473,14 +473,6 @@ function sortTargets(targets) {
   });
 }
 
-function sortTargets(targets) {
-  return [...new Set(targets)].sort((a, b) => {
-    if (a === 25) return 1;
-    if (b === 25) return -1;
-    return a - b;
-  });
-}
-
 function getVisibleTargetNumbersForPlayer(playerIndex) {
   const player = gameState.players[playerIndex];
   if (!player) return [];
