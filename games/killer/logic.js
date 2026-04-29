@@ -814,34 +814,6 @@ export function submitMiss() {
   }
 
   updateMessage(`${player.name} missed.`, "#ffffff");
-}export function submitMiss() {
-  if (gameState.winner || gameState.shanghaiWinner) return;
-
-  if (gameState.phase !== "GAME") return;
-
-  const player = gameState.players[gameState.currentPlayer];
-  if (!player || !isPlayerActive(player)) return;
-
-  if (gameState.dartsThrown >= 3) {
-    updateMessage(`${player.name}'s turn is complete. Tap Next Player.`, "#facc15");
-    return;
-  }
-
-  history.push(cloneState(gameState));
-
-  gameState.currentTurnThrows.push({
-    target: null,
-    hitType: "miss"
-  });
-
-  gameState.dartsThrown++;
-
-  if (gameState.dartsThrown >= 3) {
-    updateMessage(`${player.name}'s turn is complete. Tap Next Player.`, "#facc15");
-    return;
-  }
-
-  updateMessage(`${player.name} missed.`, "#ffffff");
 }
 
 export function clearNDHTarget(playerIndex = gameState.currentPlayer) {
