@@ -495,17 +495,23 @@ function getVisibleTargetNumbersForPlayer(playerIndex) {
   return sortTargets(targets);
 }
 
-function getCurrentTargetText() {
+export function getCurrentTargetDisplay() {
+  return getCurrentTargetText();
+}
+
+export function getCurrentDartDisplay() {
+  const dartNumber = Math.min((gameState.dartsThrown || 0) + 1, 3);
+  return `${dartNumber}/3`;
+}
+
+export function canCurrentPlayerThrow() {
+  if (gameState.winner || gameState.shanghaiWinner) return false;
+  if (gameState.phase !== "GAME") return false;
+
   const player = gameState.players[gameState.currentPlayer];
-  if (!player) return "";
+  if (!player || !isPlayerActive(player)) return false;
 
-  const targets = getVisibleTargetNumbersForPlayer(gameState.currentPlayer);
-
-  if (!targets.length) {
-    return player.target != null ? formatTargetNumber(player.target) : "—";
-  }
-
-  return targets.map(formatTargetNumber).join(", ");
+  return (gameState.dartsThrown || 0) < 3;
 }
 
 function recordOpponentTargetHitForShanghai(playerIndex, hitType, target) {
@@ -785,19 +791,15 @@ export function submitNDHThrow(hitType, target = null) {
 export function submitMiss() {
   if (gameState.winner || gameState.shanghaiWinner) return;
 
-  if (gameState.phase === "NDH") {
-    const player = gameState.players[gameState.currentPlayer];
-    if (!player || player.target) return;
-
-    history.push(cloneState(gameState));
-    updateMessage(`${player.name} missed. Tap Next Player or throw again.`, "#ffffff");
-    return;
-  }
-
   if (gameState.phase !== "GAME") return;
 
   const player = gameState.players[gameState.currentPlayer];
   if (!player || !isPlayerActive(player)) return;
+
+  if ((gameState.dartsThrown || 0) >= 3) {
+    updateMessage(`${player.name}'s turn is complete. Tap Next Player.`, "#facc15");
+    return;
+  }
 
   history.push(cloneState(gameState));
 
@@ -806,7 +808,7 @@ export function submitMiss() {
     hitType: "miss"
   });
 
-  gameState.dartsThrown++;
+  gameState.dartsThrown = Math.min((gameState.dartsThrown || 0) + 1, 3);
 
   if (gameState.dartsThrown >= 3) {
     updateMessage(`${player.name}'s turn is complete. Tap Next Player.`, "#facc15");
@@ -863,23 +865,41 @@ export function submitGameThrow(hitType, target) {
   const player = gameState.players[playerIndex];
   if (!player || !isPlayerActive(player)) return;
 
-  if (gameState.dartsThrown >= 3) {
+  if ((gameState.dartsThrown || 0) >= 3) {
+    gameState.dartsThrown = 3;
     updateMessage(`${player.name}'s turn is complete. Tap Next Player.`, "#facc15");
     return;
   }
 
+  const hitValue = getHitValue(hitType);
+  if (hitValue <= 0) return;
+
+  const validTarget =
+    target === 25 ||
+    (typeof target === "number" && target >= 1 && target <= 20);
+
+  if (!validTarget) return;
+
+  const validHitType =
+    isNumberHitType(hitType) ||
+    isBullHitType(hitType);
+
+  if (!validHitType) return;
+
+  const isBullTarget = target === 25;
+
+  if (isBullTarget && !isBullHitType(hitType)) return;
+  if (!isBullTarget && !isNumberHitType(hitType)) return;
+
   history.push(cloneState(gameState));
 
   const assignment = { target, hitType };
-  const hitValue = getHitValue(hitType);
   const hitOwnTarget = target === player.target;
 
   gameState.currentTurnThrows.push(assignment);
-  gameState.dartsThrown++;
+  gameState.dartsThrown = Math.min((gameState.dartsThrown || 0) + 1, 3);
 
-  if (isNumberHitType(hitType) || isBullHitType(hitType)) {
-    gameState.currentTurnHits.push(hitType);
-  }
+  gameState.currentTurnHits.push(hitType);
 
   recordOpponentTargetHitForShanghai(playerIndex, hitType, target);
 
@@ -934,6 +954,7 @@ export function submitGameThrow(hitType, target) {
   if (maybeDeclareWinner()) return;
 
   if (gameState.dartsThrown >= 3) {
+    gameState.dartsThrown = 3;
     updateMessage(`${player.name}'s turn is complete. Tap Next Player.`, "#facc15");
   }
 }
