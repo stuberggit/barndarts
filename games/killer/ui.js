@@ -672,6 +672,7 @@ function renderGameControls(container, state) {
   const controls = document.getElementById("controls");
   controls.innerHTML = "";
 
+  const currentPlayer = state.players[state.currentPlayer];
   const targets = getCurrentTargetOptions();
 
   const targetRow = document.createElement("div");
@@ -684,6 +685,7 @@ function renderGameControls(container, state) {
 
   targets.forEach(target => {
     const info = getTileInfoForTarget(state, target);
+    const ownTargetIsDanger = info.isOwnTarget && currentPlayer.isKiller;
 
     const btn = document.createElement("div");
     btn.innerHTML = `
@@ -729,7 +731,7 @@ function renderGameControls(container, state) {
         }
 
         ${
-          info.isOwnTarget
+          ownTargetIsDanger
             ? `
               <div style="
                 position:absolute;
@@ -746,6 +748,29 @@ function renderGameControls(container, state) {
                 letter-spacing:1px;
               ">
                 BEWARE
+              </div>
+            `
+            : ""
+        }
+
+        ${
+          info.isOwnTarget && !currentPlayer.isKiller
+            ? `
+              <div style="
+                position:absolute;
+                top:8px;
+                left:50%;
+                transform:translateX(-50%) rotate(-6deg);
+                background:rgba(34,197,94,0.98);
+                color:#052e16;
+                border:1px solid #bbf7d0;
+                border-radius:6px;
+                padding:2px 8px;
+                font-size:12px;
+                font-weight:bold;
+                letter-spacing:1px;
+              ">
+                UNLOCK
               </div>
             `
             : ""
@@ -782,13 +807,19 @@ function renderGameControls(container, state) {
           : ""
       }
       ${
-        info.isOwnTarget
+        ownTargetIsDanger
           ? `
             background:#451a1a;
             color:#facc15;
             border:2px solid #facc15;
           `
-          : ""
+          : info.isOwnTarget
+            ? `
+              background:#11361a;
+              color:#facc15;
+              border:2px solid #22c55e;
+            `
+            : ""
       }
     `;
 
@@ -901,7 +932,6 @@ function renderGameControls(container, state) {
   controls.appendChild(actionRow);
   controls.appendChild(utilityRow);
 }
-
 /* -------------------------
    REDEMSKI SCREEN
 --------------------------*/
