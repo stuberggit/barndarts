@@ -238,12 +238,13 @@ export function submitThrow(hitType, target = null) {
   const isBullShanghai = bullHits.length === 3;
 
   if (isNumberShanghai || isBullShanghai) {
-    gameState.pendingShanghai = {
-      playerName: player.name,
-      target: isBullShanghai ? "Bull" : target
-    };
-    return;
-  }
+  gameState.pendingShanghai = {
+    playerName: player.name,
+    target: isBullShanghai ? "Bull" : target,
+    isBullShanghai
+  };
+  return;
+}
 
   if (newScore < 0) {
     player.score = gameState.turnStartScore;
