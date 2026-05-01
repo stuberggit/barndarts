@@ -275,7 +275,7 @@ function renderGame(container, state) {
   renderUtilityControls(container);
 
   if (state.pendingShanghai) {
-    renderShanghaiConfirm(container, state.pendingShanghai);
+    haiConfirm(container, state.pendingShanghai);
   }
 }
 
@@ -708,12 +708,23 @@ function renderNumberPicker(container, hitType) {
    MODALS
 --------------------------*/
 function renderShanghaiConfirm(container, pendingShanghai) {
+  const isBullShanghai = !!pendingShanghai.isBullShanghai;
+
+  const shanghaiMessage = isBullShanghai
+    ? `${pendingShanghai.playerName} hit 3 Bulls this turn.<br>
+       Confirm Bull Shanghai and end the game?`
+    : `${pendingShanghai.playerName} hit Single + Dub + Trip on ${pendingShanghai.target}.<br>
+       Confirm Shanghai and end the game?`;
+
   renderModalShell(`
-    <h2 style="text-align:center;margin-top:0;color:#facc15;">🔥 SHANGHAI? 🔥</h2>
+    <h2 style="text-align:center;margin-top:0;color:#facc15;">
+      🔥 ${isBullShanghai ? "BULL SHANGHAI?" : "SHANGHAI?"} 🔥
+    </h2>
+
     <div style="text-align:center;margin-bottom:14px;line-height:1.45;">
-      ${pendingShanghai.playerName} hit Single + Dub + Trip on ${pendingShanghai.target}.<br>
-      Confirm Shanghai and end the game?
+      ${shanghaiMessage}
     </div>
+
     <div style="
       display:grid;
       grid-template-columns:1fr 1fr;
@@ -724,6 +735,7 @@ function renderShanghaiConfirm(container, pendingShanghai) {
         padding:12px;
         min-height:48px;
       ">Cancel</div>
+
       <div id="confirmShanghaiBtn" style="
         ${buttonStyle()}
         padding:12px;
