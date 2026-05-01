@@ -5,6 +5,8 @@ import { store } from "../../core/store.js";
 import { saveGameResult } from "../../core/historyService.js";
 import { checkShanghai } from "../../core/rules/shanghai.js";
 
+const STARTING_SCORE = 301;
+
 /* -------------------------
    HELPERS
 --------------------------*/
@@ -29,21 +31,23 @@ function getHitValue(hitType, target = null) {
 }
 
 function resetTurnTracking() {
+  const player = gameState.players?.[gameState.currentPlayer];
+
   gameState.dartsThrown = 0;
   gameState.currentTurnThrows = [];
-  gameState.turnStartScore = gameState.players[gameState.currentPlayer].score;
+  gameState.turnStartScore = player ? player.score : STARTING_SCORE;
   gameState.turnReadyForNext = false;
 }
 
 function advanceTurn() {
-  resetTurnTracking();
-
   gameState.currentPlayer =
     (gameState.currentPlayer + 1) % gameState.players.length;
 
   if (gameState.currentPlayer === 0) {
     gameState.turnNumber++;
   }
+
+  resetTurnTracking();
 }
 
 function save301History() {
@@ -80,9 +84,9 @@ export function initGame(players) {
 
     players: playerNames.map(name => ({
       name,
-      score: 301,
+      score: STARTING_SCORE,
       throwHistory: [],
-       stats: {
+      stats: {
         dartsThrown: 0,
         turnsTaken: 0,
         busts: 0,
@@ -94,7 +98,7 @@ export function initGame(players) {
     turnNumber: 1,
     dartsThrown: 0,
     currentTurnThrows: [],
-    turnStartScore: 301,
+    turnStartScore: STARTING_SCORE,
     turnReadyForNext: false,
 
     lastMessage: "",
@@ -147,6 +151,7 @@ function padRemainingDartsAsMisses() {
 
   if (gameState.dartsThrown === 0) {
     player.stats.turnsTaken++;
+    gameState.turnStartScore = player.score;
   }
 
   while (gameState.dartsThrown < 3) {
@@ -172,15 +177,27 @@ function padRemainingDartsAsMisses() {
 }
 
 export function submitThrow(hitType, target = null) {
-  if (gameState.winner || gameState.pendingShanghai || gameState.turnReadyForNext) return;
+  if (
+    gameState.winner ||
+    gameState.pendingShanghai ||
+    gameState.turnReadyForNext
+  ) {
+    return;
+  }
 
   const player = gameState.players[gameState.currentPlayer];
+  if (!player) return;
 
   history.push(cloneState(gameState));
 
-  const value = getHitValue(hitType, target);
   const scoreBefore = player.score;
-  const newScore = player.score - value;
+
+  if (gameState.dartsThrown === 0) {
+    gameState.turnStartScore = scoreBefore;
+  }
+
+  const value = getHitValue(hitType, target);
+  const newScore = scoreBefore - value;
   const dartNumber = gameState.dartsThrown + 1;
 
   gameState.dartsThrown++;
