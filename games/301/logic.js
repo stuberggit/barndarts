@@ -220,7 +220,7 @@ export function submitThrow(hitType, target = null) {
 
   gameState.currentTurnThrows.push(throwRecord);
 
-  const shanghaiHits = gameState.currentTurnThrows
+  const numberedShanghaiHits = gameState.currentTurnThrows
     .filter(t => t.target === target && target !== null)
     .map(t => {
       if (t.hitType === "single") return 1;
@@ -230,10 +230,17 @@ export function submitThrow(hitType, target = null) {
     })
     .filter(Boolean);
 
-  if (checkShanghai(shanghaiHits)) {
+  const bullHits = gameState.currentTurnThrows.filter(t => {
+    return t.hitType === "greenBull" || t.hitType === "redBull";
+  });
+
+  const isNumberShanghai = checkShanghai(numberedShanghaiHits);
+  const isBullShanghai = bullHits.length === 3;
+
+  if (isNumberShanghai || isBullShanghai) {
     gameState.pendingShanghai = {
       playerName: player.name,
-      target
+      target: isBullShanghai ? "Bull" : target
     };
     return;
   }
@@ -280,7 +287,6 @@ export function submitThrow(hitType, target = null) {
     gameState.lastMessage = `${player.name}'s turn complete`;
   }
 }
-
 /* -------------------------
    ACTIONS
 --------------------------*/
@@ -290,12 +296,16 @@ export function confirmShanghaiWinner() {
 
   const playerName = gameState.pendingShanghai.playerName;
   const target = gameState.pendingShanghai.target;
+  const isBullShanghai = gameState.pendingShanghai.isBullShanghai;
 
   gameState.shanghaiWinner = playerName;
   gameState.winner = playerName;
   gameState.pendingShanghai = null;
 
-  gameState.lastMessage = `${playerName} hit SHANGHAI on ${target}!`;
+  gameState.lastMessage = isBullShanghai
+    ? `${playerName} hit SHANGHAI with 3 Bulls!`
+    : `${playerName} hit SHANGHAI on ${target}!`;
+
   gameState.lastMessageColor = "#ffcc00";
 
   save301History();
