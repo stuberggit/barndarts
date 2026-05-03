@@ -6,9 +6,18 @@ import { saveGameResult } from "../../core/historyService.js";
 import { checkShanghai } from "../../core/rules/shanghai.js";
 
 const STARTING_SCORE = 301;
+
+const BONUS_MIN = 5;
+const BONUS_MAX = 12;
+
 const GREEN_BULL_BASE_BONUS = 10;
+const GREEN_BULL_STEP = 5;
+const GREEN_BULL_CAP = 25;
+
 const RED_BULL_BASE_BONUS = 20;
-const EXTRA_BULL_BONUS = 10;
+const RED_BULL_STEP = 5;
+const RED_BULL_CAP = 50;
+
 const MISS_PENALTY = -25;
 
 /* -------------------------
@@ -26,7 +35,7 @@ function normalizePlayerName(player, index) {
 }
 
 function getRandomBonusTarget() {
-  return Math.floor(Math.random() * 10) + 11; // 11-20
+  return Math.floor(Math.random() * (BONUS_MAX - BONUS_MIN + 1)) + BONUS_MIN;
 }
 
 function isBullHitType(hitType) {
@@ -47,6 +56,44 @@ function getHitMultiplier(hitType) {
   return values[hitType] || 0;
 }
 
+function isBonusRound() {
+  return gameState.turnNumber > 0 && gameState.turnNumber % 3 === 0;
+}
+
+function getActiveBonusTarget() {
+  return isBonusRound() ? gameState.bonusTarget : null;
+}
+
+function hasEarnedBonusThisTurn() {
+  return (gameState.currentTurnThrows || []).some(
+    throwRecord => throwRecord.wasBonus === true
+  );
+}
+
+function getBullBonus(player, hitType) {
+  if (!player) return 0;
+
+  if (hitType === "greenBull") {
+    const priorHits = player.greenBullHits || 0;
+
+    return Math.min(
+      GREEN_BULL_BASE_BONUS + priorHits * GREEN_BULL_STEP,
+      GREEN_BULL_CAP
+    );
+  }
+
+  if (hitType === "redBull") {
+    const priorHits = player.redBullHits || 0;
+
+    return Math.min(
+      RED_BULL_BASE_BONUS + priorHits * RED_BULL_STEP,
+      RED_BULL_CAP
+    );
+  }
+
+  return 0;
+}
+
 function getHitLabel(hitType, target = null) {
   if (hitType === "miss") return "Miss Board";
   if (hitType === "greenBull") return "Sing Bull";
@@ -62,30 +109,27 @@ function getHitLabel(hitType, target = null) {
 }
 
 function getScoreChange(hitType, target = null) {
+  const player = gameState.players?.[gameState.currentPlayer];
+
   if (hitType === "miss") return MISS_PENALTY;
 
-  if (hitType === "greenBull") {
-    const greenBullCount = (gameState.currentTurnThrows || []).filter(
-      throwRecord => throwRecord.hitType === "greenBull"
-    ).length;
-
-    return GREEN_BULL_BASE_BONUS + greenBullCount * EXTRA_BULL_BONUS;
-  }
-
-  if (hitType === "redBull") {
-    const redBullCount = (gameState.currentTurnThrows || []).filter(
-      throwRecord => throwRecord.hitType === "redBull"
-    ).length;
-
-    return RED_BULL_BASE_BONUS + redBullCount * EXTRA_BULL_BONUS;
+  if (isBullHitType(hitType)) {
+    return getBullBonus(player, hitType);
   }
 
   if (isNumberHitType(hitType)) {
-    if (target === gameState.bonusTarget) {
-      return target;
+    const rawValue = target * getHitMultiplier(hitType);
+    const activeBonusTarget = getActiveBonusTarget();
+
+    if (
+      activeBonusTarget &&
+      target === activeBonusTarget &&
+      !hasEarnedBonusThisTurn()
+    ) {
+      return rawValue;
     }
 
-    return -(target * getHitMultiplier(hitType));
+    return -rawValue;
   }
 
   return 0;
@@ -164,9 +208,14 @@ function ensureStats(player) {
       triples: 0,
       greenBulls: 0,
       redBulls: 0,
+      bonusHits: 0,
       pointsLost: 0,
       pointsGained: 0
     };
+  }
+
+  if (player.stats.bonusHits == null) {
+    player.stats.bonusHits = 0;
   }
 
   return player.stats;
@@ -227,7 +276,7 @@ function advanceTurn() {
   );
 
   if (wrappedToNewRound) {
-    gameState.bonusTarget = getRandomBonusTarget();
+    gameState.bonusTarget = isBonusRound() ? getRandomBonusTarget() : null;
   }
 
   maybeDeclareWinner();
@@ -258,6 +307,8 @@ export function initGame(players) {
       name,
       score: STARTING_SCORE,
       throwHistory: [],
+      greenBullHits: 0,
+      redBullHits: 0,
       isActive: true,
       isEliminated: false,
       eliminatedOrder: null,
@@ -270,12 +321,13 @@ export function initGame(players) {
         triples: 0,
         greenBulls: 0,
         redBulls: 0,
+        bonusHits: 0,
         pointsLost: 0,
         pointsGained: 0
       }
     })),
 
-    bonusTarget: getRandomBonusTarget(), // first player
+    bonusTarget: null,
 
     currentPlayer: 0,
     turnNumber: 1,
@@ -313,10 +365,24 @@ export function getStats() {
 
 export function getCurrentTargetDisplay() {
   if (gameState.turnReadyForNext) {
-    return `Turn complete — tap Next Player`;
+    return "Turn complete — tap Next Player";
   }
 
-  return `Dart ${gameState.dartsThrown + 1}/3 | Bonus: ${gameState.bonusTarget}`;
+  const bonusText = getActiveBonusTarget()
+    ? ` | Bonus: ${getActiveBonusTarget()}`
+    : "";
+
+  return `Dart ${gameState.dartsThrown + 1}/3${bonusText}`;
+}
+
+export function getCurrentBonusDisplay() {
+  const activeBonusTarget = getActiveBonusTarget();
+
+  return {
+    active: !!activeBonusTarget,
+    target: activeBonusTarget,
+    label: activeBonusTarget ? `Bonus ${activeBonusTarget}` : "No Bonus"
+  };
 }
 
 /* -------------------------
@@ -376,11 +442,25 @@ function applySurvivorThrow(hitType, target = null, isAutoMiss = false) {
   const scoreChange = getScoreChange(hitType, target);
   const scoreAfter = scoreBefore + scoreChange;
   const dartNumber = gameState.dartsThrown + 1;
+  const activeBonusTarget = getActiveBonusTarget();
+
+  const wasBonus =
+    isNumberHitType(hitType) &&
+    target === activeBonusTarget &&
+    scoreChange > 0;
 
   gameState.dartsThrown++;
 
   if (isBullHitType(hitType)) {
     gameState.currentTurnBullCount++;
+  }
+
+  if (hitType === "greenBull") {
+    player.greenBullHits = (player.greenBullHits || 0) + 1;
+  }
+
+  if (hitType === "redBull") {
+    player.redBullHits = (player.redBullHits || 0) + 1;
   }
 
   const throwRecord = {
@@ -391,7 +471,9 @@ function applySurvivorThrow(hitType, target = null, isAutoMiss = false) {
     scoreChange,
     scoreAfter,
     dartNumber,
-    result: hitType === "miss" ? "miss" : "scored"
+    bonusTarget: activeBonusTarget,
+    wasBonus,
+    result: hitType === "miss" ? "miss" : wasBonus ? "bonus" : "scored"
   };
 
   gameState.currentTurnThrows.push(throwRecord);
@@ -409,6 +491,7 @@ function applySurvivorThrow(hitType, target = null, isAutoMiss = false) {
   if (hitType === "triple") stats.triples++;
   if (hitType === "greenBull") stats.greenBulls++;
   if (hitType === "redBull") stats.redBulls++;
+  if (wasBonus) stats.bonusHits++;
 
   const shanghaiHits = getShanghaiHitsForTarget(target);
 
@@ -435,7 +518,7 @@ function applySurvivorThrow(hitType, target = null, isAutoMiss = false) {
     updateMessage(`${player.name} misses the board and loses ${Math.abs(scoreChange)}.`, "#ff4c4c");
   } else if (isBullHitType(hitType)) {
     updateMessage(`${player.name} hits ${getHitLabel(hitType)} and gains ${scoreChange}!`, "#22c55e");
-  } else if (target === gameState.bonusTarget) {
+  } else if (wasBonus) {
     updateMessage(`${player.name} hits bonus ${getHitLabel(hitType, target)} and gains ${scoreChange}!`, "#22c55e");
   } else {
     updateMessage(`${player.name} hits ${getHitLabel(hitType, target)} for ${Math.abs(scoreChange)} damage.`, "#facc15");
@@ -488,8 +571,8 @@ export function endGameEarly() {
   }
 
   gameState.finalStats = buildStatsSummary();
-   saveSurvivorHistory(); 
-   updateMessage("Game ended early.", "#facc15");
+  saveSurvivorHistory();
+  updateMessage("Game ended early.", "#facc15");
 }
 
 /* -------------------------
