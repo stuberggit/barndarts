@@ -3,6 +3,7 @@ import {
   getStats,
   getThrowLog,
   getCurrentTargetDisplay,
+  getCurrentBonusDisplay,
   submitThrow,
   nextPlayer,
   endGameEarly,
@@ -177,8 +178,8 @@ function formatThrowLabel(throwRecord) {
   if (!throwRecord) return "";
 
   if (throwRecord.hitType === "miss") return "Miss";
-  if (throwRecord.hitType === "greenBull") return "Green Bull";
-  if (throwRecord.hitType === "redBull") return "Red Bull";
+  if (throwRecord.hitType === "greenBull") return "Sing Bull";
+  if (throwRecord.hitType === "redBull") return "Dub Bull";
 
   const labels = {
     single: "Single",
@@ -235,6 +236,7 @@ export function renderUI(container) {
 function renderGame(container, state) {
   const { flashHtml } = buildFlashHtml(state);
   const currentPlayer = state.players[state.currentPlayer];
+  const bonusDisplay = getCurrentBonusDisplay();
 
   container.innerHTML = `
     <div style="
@@ -257,12 +259,50 @@ function renderGame(container, state) {
       text-align:center;
       font-weight:bold;
     ">
-      <div style="font-size:26px;margin-bottom:6px;">
+      <div style="font-size:26px;margin-bottom:8px;">
         ${currentPlayer ? currentPlayer.name : "—"}
       </div>
-      <div style="font-size:34px;line-height:1;margin-bottom:6px;">
-        ${currentPlayer ? currentPlayer.score : "—"}
+
+      <div style="
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:10px;
+        align-items:stretch;
+        margin-bottom:8px;
+      ">
+        <div style="
+          background:rgba(255,255,255,0.08);
+          border:1px solid rgba(255,255,255,0.16);
+          border-radius:10px;
+          padding:10px;
+        ">
+          <div style="font-size:13px;color:#d1d5db;margin-bottom:4px;">
+            Score
+          </div>
+          <div style="font-size:38px;line-height:1;">
+            ${currentPlayer ? currentPlayer.score : "—"}
+          </div>
+        </div>
+
+        <div style="
+          background:${bonusDisplay.active ? "rgba(250,204,21,0.15)" : "rgba(255,255,255,0.05)"};
+          border:${bonusDisplay.active ? "2px solid #facc15" : "1px solid rgba(255,255,255,0.16)"};
+          border-radius:10px;
+          padding:10px;
+        ">
+          <div style="font-size:13px;color:#d1d5db;margin-bottom:4px;">
+            ${bonusDisplay.active ? "Bonus Number" : "Bonus"}
+          </div>
+          <div style="
+            font-size:${bonusDisplay.active ? "38px" : "30px"};
+            line-height:1;
+            color:${bonusDisplay.active ? "#facc15" : "#9ca3af"};
+          ">
+            ${bonusDisplay.active ? bonusDisplay.target : "—"}
+          </div>
+        </div>
       </div>
+
       <div style="font-size:16px;color:#facc15;">
         ${getCurrentTargetDisplay()}
       </div>
@@ -347,7 +387,7 @@ function renderThrowControls(container, state) {
   `;
 
   const missBtn = document.createElement("div");
-  missBtn.innerText = "Miss Board";
+  missBtn.innerText = "❌ Miss";
   missBtn.style = `
     ${buttonStyle()}
     padding:10px;
@@ -362,7 +402,7 @@ function renderThrowControls(container, state) {
   });
 
   const nextBtn = document.createElement("div");
-  nextBtn.innerText = "Next Player";
+  nextBtn.innerText = "➡️ Next Player";
   nextBtn.style = `
     ${buttonStyle()}
     padding:10px;
@@ -543,6 +583,7 @@ function renderUtilityControls(container) {
 
 function renderNumberPicker(container, hitType) {
   const state = getState();
+  const bonusDisplay = getCurrentBonusDisplay();
   const isTriple = hitType === "triple";
   const canThrow =
     !state.winner &&
@@ -568,10 +609,10 @@ function renderNumberPicker(container, hitType) {
     <div style="
       text-align:center;
       margin-bottom:12px;
-      color:#facc15;
+      color:${bonusDisplay.active ? "#facc15" : "#9ca3af"};
       font-weight:bold;
     ">
-      Bonus Number: ${state.bonusTarget}
+      ${bonusDisplay.active ? `Bonus Number: ${bonusDisplay.target}` : "No Bonus This Round"}
     </div>
 
     <div id="numberGrid"></div>
@@ -631,7 +672,7 @@ function renderNumberPicker(container, hitType) {
   `;
 
   for (let i = 1; i <= 20; i++) {
-    const isBonus = i === state.bonusTarget;
+    const isBonus = bonusDisplay.active && i === bonusDisplay.target;
     const hitCount = getHitCountFor(i);
 
     const btn = document.createElement("div");
@@ -800,7 +841,6 @@ function renderEndGameConfirm(container) {
 
 function renderEnd(container, state) {
   const winnerName = state.winner;
-  const stats = state.finalStats || getStats();
 
   container.innerHTML = `
     <style>
@@ -957,7 +997,7 @@ function renderEnd(container, state) {
   });
 
   attachButtonClick(statsBtn, () => {
-    renderStatsModal(stats);
+    renderStatsModal(getThrowLog());
   });
 
   attachButtonClick(mainMenuBtn, () => {
