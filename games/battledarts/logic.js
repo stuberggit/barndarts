@@ -88,10 +88,6 @@ function isBullHitType(hitType) {
   return hitType === "greenBull" || hitType === "redBull";
 }
 
-function isNumberHitType(hitType) {
-  return hitType === "single" || hitType === "double" || hitType === "triple";
-}
-
 function getHitTypeLabel(hitType) {
   if (hitType === "single") return "Single";
   if (hitType === "double") return "Dub";
@@ -194,6 +190,7 @@ function buildTeams(modeId, playerNames) {
       players: teamPlayers,
       ships: [],
       setupDone: false,
+      intel: {},
       stats: {
         throws: 0,
         misses: 0,
@@ -213,6 +210,21 @@ function hasLiveEnemyShipOnTarget(attackingTeamIndex, target) {
     if (index === attackingTeamIndex) return false;
     return team.ships.some(ship => ship.target === target && ship.lives > 0);
   });
+}
+
+function updateIntelForTarget(attackingTeam, target, damage, sunk = false) {
+  const key = String(target);
+
+  if (!attackingTeam.intel[key]) {
+    attackingTeam.intel[key] = {
+      target,
+      damageKnown: 0,
+      hasSunk: false
+    };
+  }
+
+  attackingTeam.intel[key].damageKnown += damage;
+  attackingTeam.intel[key].hasSunk = attackingTeam.intel[key].hasSunk || sunk;
 }
 
 function hasShanghaiThisTurn(target) {
@@ -381,6 +393,7 @@ export function getStats() {
       color: team.color,
       players: [...team.players],
       ships: team.ships.map(ship => ({ ...ship })),
+      intel: { ...(team.intel || {}) },
       remainingShips: countRemainingShips(team),
       sunkShips: countSunkShips(team),
       remainingLives: getTeamRemainingLives(team),
@@ -558,7 +571,7 @@ export function submitThrow(hitType, target = null) {
   if (!attackingTeam) return false;
 
   if (gameState.throwsThisTurn >= 3) {
-    updateMessage("Turn is already complete.", "#facc15");
+    updateMessage("Turn complete. Tap Next Team.", "#facc15");
     return false;
   }
 
@@ -605,11 +618,12 @@ export function submitThrow(hitType, target = null) {
     gameState.currentTurnThrows.push(throwRecord);
     gameState.allThrows.push(throwRecord);
 
-    updateMessage(`${attackingTeam.name} misses the board.`, "#ffffff");
-
-    if (gameState.throwsThisTurn >= 3) {
-      finishTurn();
-    }
+    updateMessage(
+      gameState.throwsThisTurn >= 3
+        ? `${attackingTeam.name} misses. Turn complete.`
+        : `${attackingTeam.name} misses the board.`,
+      gameState.throwsThisTurn >= 3 ? "#facc15" : "#ffffff"
+    );
 
     return true;
   }
@@ -639,6 +653,7 @@ export function submitThrow(hitType, target = null) {
       const actualDamage = beforeLives - ship.lives;
 
       attackingTeam.stats.damageDealt += actualDamage;
+      updateIntelForTarget(attackingTeam, target, actualDamage, ship.lives <= 0);
 
       if (ship.lives <= 0) {
         ship.isSunk = true;
@@ -690,8 +705,10 @@ export function submitThrow(hitType, target = null) {
   const impactColor = getHighestImpactColor(results);
 
   updateMessage(
-    `${attackingTeam.name}: ${getHitTypeLabel(hitType)} ${formatTarget(target)} — ${summary}`,
-    impactColor
+    gameState.throwsThisTurn >= 3
+      ? `${attackingTeam.name}: ${getHitTypeLabel(hitType)} ${formatTarget(target)} — ${summary} Turn complete.`
+      : `${attackingTeam.name}: ${getHitTypeLabel(hitType)} ${formatTarget(target)} — ${summary}`,
+    gameState.throwsThisTurn >= 3 ? "#facc15" : impactColor
   );
 
   if (
@@ -703,13 +720,7 @@ export function submitThrow(hitType, target = null) {
     return true;
   }
 
-  if (maybeDeclareWinner()) {
-    return true;
-  }
-
-  if (gameState.throwsThisTurn >= 3) {
-    finishTurn();
-  }
+  maybeDeclareWinner();
 
   return true;
 }
