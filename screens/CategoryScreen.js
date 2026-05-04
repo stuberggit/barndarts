@@ -10,7 +10,7 @@ const categoryTitles = {
 const gamesByCategory = {
   fun: [
     { id: "ahman-green", label: "Ahman Green", built: true },
-    { id: "BattleDarts", label: "BattleDarts", built: true },
+    { id: "battledarts", label: "BattleDarts", built: true },
     { id: "GolfDarts", label: "GolfDarts", built: true },
     { id: "hammer-cricket", label: "Hammered", built: true },
     { id: "killer", label: "Killer", built: true },
