@@ -1,5 +1,6 @@
 import {
   getState,
+  getStats,
   recordThrow,
   isGameOver,
   undo,
@@ -23,6 +24,7 @@ function formatCurrentHits(hits = []) {
   if (!hits.length) return "";
 
   const map = {
+    0: "Miss",
     1: "Single",
     2: "Dub",
     3: "Trip"
@@ -40,6 +42,33 @@ function getPreviewScoreFromHits(hits) {
   return scores[cappedHits - 1] ?? 5;
 }
 
+function getLiveHits(state) {
+  if (state.hammerHoles?.includes(state.currentHole)) {
+    return Math.min(
+      (state.currentTurnThrows || []).reduce(
+        (sum, val, i) => sum + val * [1, 2, 3][i],
+        0
+      ),
+      9
+    );
+  }
+
+  return Math.min(state.turnHitsCount || 0, 9);
+}
+
+function getPreviewMeta(state) {
+  const previewHits = getLiveHits(state);
+  const previewScore = getPreviewScoreFromHits(previewHits);
+  const previewMeta = getMeta(previewScore);
+
+  return {
+    hits: previewHits,
+    score: previewScore,
+    label: previewScore === 1 ? "Hole in One" : previewMeta.label,
+    color: previewMeta.color
+  };
+}
+
 function buttonStyle() {
   return `
     background:#206a1e;
@@ -52,222 +81,16 @@ function buttonStyle() {
     justify-content:center;
     font-weight:bold;
     box-sizing:border-box;
+    text-align:center;
+    user-select:none;
   `;
 }
 
-function renderShanghaiConfirm(container, playerName) {
-  const modal = document.getElementById("modal");
-  if (!modal) return;
-
-  modal.innerHTML = `
-    <div style="
-      position:fixed;
-      top:0;
-      left:0;
-      width:100%;
-      height:100%;
-      background:rgba(0,0,0,0.7);
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      z-index:999;
-      padding:16px;
-      box-sizing:border-box;
-    ">
-      <div style="
-        background:#111111;
-        color:#ffffff;
-        padding:20px;
-        border-radius:10px;
-        width:90%;
-        max-width:600px;
-        max-height:90vh;
-        overflow:auto;
-        border:1px solid #ffffff;
-      ">
-        <h2 style="text-align:center;margin-top:0;color:#facc15;">🔥 SHANGHAI? 🔥</h2>
-
-        <div style="text-align:center;margin-bottom:14px;line-height:1.45;">
-          ${playerName} hit Single + Dub + Trip.<br>
-          Confirm Shanghai and end the game?
-        </div>
-
-        <div style="
-          display:grid;
-          grid-template-columns:1fr 1fr;
-          gap:10px;
-        ">
-          <div id="cancelShanghaiBtn" style="
-            ${leaderboardButtonStyle()}
-            padding:12px;
-            min-height:48px;
-          ">Cancel</div>
-
-          <div id="confirmShanghaiBtn" style="
-            ${buttonStyle()}
-            padding:12px;
-            min-height:48px;
-            border:1px solid #facc15;
-          ">Confirm</div>
-        </div>
-      </div>
-    </div>
+function playAgainButtonStyle() {
+  return `
+    ${buttonStyle()}
+    border:2px solid #facc15;
   `;
-
-  document.getElementById("cancelShanghaiBtn").onclick = () => {
-    cancelPendingShanghai();
-    modal.innerHTML = "";
-    renderUI(container);
-  };
-
-  document.getElementById("confirmShanghaiBtn").onclick = () => {
-    confirmShanghaiWinner();
-    modal.innerHTML = "";
-    renderUI(container);
-  };
-}
-
-function renderLeaderboardModal(state) {
-  const modal = document.getElementById("modal");
-  if (!modal) return;
-
-  const rankedPlayers = [...state.players].sort((a, b) => a.total - b.total);
-
-  modal.innerHTML = `
-    <div style="
-      position:fixed;
-      top:0;
-      left:0;
-      width:100%;
-      height:100%;
-      background:rgba(0,0,0,0.7);
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      z-index:999;
-      padding:16px;
-      box-sizing:border-box;
-    ">
-      <div style="
-        background:#111111;
-        color:#ffffff;
-        padding:20px;
-        border-radius:10px;
-        width:90%;
-        max-width:600px;
-        max-height:90vh;
-        overflow:auto;
-        border:1px solid #ffffff;
-      ">
-        <h2 style="text-align:center;margin-top:0;">Leaderboard</h2>
-
-        <div id="leaderboardList"></div>
-
-        <div id="closeModal" style="
-          ${buttonStyle()}
-          padding:10px;
-          min-height:44px;
-          margin-top:12px;
-        ">Close</div>
-      </div>
-    </div>
-  `;
-
-  const list = document.getElementById("leaderboardList");
-  list.innerHTML = "";
-
-  rankedPlayers.forEach((player, index) => {
-    const row = document.createElement("div");
-    row.style = `
-      margin-bottom:10px;
-      padding:10px;
-      border-radius:10px;
-      background:#1e293b;
-      border:1px solid #ffffff;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      font-weight:bold;
-    `;
-
-    row.innerHTML = `
-      <span>${index + 1}. ${player.name}</span>
-      <span>${player.total}</span>
-    `;
-
-    list.appendChild(row);
-  });
-
-  document.getElementById("closeModal").onclick = () => {
-    modal.innerHTML = "";
-  };
-}
-
-function renderEndGameConfirm(container) {
-  const modal = document.getElementById("modal");
-
-  modal.innerHTML = `
-    <div style="
-      position:fixed;
-      top:0;
-      left:0;
-      width:100%;
-      height:100%;
-      background:rgba(0,0,0,0.7);
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      z-index:999;
-    ">
-      <div style="
-        background:#111111;
-        color:#ffffff;
-        padding:20px;
-        border-radius:10px;
-        width:90%;
-        max-width:600px;
-        max-height:90vh;
-        overflow:auto;
-        border:1px solid #ffffff;
-      ">
-        <h2 style="text-align:center;margin-top:0;color:#facc15;">End Game?</h2>
-
-        <div style="text-align:center;margin-bottom:14px;">
-          Are you sure you want to end this game early?
-        </div>
-
-        <div style="
-          display:grid;
-          grid-template-columns:1fr 1fr;
-          gap:10px;
-        ">
-          <div id="cancelEndBtn" style="
-            ${leaderboardButtonStyle()}
-            padding:12px;
-            min-height:48px;
-          ">Cancel</div>
-
-          <div id="confirmEndBtn" style="
-            ${dangerButtonStyle()}
-            padding:12px;
-            min-height:48px;
-          ">End Game</div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.getElementById("cancelEndBtn").onclick = () => {
-    modal.innerHTML = "";
-  };
-
-  document.getElementById("confirmEndBtn").onclick = () => {
-    modal.innerHTML = "";
-    store.screen = "HOME";
-    store.players = [];
-    renderApp();
-  };
 }
 
 function leaderboardButtonStyle() {
@@ -282,6 +105,8 @@ function leaderboardButtonStyle() {
     justify-content:center;
     font-weight:bold;
     box-sizing:border-box;
+    text-align:center;
+    user-select:none;
   `;
 }
 
@@ -297,6 +122,8 @@ function undoButtonStyle() {
     justify-content:center;
     font-weight:bold;
     box-sizing:border-box;
+    text-align:center;
+    user-select:none;
   `;
 }
 
@@ -312,7 +139,254 @@ function dangerButtonStyle() {
     justify-content:center;
     font-weight:bold;
     box-sizing:border-box;
+    text-align:center;
+    user-select:none;
   `;
+}
+
+function attachButtonClick(el, handler) {
+  el.onclick = handler;
+  el.ontouchstart = e => {
+    e.preventDefault();
+    handler();
+  };
+}
+
+function closeModal() {
+  const modal = document.getElementById("modal");
+  if (modal) modal.innerHTML = "";
+}
+
+function pluralize(count, label) {
+  return `${count} ${label}${count === 1 ? "" : "s"}`;
+}
+
+function getFrontTotal(player) {
+  return player.scores
+    .slice(0, 9)
+    .reduce((sum, score) => sum + (score ?? 0), 0);
+}
+
+function getBackTotal(player) {
+  return player.scores
+    .slice(9, 18)
+    .reduce((sum, score) => sum + (score ?? 0), 0);
+}
+
+/* -------------------------
+   MODAL SHELLS
+--------------------------*/
+
+function renderModalShell(innerHtml) {
+  const modal = document.getElementById("modal");
+  if (!modal) return;
+
+  modal.innerHTML = `
+    <div id="overlayModal" style="
+      position:fixed;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      background:rgba(0,0,0,0.7);
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      z-index:999;
+      padding:16px;
+      box-sizing:border-box;
+    ">
+      <div id="overlayCard" style="
+        background:#111111;
+        color:#ffffff;
+        padding:20px;
+        border-radius:10px;
+        width:90%;
+        max-width:700px;
+        max-height:90vh;
+        overflow:auto;
+        border:1px solid #ffffff;
+      ">
+        ${innerHtml}
+      </div>
+    </div>
+  `;
+
+  const overlay = document.getElementById("overlayModal");
+  const card = document.getElementById("overlayCard");
+
+  overlay.onclick = e => {
+    if (e.target === overlay) {
+      closeModal();
+    }
+  };
+
+  card.onclick = e => {
+    e.stopPropagation();
+  };
+}
+
+function renderShanghaiConfirm(container, playerName) {
+  renderModalShell(`
+    <h2 style="text-align:center;margin-top:0;color:#facc15;">🔥 SHANGHAI? 🔥</h2>
+
+    <div style="text-align:center;margin-bottom:14px;line-height:1.45;">
+      ${playerName} hit Single + Dub + Trip.<br>
+      Confirm Shanghai and end the game?
+    </div>
+
+    <div style="
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    ">
+      <div id="cancelShanghaiBtn" style="
+        ${leaderboardButtonStyle()}
+        padding:12px;
+        min-height:48px;
+      ">Cancel</div>
+
+      <div id="confirmShanghaiBtn" style="
+        ${buttonStyle()}
+        padding:12px;
+        min-height:48px;
+        border:1px solid #facc15;
+      ">Confirm</div>
+    </div>
+  `);
+
+  attachButtonClick(document.getElementById("cancelShanghaiBtn"), () => {
+    cancelPendingShanghai();
+    closeModal();
+    renderUI(container);
+  });
+
+  attachButtonClick(document.getElementById("confirmShanghaiBtn"), () => {
+    confirmShanghaiWinner();
+    closeModal();
+    renderUI(container);
+  });
+}
+
+function renderEndGameConfirm(container) {
+  renderModalShell(`
+    <h2 style="text-align:center;margin-top:0;color:#facc15;">End Game?</h2>
+
+    <div style="text-align:center;margin-bottom:14px;">
+      Are you sure you want to end this game early?
+    </div>
+
+    <div style="
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    ">
+      <div id="cancelEndBtn" style="
+        ${leaderboardButtonStyle()}
+        padding:12px;
+        min-height:48px;
+      ">Cancel</div>
+
+      <div id="confirmEndBtn" style="
+        ${dangerButtonStyle()}
+        padding:12px;
+        min-height:48px;
+      ">End Game</div>
+    </div>
+  `);
+
+  attachButtonClick(document.getElementById("cancelEndBtn"), closeModal);
+
+  attachButtonClick(document.getElementById("confirmEndBtn"), () => {
+    closeModal();
+    store.screen = "HOME";
+    store.players = [];
+    renderApp();
+  });
+}
+
+/* -------------------------
+   STATS MODAL
+--------------------------*/
+
+function renderStatsModal(stats) {
+  renderModalShell(`
+    <h2 style="text-align:center;margin-top:0;">Game Stats</h2>
+    <div id="statsList"></div>
+
+    <div style="
+      display:flex;
+      justify-content:center;
+      margin-top:12px;
+    ">
+      <div id="closeStatsBtn" style="
+        ${buttonStyle()}
+        padding:10px;
+        min-height:42px;
+        width:120px;
+        border:1px solid #ff4c4c;
+      ">Close</div>
+    </div>
+  `);
+
+  const list = document.getElementById("statsList");
+  list.innerHTML = "";
+
+  stats.forEach(player => {
+    const statsData = player.stats || {};
+    const scoreLabels = statsData.scoreLabels || {};
+    const labelEntries = Object.entries(scoreLabels).sort((a, b) =>
+      a[0].localeCompare(b[0])
+    );
+
+    const scoreBreakdown = labelEntries.length
+      ? labelEntries.map(([label, count]) => `• ${pluralize(count, label)}`).join("<br>")
+      : "• No completed holes yet";
+
+    const row = document.createElement("div");
+    row.style = `
+      margin-bottom:12px;
+      padding:14px;
+      border-radius:10px;
+      background:#1e293b;
+      border:1px solid #ffffff;
+      color:#ffffff;
+    `;
+
+    row.innerHTML = `
+      <div style="
+        font-size:18px;
+        font-weight:bold;
+        margin-bottom:8px;
+        color:#facc15;
+      ">
+        ${player.name}
+      </div>
+
+      <div style="font-size:14px;line-height:1.65;">
+        • Total: ${player.total ?? player.score ?? 0}<br>
+        • Darts Thrown: ${statsData.dartsThrown || 0}<br>
+        • Misses: ${statsData.misses || 0}<br>
+        • Singles: ${statsData.singles || 0}<br>
+        • Dubs: ${statsData.doubles || 0}<br>
+        • Trips: ${statsData.triples || 0}<br>
+
+        <div style="
+          margin-top:10px;
+          color:#facc15;
+          font-weight:bold;
+        ">
+          Scoring Breakdown
+        </div>
+
+        ${scoreBreakdown}
+      </div>
+    `;
+
+    list.appendChild(row);
+  });
+
+  attachButtonClick(document.getElementById("closeStatsBtn"), closeModal);
 }
 
 /* -------------------------
@@ -337,39 +411,20 @@ export function renderUI(container) {
     return;
   }
 
-  const hitsText = formatCurrentHits(state.currentTurnHits);
-  const hitsDisplay = hitsText ? ` | Hits ${hitsText}` : "";
+  renderGame(container, state);
 
-  const previewHits = state.hammerHoles?.includes(state.currentHole)
-    ? Math.min(
-        (state.currentTurnThrows || []).reduce(
-          (sum, val, i) => sum + val * [1, 2, 3][i],
-          0
-        ),
-        9
-      )
-    : Math.min(state.turnHitsCount || 0, 9);
+  if (state.pendingShanghai) {
+    renderShanghaiConfirm(container, state.pendingShanghai);
+  }
+}
 
-  const previewScore = getPreviewScoreFromHits(previewHits);
-  const previewMeta = getMeta(previewScore);
-  const previewLabel = previewScore === 1 ? "Hole in One" : previewMeta.label;
+/* -------------------------
+   GAME SCREEN
+--------------------------*/
 
-  const previewLabelHtml =
-    state.dartsThrown > 0
-      ? `
-        <div style="
-          padding:8px 10px;
-          border-radius:10px;
-          background:rgba(255,255,255,0.08);
-          color:${previewMeta.color};
-          font-weight:bold;
-          text-align:center;
-        ">
-          ${state.players[state.currentPlayer].name}
-          (${hitsDisplay ? hitsDisplay.replace(" | ", "") + " | " : ""}${previewLabel})
-        </div>
-      `
-      : "";
+function renderGame(container, state) {
+  const player = state.players[state.currentPlayer];
+  const preview = getPreviewMeta(state);
 
   const scoreMessageHtml = state.lastScoreMessage
     ? `
@@ -384,12 +439,47 @@ export function renderUI(container) {
         ${state.lastScoreMessage}
       </div>
     `
-    : "";
+    : `<div></div>`;
 
-  const feedbackHtml = previewLabelHtml || scoreMessageHtml || `<div></div>`;
+  const specialLabel = state.hazardHoles?.includes(state.currentHole)
+    ? "Hazard Hole"
+    : state.hammerHoles?.includes(state.currentHole)
+      ? "Hammer Hole"
+      : "GolfDarts";
 
   container.innerHTML = `
-    <h2 style="text-align:center;margin-bottom:10px;">Hole ${state.currentHole + 1}</h2>
+    <div style="
+      margin-bottom:12px;
+      padding:14px;
+      border-radius:14px;
+      background:#11361a;
+      border:3px solid #facc15;
+      box-shadow:0 0 18px rgba(250,204,21,0.35);
+      color:#ffffff;
+      text-align:center;
+      font-weight:bold;
+    ">
+      <div style="
+        font-size:13px;
+        letter-spacing:0.7px;
+        color:#facc15;
+        margin-bottom:4px;
+      ">
+        ${specialLabel} • Hole ${state.currentHole + 1}
+      </div>
+
+      <div style="font-size:28px;line-height:1.1;">
+        🎯 ${player.name}
+      </div>
+
+      <div style="
+        font-size:15px;
+        margin-top:5px;
+        opacity:0.95;
+      ">
+        Dart ${Math.min(state.dartsThrown + 1, 3)}/3
+      </div>
+    </div>
 
     <div id="scorecard"></div>
 
@@ -401,26 +491,264 @@ export function renderUI(container) {
       justify-content:center;
     ">
       <div style="width:100%;">
-        ${feedbackHtml}
+        ${scoreMessageHtml}
       </div>
     </div>
 
-    <h3 style="text-align:center;margin:8px 0 12px;">
-      🎯 ${state.players[state.currentPlayer].name}
-      (Dart ${state.dartsThrown + 1}/3${hitsDisplay})
-    </h3>
-
     <div id="controls"></div>
-
+    <div id="turnSummary"></div>
+    <div id="utilityControls"></div>
     <div id="modal"></div>
   `;
 
   renderScorecard(state);
-  renderControls(container);
+  renderThrowControls(container, state);
+  renderTurnSummary(state, preview);
+  renderUtilityControls(container);
+}
 
-  if (state.pendingShanghai) {
-    renderShanghaiConfirm(container, state.pendingShanghai);
-  }
+/* -------------------------
+   CONTROLS
+--------------------------*/
+
+function renderThrowControls(container, state) {
+  const controls = document.getElementById("controls");
+  controls.innerHTML = "";
+
+  const canThrow = state.dartsThrown < 3;
+
+  const topRow = document.createElement("div");
+  topRow.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:8px;
+  `;
+
+  const topOptions = [
+    { label: "Single", value: 1 },
+    { label: "Dub", value: 2 },
+    { label: "Trip", value: 3 }
+  ];
+
+  topOptions.forEach(opt => {
+    const btn = document.createElement("div");
+    btn.innerText = opt.label;
+    btn.style = `
+      ${buttonStyle()}
+      padding:10px 8px;
+      font-size:16px;
+      min-height:44px;
+      ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
+    `;
+
+    attachButtonClick(btn, () => {
+      if (!canThrow) return;
+      recordThrow(opt.value);
+      renderUI(container);
+    });
+
+    topRow.appendChild(btn);
+  });
+
+  const middleRow = document.createElement("div");
+  middleRow.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:8px;
+  `;
+
+  const missBtn = document.createElement("div");
+  missBtn.innerText = "❌ Miss";
+  missBtn.style = `
+    ${buttonStyle()}
+    padding:8px;
+    font-size:15px;
+    min-height:40px;
+    ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
+  `;
+
+  attachButtonClick(missBtn, () => {
+    if (!canThrow) return;
+    recordThrow(0);
+    renderUI(container);
+  });
+
+  const nextBtn = document.createElement("div");
+  nextBtn.innerText = "➡️ Next Player";
+  nextBtn.style = `
+    ${buttonStyle()}
+    padding:8px;
+    font-size:15px;
+    min-height:40px;
+  `;
+
+  attachButtonClick(nextBtn, () => {
+    nextPlayer();
+    renderUI(container);
+  });
+
+  middleRow.appendChild(missBtn);
+  middleRow.appendChild(nextBtn);
+
+  controls.appendChild(topRow);
+  controls.appendChild(middleRow);
+}
+
+function renderTurnSummary(state, preview) {
+  const summary = document.getElementById("turnSummary");
+  if (!summary) return;
+
+  const throws = state.currentTurnThrows || [];
+
+  const badges = [0, 1, 2].map(index => {
+    const value = throws[index];
+    const hasThrow = value !== undefined;
+
+    const label = hasThrow
+      ? value === 0
+        ? "M"
+        : String(value)
+      : String(index + 1);
+
+    const background = !hasThrow
+      ? "rgba(255,255,255,0.08)"
+      : value === 0
+        ? "#7f1d1d"
+        : "#206a1e";
+
+    const border = hasThrow
+      ? "2px solid #facc15"
+      : "1px solid rgba(255,255,255,0.35)";
+
+    summary.dataset.test = "turn-summary";
+
+    return `
+      <span style="
+        width:34px;
+        height:34px;
+        border-radius:999px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        background:${background};
+        border:${border};
+        color:#ffffff;
+        font-weight:bold;
+        font-size:16px;
+        opacity:${hasThrow ? "1" : "0.55"};
+      ">
+        ${label}
+      </span>
+    `;
+  }).join("");
+
+  summary.innerHTML = `
+    <div style="
+      margin-top:10px;
+      padding:12px;
+      border-radius:12px;
+      background:#111111;
+      border:1px solid rgba(255,255,255,0.85);
+      color:#ffffff;
+    ">
+      <div style="
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:10px;
+        flex-wrap:wrap;
+      ">
+        <div style="
+          font-weight:bold;
+          font-size:16px;
+        ">
+          Throw Summary
+        </div>
+
+        <div style="
+          display:flex;
+          gap:8px;
+        ">
+          ${badges}
+        </div>
+      </div>
+
+      <div style="
+        margin-top:9px;
+        padding-top:9px;
+        border-top:1px solid rgba(255,255,255,0.16);
+        text-align:center;
+        font-weight:bold;
+        color:${throws.length ? preview.color : "#ffffff"};
+      ">
+        ${
+          throws.length
+            ? `${formatCurrentHits(throws)} • ${preview.label} (${preview.score > 0 ? "+" : ""}${preview.score})`
+            : "No darts thrown yet."
+        }
+      </div>
+    </div>
+  `;
+}
+
+function renderUtilityControls(container) {
+  const utilityControls = document.getElementById("utilityControls");
+  utilityControls.innerHTML = "";
+
+  const row = document.createElement("div");
+  row.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:8px;
+    margin-top:8px;
+  `;
+
+  const statsBtn = document.createElement("div");
+  statsBtn.innerText = "Stats";
+  statsBtn.style = `
+    ${leaderboardButtonStyle()}
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
+  `;
+
+  attachButtonClick(statsBtn, () => {
+    renderStatsModal(getStats());
+  });
+
+  const undoBtn = document.createElement("div");
+  undoBtn.innerText = "Undo";
+  undoBtn.style = `
+    ${undoButtonStyle()}
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
+  `;
+
+  attachButtonClick(undoBtn, () => {
+    undo();
+    renderUI(container);
+  });
+
+  const endBtn = document.createElement("div");
+  endBtn.innerText = "End";
+  endBtn.style = `
+    ${dangerButtonStyle()}
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
+  `;
+
+  attachButtonClick(endBtn, () => {
+    renderEndGameConfirm(container);
+  });
+
+  row.appendChild(statsBtn);
+  row.appendChild(undoBtn);
+  row.appendChild(endBtn);
+
+  utilityControls.appendChild(row);
 }
 
 /* -------------------------
@@ -429,7 +757,7 @@ export function renderUI(container) {
 
 function renderHazardPrompt(container, state) {
   const player = state.players[state.currentPlayer];
-  const hitsText = formatCurrentHits(state.currentTurnHits);
+  const hitsText = formatCurrentHits(state.currentTurnThrows);
   const hitsDisplay = hitsText ? ` | Hits ${hitsText}` : "";
 
   container.innerHTML = `
@@ -484,18 +812,21 @@ function renderHazardPrompt(container, state) {
       min-height:44px;
       font-size:16px;
     `;
-    btn.onclick = () => {
+
+    attachButtonClick(btn, () => {
       submitHazards(count);
       renderUI(container);
-    };
+    });
+
     hazardControls.appendChild(btn);
   });
 }
 
 function renderHammerPrompt(container, state) {
   const player = state.players[state.currentPlayer];
-  const hitsText = formatCurrentHits(state.currentTurnHits);
+  const hitsText = formatCurrentHits(state.currentTurnThrows);
   const hitsDisplay = hitsText ? ` | Hits ${hitsText}` : "";
+  const preview = getPreviewMeta(state);
 
   container.innerHTML = `
     <h2 style="text-align:center;">Hammer Hole ${state.currentHole + 1}</h2>
@@ -514,11 +845,11 @@ function renderHammerPrompt(container, state) {
           padding:8px 10px;
           border-radius:10px;
           background:rgba(255,255,255,0.08);
-          color:#ffffff;
+          color:${preview.color};
           font-weight:bold;
           text-align:center;
         ">
-          🎯 ${player.name}${hitsDisplay}
+          🎯 ${player.name}${hitsDisplay} | ${preview.label} (${preview.score > 0 ? "+" : ""}${preview.score})
         </div>
       </div>
     </div>
@@ -535,7 +866,7 @@ function renderHammerPrompt(container, state) {
   const hammerControls = document.getElementById("hammerControls");
   hammerControls.style = `
     display:grid;
-    grid-template-columns:1fr;
+    grid-template-columns:1fr 1fr;
     gap:8px;
     margin-top:8px;
   `;
@@ -548,10 +879,11 @@ function renderHammerPrompt(container, state) {
     min-height:44px;
     font-size:16px;
   `;
-  applyBtn.onclick = () => {
+
+  attachButtonClick(applyBtn, () => {
     submitHammer();
     renderUI(container);
-  };
+  });
 
   const undoBtn = document.createElement("div");
   undoBtn.innerText = "Undo";
@@ -561,162 +893,55 @@ function renderHammerPrompt(container, state) {
     min-height:44px;
     font-size:16px;
   `;
-  undoBtn.onclick = () => {
+
+  attachButtonClick(undoBtn, () => {
     undo();
     renderUI(container);
-  };
+  });
 
   hammerControls.appendChild(applyBtn);
   hammerControls.appendChild(undoBtn);
 }
 
 /* -------------------------
-   CONTROLS
---------------------------*/
-
-function renderControls(container) {
-  const state = getState();
-  const controls = document.getElementById("controls");
-  controls.innerHTML = "";
-
-  const topRow = document.createElement("div");
-  topRow.style = `
-    display:grid;
-    grid-template-columns:1fr 1fr 1fr;
-    gap:8px;
-  `;
-
-  const topOptions = [
-    { label: "Single", value: 1 },
-    { label: "Dub", value: 2 },
-    { label: "Trip", value: 3 }
-  ];
-
-  topOptions.forEach(opt => {
-    const btn = document.createElement("div");
-    btn.innerText = opt.label;
-    btn.style = `
-      ${buttonStyle()}
-      padding:10px 8px;
-      font-size:16px;
-      min-height:44px;
-    `;
-    btn.onclick = () => {
-      recordThrow(opt.value);
-      renderUI(container);
-    };
-    topRow.appendChild(btn);
-  });
-
-  const middleRow = document.createElement("div");
-  middleRow.style = `
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:8px;
-    margin-top:8px;
-  `;
-
-  const missBtn = document.createElement("div");
-  missBtn.innerText = "❌ Miss";
-  missBtn.style = `
-    ${buttonStyle()}
-    padding:8px;
-    font-size:15px;
-    min-height:40px;
-  `;
-  missBtn.onclick = () => {
-    recordThrow(0);
-    renderUI(container);
-  };
-
-  const nextBtn = document.createElement("div");
-  nextBtn.innerText = "➡️ Next Player";
-  nextBtn.style = `
-    ${buttonStyle()}
-    padding:8px;
-    font-size:15px;
-    min-height:40px;
-  `;
-  nextBtn.onclick = () => {
-    nextPlayer();
-    renderUI(container);
-  };
-
-  middleRow.appendChild(missBtn);
-  middleRow.appendChild(nextBtn);
-
-  const lowerRow = document.createElement("div");
-  lowerRow.style = `
-    display:grid;
-    grid-template-columns:1fr 1fr 1fr;
-    gap:8px;
-    margin-top:8px;
-  `;
-
-  const leaderboardBtn = document.createElement("div");
-  leaderboardBtn.innerText = "Leaderboard";
-  leaderboardBtn.style = `
-    ${leaderboardButtonStyle()}
-    padding:10px;
-    min-height:42px;
-    font-size:15px;
-  `;
-  leaderboardBtn.onclick = () => {
-    renderLeaderboardModal(getState());
-  };
-
-  const undoBtn = document.createElement("div");
-  undoBtn.innerText = "Undo";
-  undoBtn.style = `
-    ${undoButtonStyle()}
-    padding:10px;
-    min-height:42px;
-    font-size:15px;
-  `;
-  undoBtn.onclick = () => {
-    undo();
-    renderUI(container);
-  };
-
-  const endBtn = document.createElement("div");
-  endBtn.innerText = "End";
-  endBtn.style = `
-    ${dangerButtonStyle()}
-    padding:10px;
-    min-height:42px;
-    font-size:15px;
-  `;
-  endBtn.onclick = () => {
-    renderEndGameConfirm(container);
-  };
-
-  lowerRow.appendChild(leaderboardBtn);
-  lowerRow.appendChild(undoBtn);
-  lowerRow.appendChild(endBtn);
-
-  controls.appendChild(topRow);
-  controls.appendChild(middleRow);
-  controls.appendChild(lowerRow);
-}
-/* -------------------------
    SCORECARD
 --------------------------*/
 
-function renderScorecard(state) {
+function renderScorecard(state, options = {}) {
   const div = document.getElementById("scorecard");
-  const hazardHoles = state.hazardHoles || [];
-  const hammerHoles = state.hammerHoles || [];
+  if (!div) return;
+
+  if (options.showFull) {
+    div.innerHTML = `
+      <div style="
+        display:flex;
+        flex-direction:column;
+        gap:12px;
+      ">
+        ${buildScorecardTable(state, 0, 9, "Out", true)}
+        ${buildScorecardTable(state, 9, 18, "In", true)}
+      </div>
+    `;
+    return;
+  }
 
   const showingFront = state.currentHole < 9;
   const startHole = showingFront ? 0 : 9;
   const endHole = showingFront ? 9 : 18;
   const subtotalLabel = showingFront ? "Out" : "In";
 
-  let html = `<table style="
+  div.innerHTML = buildScorecardTable(state, startHole, endHole, subtotalLabel, false);
+}
+
+function buildScorecardTable(state, startHole, endHole, subtotalLabel, forceComplete = false) {
+  const hazardHoles = state.hazardHoles || [];
+  const hammerHoles = state.hammerHoles || [];
+
+  let html = `<div style="overflow-x:auto;width:100%;"><table style="
     width:100%;
-    border-collapse: collapse;
-    font-size: 12px;
-    text-align: center;
+    border-collapse:collapse;
+    font-size:12px;
+    text-align:center;
     background:#ffffff;
     color:#111111;
     border:1px solid #cfcfcf;
@@ -731,7 +956,7 @@ function renderScorecard(state) {
   "></th>`;
 
   for (let i = startHole; i < endHole; i++) {
-    const active = i === state.currentHole;
+    const active = !forceComplete && i === state.currentHole;
     const isHazard = hazardHoles.includes(i);
     const isHammer = hammerHoles.includes(i);
 
@@ -753,7 +978,7 @@ function renderScorecard(state) {
     }
 
     if (active) {
-      holeStyle += "outline:2px solid #22c55e;outline-offset:-2px;";
+      holeStyle += "outline:3px solid #facc15;outline-offset:-3px;background:#fff8d6;";
     }
 
     html += `<th style="${holeStyle}">${i + 1}</th>`;
@@ -774,16 +999,14 @@ function renderScorecard(state) {
   ">Total</th></tr>`;
 
   state.players.forEach((player, index) => {
-    const activePlayer = index === state.currentPlayer;
-    const frontTotal = player.scores
-      .slice(0, 9)
-      .reduce((sum, score) => sum + (score ?? 0), 0);
-    const backTotal = player.scores
-      .slice(9, 18)
-      .reduce((sum, score) => sum + (score ?? 0), 0);
-    const subtotal = showingFront ? frontTotal : backTotal;
+    const activePlayer = !forceComplete && index === state.currentPlayer;
+    const frontTotal = getFrontTotal(player);
+    const backTotal = getBackTotal(player);
+    const subtotal = startHole === 0 ? frontTotal : backTotal;
 
-    html += `<tr style="${activePlayer ? "background:#f7fff8;" : "background:#ffffff;"}">`;
+    html += `<tr style="
+      ${activePlayer ? "background:#fff8d6;outline:3px solid #facc15;outline-offset:-3px;" : "background:#ffffff;"}
+    ">`;
 
     html += `<td style="
       padding:6px 8px;
@@ -791,11 +1014,12 @@ function renderScorecard(state) {
       font-weight:bold;
       text-align:left;
       white-space:nowrap;
-    ">${player.name}</td>`;
+      ${activePlayer ? "background:#facc15;color:#111111;" : ""}
+    ">${activePlayer ? "▶ " : ""}${player.name}</td>`;
 
     for (let h = startHole; h < endHole; h++) {
       const score = player.scores[h];
-      const active = h === state.currentHole;
+      const active = !forceComplete && h === state.currentHole;
       const isHazard = hazardHoles.includes(h);
       const isHammer = hammerHoles.includes(h);
 
@@ -816,7 +1040,7 @@ function renderScorecard(state) {
       }
 
       if (active) {
-        cellStyle += "font-weight:bold;";
+        cellStyle += "font-weight:bold;background:#fff8d6;";
       }
 
       html += `<td style="${cellStyle}">${score ?? ""}</td>`;
@@ -839,9 +1063,9 @@ function renderScorecard(state) {
     html += "</tr>";
   });
 
-  html += "</table>";
+  html += "</table></div>";
 
-  div.innerHTML = html;
+  return html;
 }
 
 /* -------------------------
@@ -853,9 +1077,34 @@ function renderEnd(container, state) {
     ? state.shanghaiWinner
     : [...state.players].sort((a, b) => a.total - b.total)[0].name;
 
+  const stats = state.finalStats || getStats();
+
   container.innerHTML = `
-    <h2>${state.shanghaiWinner ? "🔥 SHANGHAI 🔥" : "Game Over"}</h2>
-    <h3>🏆 Winner: ${winner}</h3>
+    <div style="
+      text-align:center;
+      margin-bottom:12px;
+      padding:14px;
+      border-radius:16px;
+      background:#11361a;
+      border:2px solid #facc15;
+      box-shadow:0 0 18px rgba(250,204,21,0.28);
+    ">
+      <h2 style="
+        margin:0 0 8px;
+        text-align:center;
+      ">
+        ${state.shanghaiWinner ? "🔥 SHANGHAI 🔥" : "Game Over"}
+      </h2>
+
+      <h3 style="
+        margin:0;
+        font-size:24px;
+        color:#facc15;
+        text-align:center;
+      ">
+        🏆 Winner: ${winner} 🏆
+      </h3>
+    </div>
 
     <div id="scorecard"></div>
 
@@ -869,78 +1118,55 @@ function renderEnd(container, state) {
     <div id="modal"></div>
   `;
 
-  renderScorecard(state);
+  renderScorecard(state, { showFull: true });
 
   const controls = document.getElementById("endControls");
 
-  const leaderboardBtn = document.createElement("div");
-  leaderboardBtn.innerText = "Leaderboard";
-  leaderboardBtn.style = `
-    background:#ffffff;
-    color:#206a1e;
-    border:1px solid #000000;
-    border-radius:10px;
-    cursor:pointer;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:bold;
-    box-sizing:border-box;
+  const statsBtn = document.createElement("div");
+  statsBtn.innerText = "Stats";
+  statsBtn.style = `
+    ${leaderboardButtonStyle()}
     padding:10px;
     font-size:16px;
     min-height:44px;
   `;
-  leaderboardBtn.onclick = () => {
-    renderLeaderboardModal(state);
-  };
+
+  attachButtonClick(statsBtn, () => {
+    renderStatsModal(stats);
+  });
 
   const playAgainBtn = document.createElement("div");
   playAgainBtn.innerText = "Play Again";
   playAgainBtn.style = `
-    background:#206a1e;
-    color:#ffffff;
-    border:1px solid #ffffff;
-    border-radius:10px;
-    cursor:pointer;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:bold;
-    box-sizing:border-box;
+    ${playAgainButtonStyle()}
     padding:10px;
     font-size:16px;
     min-height:44px;
   `;
-  playAgainBtn.onclick = () => {
+
+  attachButtonClick(playAgainBtn, () => {
     const rotatedPlayers = getRotatedPlayersForReplay();
+    store.players = [...rotatedPlayers];
     initGame(rotatedPlayers);
     renderUI(container);
-  };
+  });
 
   const mainMenuBtn = document.createElement("div");
   mainMenuBtn.innerText = "Main Menu";
   mainMenuBtn.style = `
-    background:#206a1e;
-    color:#ffffff;
-    border:1px solid #ffffff;
-    border-radius:10px;
-    cursor:pointer;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:bold;
-    box-sizing:border-box;
+    ${buttonStyle()}
     padding:10px;
     font-size:16px;
     min-height:44px;
   `;
-  mainMenuBtn.onclick = () => {
+
+  attachButtonClick(mainMenuBtn, () => {
     store.screen = "HOME";
     store.players = [];
     renderApp();
-  };
+  });
 
-  controls.appendChild(leaderboardBtn);
+  controls.appendChild(statsBtn);
   controls.appendChild(playAgainBtn);
   controls.appendChild(mainMenuBtn);
 }
