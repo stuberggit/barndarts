@@ -1047,6 +1047,7 @@ export function renderSetup(container) {
     <div id="orderPreview"></div>
 
     <div id="start" style="${startButtonStyle()}">Start Game</div>
+    <div id="back" style="${lightButtonStyle()}">Back</div>
 
     <div id="modal"></div>
   `;
