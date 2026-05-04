@@ -6,7 +6,6 @@ import {
   undo,
   nextPlayer,
   submitHazards,
-  submitHammer,
   getMeta,
   initGame,
   confirmShanghaiWinner,
@@ -173,6 +172,59 @@ function getBackTotal(player) {
     .reduce((sum, score) => sum + (score ?? 0), 0);
 }
 
+function getStatsLabelEntries(scoreLabels = {}) {
+  const preferredOrder = [
+    "Buster",
+    "Quad Bogey",
+    "Triple Bogey",
+    "Double Bogey",
+    "Bogey",
+    "Barn Dart Par",
+    "Par",
+    "Birdie",
+    "Hole in One",
+    "Goose Egg",
+    "Icicle",
+    "Polar Bear",
+    "Frostbite",
+    "Snowman",
+    "Avalanche"
+  ];
+
+  return Object.entries(scoreLabels).sort((a, b) => {
+    const ai = preferredOrder.indexOf(a[0]);
+    const bi = preferredOrder.indexOf(b[0]);
+
+    if (ai === -1 && bi === -1) return a[0].localeCompare(b[0]);
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+
+    return ai - bi;
+  });
+}
+
+function renderHitBadge(number) {
+  return `
+    <span style="
+      width:26px;
+      height:26px;
+      border-radius:999px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      background:#111111;
+      color:#facc15;
+      border:2px solid #facc15;
+      font-size:14px;
+      font-weight:bold;
+      margin-right:8px;
+      flex-shrink:0;
+    ">
+      ${number}
+    </span>
+  `;
+}
+
 /* -------------------------
    MODAL SHELLS
 --------------------------*/
@@ -335,9 +387,7 @@ function renderStatsModal(stats) {
   stats.forEach(player => {
     const statsData = player.stats || {};
     const scoreLabels = statsData.scoreLabels || {};
-    const labelEntries = Object.entries(scoreLabels).sort((a, b) =>
-      a[0].localeCompare(b[0])
-    );
+    const labelEntries = getStatsLabelEntries(scoreLabels);
 
     const scoreBreakdown = labelEntries.length
       ? labelEntries.map(([label, count]) => `• ${pluralize(count, label)}`).join("<br>")
@@ -364,21 +414,6 @@ function renderStatsModal(stats) {
       </div>
 
       <div style="font-size:14px;line-height:1.65;">
-        • Total: ${player.total ?? player.score ?? 0}<br>
-        • Darts Thrown: ${statsData.dartsThrown || 0}<br>
-        • Misses: ${statsData.misses || 0}<br>
-        • Singles: ${statsData.singles || 0}<br>
-        • Dubs: ${statsData.doubles || 0}<br>
-        • Trips: ${statsData.triples || 0}<br>
-
-        <div style="
-          margin-top:10px;
-          color:#facc15;
-          font-weight:bold;
-        ">
-          Scoring Breakdown
-        </div>
-
         ${scoreBreakdown}
       </div>
     `;
@@ -403,11 +438,6 @@ export function renderUI(container) {
 
   if (state.awaitingHazardInput) {
     renderHazardPrompt(container, state);
-    return;
-  }
-
-  if (state.awaitingHammerInput) {
-    renderHammerPrompt(container, state);
     return;
   }
 
@@ -441,11 +471,11 @@ function renderGame(container, state) {
     `
     : `<div></div>`;
 
-  const specialLabel = state.hazardHoles?.includes(state.currentHole)
-    ? "Hazard Hole"
+  const topLabel = state.hazardHoles?.includes(state.currentHole)
+    ? `Hazard Hole ${state.currentHole + 1}`
     : state.hammerHoles?.includes(state.currentHole)
-      ? "Hammer Hole"
-      : "GolfDarts";
+      ? `Hammer Hole ${state.currentHole + 1}`
+      : `Hole ${state.currentHole + 1}`;
 
   container.innerHTML = `
     <div style="
@@ -465,7 +495,7 @@ function renderGame(container, state) {
         color:#facc15;
         margin-bottom:4px;
       ">
-        ${specialLabel} • Hole ${state.currentHole + 1}
+        ${topLabel}
       </div>
 
       <div style="font-size:28px;line-height:1.1;">
@@ -532,7 +562,17 @@ function renderThrowControls(container, state) {
 
   topOptions.forEach(opt => {
     const btn = document.createElement("div");
-    btn.innerText = opt.label;
+    btn.innerHTML = `
+      <span style="
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:0;
+      ">
+        ${renderHitBadge(opt.value)}
+        <span>${opt.label}</span>
+      </span>
+    `;
     btn.style = `
       ${buttonStyle()}
       padding:10px 8px;
@@ -620,8 +660,6 @@ function renderTurnSummary(state, preview) {
     const border = hasThrow
       ? "2px solid #facc15"
       : "1px solid rgba(255,255,255,0.35)";
-
-    summary.dataset.test = "turn-summary";
 
     return `
       <span style="
@@ -820,70 +858,6 @@ function renderHazardPrompt(container, state) {
 
     hazardControls.appendChild(btn);
   });
-}
-
-function renderHammerPrompt(container, state) {
-  const player = state.players[state.currentPlayer];
-  const hitsText = formatCurrentHits(state.currentTurnThrows);
-  const hitsDisplay = hitsText ? ` | Hits ${hitsText}` : "";
-  const preview = getPreviewMeta(state);
-
-  container.innerHTML = `
-    <h2 style="text-align:center;">Hammer Hole ${state.currentHole + 1}</h2>
-
-    <div id="scorecard"></div>
-
-    <div style="
-      min-height:54px;
-      margin:8px 0 12px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-    ">
-      <div style="width:100%;">
-        <div style="
-          padding:8px 10px;
-          border-radius:10px;
-          background:rgba(255,255,255,0.08);
-          color:${preview.color};
-          font-weight:bold;
-          text-align:center;
-        ">
-          🎯 ${player.name}${hitsDisplay} | ${preview.label} (${preview.score > 0 ? "+" : ""}${preview.score})
-        </div>
-      </div>
-    </div>
-
-    <p style="text-align:center;">Hammer scoring uses dart order: 1st ×1, 2nd ×2, 3rd ×3.</p>
-
-    <div id="hammerControls"></div>
-
-    <div id="modal"></div>
-  `;
-
-  renderScorecard(state);
-
-  const hammerControls = document.getElementById("hammerControls");
-  hammerControls.style = `
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:8px;
-    margin-top:8px;
-  `;
-
-  const applyBtn = document.createElement("div");
-  applyBtn.innerText = "Apply Hammer Score";
-  applyBtn.style = `
-    ${buttonStyle()}
-    padding:10px;
-    min-height:44px;
-    font-size:16px;
-  `;
-
-  attachButtonClick(applyBtn, () => {
-    submitHammer();
-    renderUI(container);
-  });
 
   const undoBtn = document.createElement("div");
   undoBtn.innerText = "Undo";
@@ -892,6 +866,7 @@ function renderHammerPrompt(container, state) {
     padding:10px;
     min-height:44px;
     font-size:16px;
+    grid-column:1 / -1;
   `;
 
   attachButtonClick(undoBtn, () => {
@@ -899,8 +874,7 @@ function renderHammerPrompt(container, state) {
     renderUI(container);
   });
 
-  hammerControls.appendChild(applyBtn);
-  hammerControls.appendChild(undoBtn);
+  hazardControls.appendChild(undoBtn);
 }
 
 /* -------------------------
@@ -956,7 +930,6 @@ function buildScorecardTable(state, startHole, endHole, subtotalLabel, forceComp
   "></th>`;
 
   for (let i = startHole; i < endHole; i++) {
-    const active = !forceComplete && i === state.currentHole;
     const isHazard = hazardHoles.includes(i);
     const isHammer = hammerHoles.includes(i);
 
@@ -975,10 +948,6 @@ function buildScorecardTable(state, startHole, endHole, subtotalLabel, forceComp
 
     if (isHammer) {
       holeStyle += "background:#eef5ff;color:#2563eb;";
-    }
-
-    if (active) {
-      holeStyle += "outline:3px solid #facc15;outline-offset:-3px;background:#fff8d6;";
     }
 
     html += `<th style="${holeStyle}">${i + 1}</th>`;
@@ -1004,9 +973,7 @@ function buildScorecardTable(state, startHole, endHole, subtotalLabel, forceComp
     const backTotal = getBackTotal(player);
     const subtotal = startHole === 0 ? frontTotal : backTotal;
 
-    html += `<tr style="
-      ${activePlayer ? "background:#fff8d6;outline:3px solid #facc15;outline-offset:-3px;" : "background:#ffffff;"}
-    ">`;
+    html += `<tr style="background:#ffffff;">`;
 
     html += `<td style="
       padding:6px 8px;
@@ -1019,7 +986,6 @@ function buildScorecardTable(state, startHole, endHole, subtotalLabel, forceComp
 
     for (let h = startHole; h < endHole; h++) {
       const score = player.scores[h];
-      const active = !forceComplete && h === state.currentHole;
       const isHazard = hazardHoles.includes(h);
       const isHammer = hammerHoles.includes(h);
 
@@ -1037,10 +1003,6 @@ function buildScorecardTable(state, startHole, endHole, subtotalLabel, forceComp
 
       if (isHammer) {
         cellStyle += "background:#eef5ff;";
-      }
-
-      if (active) {
-        cellStyle += "font-weight:bold;background:#fff8d6;";
       }
 
       html += `<td style="${cellStyle}">${score ?? ""}</td>`;
