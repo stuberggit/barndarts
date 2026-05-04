@@ -6,8 +6,7 @@ import {
   isGameOver,
   getMeta,
   initGame,
-  getRotatedPlayersForReplay,
-  confirmShanghaiWinner
+  getRotatedPlayersForReplay
 } from "./logic.js";
 import { store } from "../../core/store.js";
 import { renderApp } from "../../core/router.js";
@@ -20,9 +19,7 @@ function formatTarget(target) {
   return target === 25 ? "Bull" : String(target);
 }
 
-function formatCurrentThrows(throws = []) {
-  if (!throws.length) return "";
-
+function formatThrowValue(value) {
   const map = {
     0: "Miss",
     1: "Single",
@@ -30,7 +27,46 @@ function formatCurrentThrows(throws = []) {
     3: "Trip"
   };
 
-  return throws.map(v => map[v] || "").join(", ");
+  return map[value] || "";
+}
+
+function formatScore(score) {
+  if (score > 0) return `+${score}`;
+  return String(score);
+}
+
+function getLiveRoundScore(throws, round) {
+  if (!round || !Array.isArray(throws)) return 0;
+
+  const safeThrows = throws.slice(0, 3);
+  const allMisses = safeThrows.length === 3 && safeThrows.every(v => v === 0);
+
+  if (allMisses) {
+    const penaltyMultiplier = round.type === "bonus" ? 5 : 3;
+    return -(round.target * penaltyMultiplier);
+  }
+
+  let total = 0;
+
+  for (let i = 0; i < safeThrows.length; i++) {
+    const hitValue = Math.max(0, Math.min(3, safeThrows[i]));
+    total += round.target * hitValue * round.multipliers[i];
+  }
+
+  return total;
+}
+
+function getLiveMeta(throws, round) {
+  if (!throws.length) return { score: 0, label: "", color: "#ffffff" };
+
+  const score = getLiveRoundScore(throws, round);
+  const meta = getMeta(score);
+
+  return {
+    score,
+    label: meta.label,
+    color: meta.color
+  };
 }
 
 function buttonStyle() {
@@ -47,6 +83,7 @@ function buttonStyle() {
     box-sizing:border-box;
     text-align:center;
     user-select:none;
+    position:relative;
   `;
 }
 
@@ -153,9 +190,7 @@ function renderModalShell(innerHtml) {
   const card = document.getElementById("overlayCard");
 
   overlay.onclick = e => {
-    if (e.target === overlay) {
-      closeModal();
-    }
+    if (e.target === overlay) closeModal();
   };
 
   card.onclick = e => {
@@ -163,25 +198,43 @@ function renderModalShell(innerHtml) {
   };
 }
 
-function getLiveRoundScore(throws, round) {
-  if (!round || !Array.isArray(throws)) return 0;
+function getSelectedCount(throws, value) {
+  return (throws || []).filter(v => v === value).length;
+}
 
-  const safeThrows = throws.slice(0, 3);
-  const allMisses = safeThrows.length === 3 && safeThrows.every(v => v === 0);
+function getBadgeHtml(count) {
+  if (!count) return "";
 
-  if (allMisses) {
-    const penaltyMultiplier = round.type === "bonus" ? 5 : 3;
-    return -(round.target * penaltyMultiplier);
-  }
+  return `
+    <span style="
+      position:absolute;
+      top:5px;
+      right:7px;
+      min-width:22px;
+      height:22px;
+      padding:0 6px;
+      border-radius:999px;
+      background:#facc15;
+      color:#111111;
+      border:1px solid #111111;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:12px;
+      line-height:1;
+      font-weight:bold;
+      box-sizing:border-box;
+    ">
+      ${count === 1 ? "✓" : count}
+    </span>
+  `;
+}
 
-  let total = 0;
+function getTopTiePlayers(state) {
+  if (!state.players?.length) return [];
 
-  for (let i = 0; i < safeThrows.length; i++) {
-    const hitValue = Math.max(0, Math.min(3, safeThrows[i]));
-    total += round.target * hitValue * round.multipliers[i];
-  }
-
-  return total;
+  const highestTotal = Math.max(...state.players.map(player => player.total));
+  return state.players.filter(player => player.total === highestTotal);
 }
 
 /* -------------------------
@@ -196,21 +249,13 @@ export function renderUI(container) {
     return;
   }
 
-  renderGame(container, state);
-
-  if (state.pendingShanghai) {
-    renderShanghaiConfirm(container, state.pendingShanghai);
-  }
-}
-
-/* -------------------------
-   GAME SCREEN
---------------------------*/
-
-function renderGame(container, state) {
   const round = state.rounds[state.currentRound];
+  const currentPlayer = state.players[state.currentPlayer];
 
-  const scoreMessageHtml = state.lastScoreMessage
+  const scoreAge = Date.now() - (state.lastScoreTimestamp || 0);
+  const showScoreFlash = state.lastScoreMessage && scoreAge < 2500;
+
+  const scoreFlashHtml = showScoreFlash
     ? `
       <div style="
         padding:8px 10px;
@@ -219,25 +264,15 @@ function renderGame(container, state) {
         color:${state.lastScoreColor || "#ffffff"};
         font-weight:bold;
         text-align:center;
+        opacity:${scoreAge > 1800 ? 0.35 : 1};
+        transition:opacity 0.6s ease;
       ">
         ${state.lastScoreMessage}
       </div>
     `
-    : `<div></div>`;
+    : "";
 
-  const throwsText = formatCurrentThrows(state.currentTurnThrows);
-  const throwsDisplay = throwsText ? ` | Hits ${throwsText}` : "";
-
-  const liveScore =
-    state.dartsThrown > 0 ? getLiveRoundScore(state.currentTurnThrows, round) : null;
-
-  const liveMeta =
-    liveScore !== null ? getMeta(liveScore) : { label: "", color: "#ffffff" };
-
-  const liveLabel =
-    state.dartsThrown > 0
-      ? ` | <span style="color:${liveMeta.color};font-weight:bold;">${liveMeta.label}: ${liveScore > 0 ? "+" : ""}${liveScore}</span>`
-      : "";
+  const feedbackHtml = scoreFlashHtml || `<div></div>`;
 
   container.innerHTML = `
     <div style="text-align:center;margin-bottom:10px;">
@@ -245,16 +280,22 @@ function renderGame(container, state) {
         font-size:14px;
         opacity:0.75;
         letter-spacing:0.5px;
-      ">TARGET</div>
+      ">${state.suddenDeathActive ? "SUDDEN DEATH TARGET" : "TARGET"}</div>
 
       <div style="
         font-size:36px;
         font-weight:bold;
         line-height:1.1;
-        color:${round.type === "bonus" ? "#facc15" : round.target === 25 ? "#3b82f6" : "#ffffff"};
+        color:${round.type === "bonus" || state.suddenDeathActive ? "#facc15" : round.target === 25 ? "#3b82f6" : "#ffffff"};
       ">
         ${formatTarget(round.target)}
       </div>
+
+      ${
+        round.type === "bonus"
+          ? `<div style="font-size:13px;color:#facc15;font-weight:bold;margin-top:4px;">Bonus multipliers: ×1, ×3, ×5</div>`
+          : `<div style="font-size:13px;opacity:0.75;margin-top:4px;">Hammer multipliers: ×1, ×2, ×3</div>`
+      }
     </div>
 
     <div id="playerTiles"></div>
@@ -267,22 +308,27 @@ function renderGame(container, state) {
       justify-content:center;
     ">
       <div style="width:100%;">
-        ${scoreMessageHtml}
+        ${feedbackHtml}
       </div>
     </div>
 
     <h3 style="text-align:center;margin:8px 0 12px;">
-      🎯 ${state.players[state.currentPlayer].name}
-      (Dart ${state.dartsThrown + 1}/3${throwsDisplay}${liveLabel})
+      🎯 ${currentPlayer.name}
+      (Dart ${Math.min(state.dartsThrown + 1, 3)}/3)
     </h3>
 
     <div id="controls"></div>
-
     <div id="modal"></div>
   `;
 
   renderPlayerTiles(state);
   renderControls(container);
+
+  if (showScoreFlash) {
+    setTimeout(() => {
+      renderUI(container);
+    }, 700);
+  }
 }
 
 /* -------------------------
@@ -302,6 +348,8 @@ function renderPlayerTiles(state) {
 
   state.players.forEach((player, index) => {
     const isActive = index === state.currentPlayer;
+    const isSuddenDeathPlayer =
+      state.suddenDeathActive && state.suddenDeathPlayerIndexes?.includes(index);
 
     const tile = document.createElement("div");
     tile.style = `
@@ -313,13 +361,17 @@ function renderPlayerTiles(state) {
       justify-content:space-between;
       align-items:center;
       font-size:18px;
-      border:${isActive ? "3px solid #facc15" : "1px solid #ffffff"};
-      box-sizing:border-box;
+      border:${isActive ? "2px solid #facc15" : isSuddenDeathPlayer ? "1px solid #facc15" : "1px solid #ffffff"};
+      opacity:${state.suddenDeathActive && !isSuddenDeathPlayer ? 0.5 : 1};
+      gap:10px;
     `;
 
     tile.innerHTML = `
-      <span style="font-weight:bold;">${player.name}</span>
-      <span>${player.total}</span>
+      <span style="font-weight:bold;min-width:0;word-break:break-word;">
+        ${player.name}
+        ${isSuddenDeathPlayer ? `<span style="font-size:12px;color:#facc15;margin-left:4px;">SD</span>` : ""}
+      </span>
+      <span style="font-weight:bold;">${player.total}</span>
     `;
 
     container.appendChild(tile);
@@ -336,21 +388,18 @@ function renderControls(container) {
   controls.innerHTML = "";
 
   const round = state.rounds[state.currentRound];
+  const canThrow = state.dartsThrown < 3;
 
-  let topOptions;
-
-  if (round.target === 25) {
-    topOptions = [
-      { label: "Single Bull", value: 1 },
-      { label: "Double Bull", value: 2 }
-    ];
-  } else {
-    topOptions = [
-      { label: "Single", value: 1 },
-      { label: "Dub", value: 2 },
-      { label: "Trip", value: 3 }
-    ];
-  }
+  const topOptions = round.target === 25
+    ? [
+        { label: "Sing Bull", value: 1 },
+        { label: "Dub Bull", value: 2 }
+      ]
+    : [
+        { label: "Single", value: 1 },
+        { label: "Dub", value: 2 },
+        { label: "Trip", value: 3 }
+      ];
 
   const controlsWrap = document.createElement("div");
   controlsWrap.style = `
@@ -363,21 +412,25 @@ function renderControls(container) {
   const topRow = document.createElement("div");
   topRow.style = `
     display:grid;
-    grid-template-columns:repeat(${topOptions.length}, 1fr);
+    grid-template-columns:${round.target === 25 ? "1fr 1fr" : "1fr 1fr 1fr"};
     gap:8px;
   `;
 
   topOptions.forEach(opt => {
+    const count = getSelectedCount(state.currentTurnThrows, opt.value);
+
     const btn = document.createElement("div");
-    btn.innerText = opt.label;
+    btn.innerHTML = `${opt.label}${getBadgeHtml(count)}`;
     btn.style = `
       ${buttonStyle()}
       padding:10px 8px;
       font-size:16px;
       min-height:44px;
+      ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
     `;
 
     attachButtonClick(btn, () => {
+      if (!canThrow) return;
       recordThrow(opt.value);
       renderUI(container);
     });
@@ -393,14 +446,16 @@ function renderControls(container) {
   `;
 
   const missBtn = document.createElement("div");
-  missBtn.innerText = "❌ Miss";
+  missBtn.innerHTML = `❌ Miss${getBadgeHtml(getSelectedCount(state.currentTurnThrows, 0))}`;
   missBtn.style = `
     ${buttonStyle()}
     padding:8px;
     font-size:15px;
     min-height:40px;
+    ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
   `;
   attachButtonClick(missBtn, () => {
+    if (!canThrow) return;
     recordThrow(0);
     renderUI(container);
   });
@@ -421,6 +476,9 @@ function renderControls(container) {
   middleRow.appendChild(missBtn);
   middleRow.appendChild(nextBtn);
 
+  const summaryWrap = document.createElement("div");
+  summaryWrap.innerHTML = buildThrowSummaryHtml(state, round);
+
   const utilityRow = document.createElement("div");
   utilityRow.style = `
     display:grid;
@@ -428,25 +486,25 @@ function renderControls(container) {
     gap:8px;
   `;
 
-  const leaderboardBtn = document.createElement("div");
-  leaderboardBtn.innerText = "Leaderboard";
-  leaderboardBtn.style = `
+  const statsBtn = document.createElement("div");
+  statsBtn.innerText = "Stats";
+  statsBtn.style = `
     ${lightButtonStyle()}
-    padding:8px;
+    padding:10px;
+    min-height:42px;
     font-size:15px;
-    min-height:40px;
   `;
-  attachButtonClick(leaderboardBtn, () => {
-    renderLeaderboardModal(getState());
+  attachButtonClick(statsBtn, () => {
+    renderStatsModal(getState());
   });
 
   const undoBtn = document.createElement("div");
   undoBtn.innerText = "Undo";
   undoBtn.style = `
     ${undoButtonStyle()}
-    padding:8px;
+    padding:10px;
+    min-height:42px;
     font-size:15px;
-    min-height:40px;
   `;
   attachButtonClick(undoBtn, () => {
     undo();
@@ -457,130 +515,134 @@ function renderControls(container) {
   endBtn.innerText = "End";
   endBtn.style = `
     ${dangerButtonStyle()}
-    padding:8px;
+    padding:10px;
+    min-height:42px;
     font-size:15px;
-    min-height:40px;
   `;
   attachButtonClick(endBtn, () => {
     renderEndGameConfirm(container);
   });
 
-  utilityRow.appendChild(leaderboardBtn);
+  utilityRow.appendChild(statsBtn);
   utilityRow.appendChild(undoBtn);
   utilityRow.appendChild(endBtn);
 
   controlsWrap.appendChild(topRow);
   controlsWrap.appendChild(middleRow);
+  controlsWrap.appendChild(summaryWrap);
   controlsWrap.appendChild(utilityRow);
 
   controls.appendChild(controlsWrap);
 }
 
+function buildThrowSummaryHtml(state, round) {
+  const throws = state.currentTurnThrows || [];
+  const live = getLiveMeta(throws, round);
+
+  return `
+    <div style="
+      padding:12px;
+      border-radius:12px;
+      background:#111111;
+      border:1px solid rgba(255,255,255,0.9);
+      color:#ffffff;
+    ">
+      <div style="
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:10px;
+        margin-bottom:8px;
+        font-weight:bold;
+      ">
+        <span>Throw Summary</span>
+        <span style="color:${throws.length ? live.color : "#ffffff"};">
+          ${throws.length ? `${live.label}: ${formatScore(live.score)}` : "No darts thrown"}
+        </span>
+      </div>
+
+      <div style="
+        display:grid;
+        grid-template-columns:repeat(3, 1fr);
+        gap:8px;
+      ">
+        ${[0, 1, 2].map(index => `
+          <div style="
+            padding:8px 6px;
+            border-radius:10px;
+            background:rgba(255,255,255,0.08);
+            border:1px solid rgba(255,255,255,0.16);
+            text-align:center;
+            font-weight:bold;
+            min-height:38px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+          ">
+            Dart ${index + 1}: ${throws[index] == null ? "—" : formatThrowValue(throws[index])}
+          </div>
+        `).join("")}
+      </div>
+
+      ${
+        throws.length >= 3
+          ? `<div style="margin-top:8px;text-align:center;color:#facc15;font-weight:bold;font-size:13px;">Turn complete. Tap Next Player to score and advance.</div>`
+          : `<div style="margin-top:8px;text-align:center;opacity:0.75;font-size:13px;">Tap Next Player any time to score remaining darts as misses.</div>`
+      }
+    </div>
+  `;
+}
+
 /* -------------------------
-   MODALS
+   STATS MODAL
 --------------------------*/
 
-function renderEndGameConfirm(container) {
+function renderStatsModal(state) {
   renderModalShell(`
-    <h2 style="text-align:center;margin-top:0;color:#facc15;">End Game?</h2>
-    <div style="text-align:center;margin-bottom:14px;">
-      Are you sure you want to end this game and return to the main menu?
-    </div>
-    <div style="
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-    ">
-      <div id="cancelEndBtn" style="
-        ${lightButtonStyle()}
-        padding:12px;
-        min-height:48px;
-      ">Cancel</div>
-      <div id="confirmEndBtn" style="
-        ${dangerButtonStyle()}
-        padding:12px;
-        min-height:48px;
-      ">End Game</div>
-    </div>
-  `);
-
-  attachButtonClick(document.getElementById("cancelEndBtn"), closeModal);
-
-  attachButtonClick(document.getElementById("confirmEndBtn"), () => {
-    closeModal();
-    store.screen = "HOME";
-    store.players = [];
-    renderApp();
-  });
-}
-
-function renderShanghaiConfirm(container, playerName) {
-  renderModalShell(`
-    <h2 style="text-align:center;margin-top:0;color:#facc15;">🔥 SHANGHAI? 🔥</h2>
-    <div style="text-align:center;margin-bottom:14px;line-height:1.45;">
-      ${playerName} hit Single + Dub + Trip.<br>
-      Confirm Shanghai and end the game?
-    </div>
-    <div style="
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-    ">
-      <div id="cancelShanghaiBtn" style="
-        ${lightButtonStyle()}
-        padding:12px;
-        min-height:48px;
-      ">Cancel</div>
-      <div id="confirmShanghaiBtn" style="
-        ${buttonStyle()}
-        padding:12px;
-        min-height:48px;
-        border:1px solid #facc15;
-      ">Confirm</div>
-    </div>
-  `);
-
-  attachButtonClick(document.getElementById("cancelShanghaiBtn"), () => {
-    const state = getState();
-    state.pendingShanghai = null;
-    closeModal();
-
-    if (state.dartsThrown >= 3) {
-      nextPlayer();
-    }
-
-    renderUI(container);
-  });
-
-  attachButtonClick(document.getElementById("confirmShanghaiBtn"), () => {
-    confirmShanghaiWinner();
-    closeModal();
-    renderUI(container);
-  });
-}
-
-function renderLeaderboardModal(state) {
-  renderModalShell(`
-    <h2 style="text-align:center;margin-top:0;">Leaderboard</h2>
+    <h2 style="text-align:center;margin-top:0;">Stats</h2>
     <div id="scorecard"></div>
-    <div style="
-      display:flex;
-      justify-content:center;
+    <div id="statsList"></div>
+    <div id="closeModalBtn" style="
+      ${buttonStyle()}
+      padding:10px;
+      min-height:44px;
       margin-top:12px;
-    ">
-      <div id="closeModalBtn" style="
-        ${buttonStyle()}
-        width:110px;
-        min-height:38px;
-        font-size:15px;
-        border:1px solid #ff4c4c;
-      ">Close</div>
-    </div>
+    ">Close</div>
   `);
 
   renderScorecard(state);
+  renderStatsList(state);
 
-  attachButtonClick(document.getElementById("closeModalBtn"), closeModal);
+  const closeBtn = document.getElementById("closeModalBtn");
+  attachButtonClick(closeBtn, closeModal);
+}
+
+function renderStatsList(state) {
+  const list = document.getElementById("statsList");
+  if (!list) return;
+
+  const rankedPlayers = [...state.players].sort((a, b) => b.total - a.total);
+
+  list.innerHTML = `
+    <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">
+      ${rankedPlayers.map((player, index) => `
+        <div style="
+          padding:10px;
+          border-radius:10px;
+          background:#1e293b;
+          border:1px solid #ffffff;
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+          gap:10px;
+          font-weight:bold;
+        ">
+          <span>${index + 1}. ${player.name}</span>
+          <span>${player.total}</span>
+        </div>
+      `).join("")}
+    </div>
+  `;
 }
 
 /* -------------------------
@@ -589,12 +651,13 @@ function renderLeaderboardModal(state) {
 
 function renderScorecard(state) {
   const div = document.getElementById("scorecard");
+  if (!div) return;
 
   let html = `<table style="
     width:100%;
-    border-collapse: collapse;
-    font-size: 12px;
-    text-align: center;
+    border-collapse:collapse;
+    font-size:12px;
+    text-align:center;
     background:#ffffff;
     color:#111111;
     border:1px solid #cfcfcf;
@@ -604,11 +667,13 @@ function renderScorecard(state) {
 
   state.rounds.forEach((round, i) => {
     const active = i === state.currentRound;
+    const isSuddenDeath = round.label?.startsWith("SD ");
 
     html += `<th style="
       padding:6px 4px;
       border:1px solid #d6d6d6;
       ${active ? "outline:2px solid #22c55e;outline-offset:-2px;" : ""}
+      ${isSuddenDeath ? "background:#fef9c3;color:#111111;" : ""}
     ">
       ${round.label}
     </th>`;
@@ -618,16 +683,19 @@ function renderScorecard(state) {
 
   state.players.forEach((player, index) => {
     const activePlayer = index === state.currentPlayer;
+    const isSuddenDeathPlayer =
+      state.suddenDeathActive && state.suddenDeathPlayerIndexes?.includes(index);
 
-    html += `<tr style="${activePlayer ? "background:#f7fff8;" : "background:#ffffff;"}">`;
+    html += `<tr style="${activePlayer ? "background:#f7fff8;" : state.suddenDeathActive && !isSuddenDeathPlayer ? "background:#f3f4f6;color:#777;" : "background:#ffffff;"}">`;
 
     html += `<td style="
       padding:6px 8px;
       border:1px solid #d6d6d6;
       font-weight:bold;
       text-align:left;
+      white-space:nowrap;
     ">
-      ${player.name}
+      ${player.name}${isSuddenDeathPlayer ? " <span style='color:#b45309;'>SD</span>" : ""}
     </td>`;
 
     player.roundScores.forEach((score, i) => {
@@ -658,19 +726,75 @@ function renderScorecard(state) {
 }
 
 /* -------------------------
+   END GAME CONFIRM
+--------------------------*/
+
+function renderEndGameConfirm(container) {
+  renderModalShell(`
+    <h2 style="text-align:center;margin-top:0;color:#facc15;">End Game?</h2>
+    <div style="text-align:center;margin-bottom:14px;">
+      Are you sure you want to end this game early?
+    </div>
+    <div style="
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    ">
+      <div id="cancelEndBtn" style="
+        ${lightButtonStyle()}
+        padding:12px;
+        min-height:48px;
+      ">Cancel</div>
+      <div id="confirmEndBtn" style="
+        ${dangerButtonStyle()}
+        padding:12px;
+        min-height:48px;
+      ">End Game</div>
+    </div>
+  `);
+
+  const cancelBtn = document.getElementById("cancelEndBtn");
+  const confirmBtn = document.getElementById("confirmEndBtn");
+
+  attachButtonClick(cancelBtn, closeModal);
+
+  attachButtonClick(confirmBtn, () => {
+    closeModal();
+    store.screen = "HOME";
+    store.players = [];
+    renderApp();
+  });
+}
+
+/* -------------------------
    END GAME
 --------------------------*/
 
 function renderEnd(container, state) {
+  const tiedPlayers = getTopTiePlayers(state);
+  const isTie = !state.shanghaiWinner && tiedPlayers.length > 1;
+
   const winner = state.shanghaiWinner
     ? state.shanghaiWinner
-    : [...state.players].sort((a, b) => b.total - a.total)[0].name;
+    : isTie
+      ? null
+      : [...state.players].sort((a, b) => b.total - a.total)[0]?.name;
 
   container.innerHTML = `
-    <h2 style="text-align:center;">
-      ${state.shanghaiWinner ? "🔥 SHANGHAI 🔥" : "Game Over"}
-    </h2>
-    <h3 style="text-align:center;">🏆 Winner: ${winner}</h3>
+    <h2 style="text-align:center;">${state.shanghaiWinner ? "🔥 SHANGHAI 🔥" : "Game Over"}</h2>
+    <h3 style="text-align:center;">
+      ${
+        isTie
+          ? `🤝 Tie Game: ${tiedPlayers.map(player => player.name).join(" and ")}`
+          : `🏆 Winner: ${winner}`
+      }
+    </h3>
+
+    ${
+      isTie
+        ? `<div style="text-align:center;color:#facc15;font-weight:bold;margin-bottom:10px;">No winner declared.</div>`
+        : ""
+    }
 
     <div id="scorecard"></div>
 
@@ -687,6 +811,18 @@ function renderEnd(container, state) {
   renderScorecard(state);
 
   const controls = document.getElementById("endControls");
+
+  const statsBtn = document.createElement("div");
+  statsBtn.innerText = "Stats";
+  statsBtn.style = `
+    ${lightButtonStyle()}
+    padding:10px;
+    font-size:16px;
+    min-height:44px;
+  `;
+  attachButtonClick(statsBtn, () => {
+    renderStatsModal(state);
+  });
 
   const playAgainBtn = document.createElement("div");
   playAgainBtn.innerText = "Play Again";
@@ -716,6 +852,7 @@ function renderEnd(container, state) {
     renderApp();
   });
 
+  controls.appendChild(statsBtn);
   controls.appendChild(playAgainBtn);
   controls.appendChild(mainMenuBtn);
 }
