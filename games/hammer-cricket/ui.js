@@ -225,7 +225,7 @@ function getBadgeHtml(count) {
       font-weight:bold;
       box-sizing:border-box;
     ">
-      ${count === 1 ? "✓" : count}
+      ${count}
     </span>
   `;
 }
@@ -290,12 +290,6 @@ export function renderUI(container) {
       ">
         ${formatTarget(round.target)}
       </div>
-
-      ${
-        round.type === "bonus"
-          ? `<div style="font-size:13px;color:#facc15;font-weight:bold;margin-top:4px;">Bonus multipliers: ×1, ×3, ×5</div>`
-          : `<div style="font-size:13px;opacity:0.75;margin-top:4px;">Hammer multipliers: ×1, ×2, ×3</div>`
-      }
     </div>
 
     <div id="playerTiles"></div>
@@ -541,53 +535,84 @@ function buildThrowSummaryHtml(state, round) {
 
   return `
     <div style="
+      margin-top:4px;
       padding:12px;
       border-radius:12px;
       background:#111111;
-      border:1px solid rgba(255,255,255,0.9);
+      border:1px solid #ffffff;
       color:#ffffff;
     ">
       <div style="
-        display:flex;
-        justify-content:space-between;
-        align-items:center;
-        gap:10px;
-        margin-bottom:8px;
+        text-align:center;
+        font-size:18px;
         font-weight:bold;
+        margin-bottom:10px;
       ">
-        <span>Throw Summary</span>
-        <span style="color:${throws.length ? live.color : "#ffffff"};">
-          ${throws.length ? `${live.label}: ${formatScore(live.score)}` : "No darts thrown"}
-        </span>
-      </div>
-
-      <div style="
-        display:grid;
-        grid-template-columns:repeat(3, 1fr);
-        gap:8px;
-      ">
-        ${[0, 1, 2].map(index => `
-          <div style="
-            padding:8px 6px;
-            border-radius:10px;
-            background:rgba(255,255,255,0.08);
-            border:1px solid rgba(255,255,255,0.16);
-            text-align:center;
-            font-weight:bold;
-            min-height:38px;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-          ">
-            Dart ${index + 1}: ${throws[index] == null ? "—" : formatThrowValue(throws[index])}
-          </div>
-        `).join("")}
+        Turn
       </div>
 
       ${
+        throws.length === 0
+          ? `
+            <div style="text-align:center;opacity:0.85;font-weight:bold;">
+              No darts thrown.
+            </div>
+          `
+          : throws.map((throwValue, index) => `
+            <div style="
+              display:flex;
+              justify-content:space-between;
+              align-items:center;
+              gap:10px;
+              padding:8px 0;
+              border-top:${index === 0 ? "none" : "1px solid rgba(255,255,255,0.2)"};
+              font-weight:bold;
+            ">
+              <div>Dart ${index + 1}: ${formatThrowValue(throwValue)}</div>
+              <div style="color:#facc15;">
+                ${round.target === 25 ? "Bull" : round.target}
+                × ${round.multipliers[index]}
+              </div>
+            </div>
+          `).join("")
+      }
+
+      ${
+        throws.length > 0
+          ? `
+            <div style="
+              margin-top:10px;
+              padding-top:10px;
+              border-top:1px solid rgba(255,255,255,0.2);
+              display:flex;
+              justify-content:space-between;
+              align-items:center;
+              gap:10px;
+              font-weight:bold;
+            ">
+              <div>Live Score</div>
+              <div style="color:${live.color};">
+                ${live.label}: ${formatScore(live.score)}
+              </div>
+            </div>
+          `
+          : ""
+      }
+
+      ${
         throws.length >= 3
-          ? `<div style="margin-top:8px;text-align:center;color:#facc15;font-weight:bold;font-size:13px;">Turn complete. Tap Next Player to score and advance.</div>`
-          : `<div style="margin-top:8px;text-align:center;opacity:0.75;font-size:13px;">Tap Next Player any time to score remaining darts as misses.</div>`
+          ? `
+            <div style="
+              margin-top:8px;
+              text-align:center;
+              color:#facc15;
+              font-weight:bold;
+              font-size:13px;
+            ">
+              Turn complete. Tap Next Player to score and advance.
+            </div>
+          `
+          : ""
       }
     </div>
   `;
