@@ -24,7 +24,7 @@ const gameMap = {
   "cricket-standard": CricketStandard,
   "cricket-no-score": CricketNoScore,
   "gotcha": Gotcha,
-  "battleDarts": BattleDarts
+  "battledarts": BattleDarts
 };
 
 const gameDisplayNames = {
