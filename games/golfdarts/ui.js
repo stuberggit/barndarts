@@ -55,6 +55,38 @@ function getLiveHits(state) {
   return Math.min(state.turnHitsCount || 0, 9);
 }
 
+function getHitCountForValue(state, value) {
+  return (state.currentTurnThrows || []).filter(hit => hit === value).length;
+}
+
+function renderHitCountBadge(count) {
+  if (!count) return "";
+
+  return `
+    <span style="
+      position:absolute;
+      top:5px;
+      right:7px;
+      min-width:22px;
+      height:22px;
+      padding:0 6px;
+      border-radius:999px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#facc15;
+      color:#111111;
+      border:1px solid #111111;
+      font-size:13px;
+      font-weight:bold;
+      line-height:1;
+      box-sizing:border-box;
+    ">
+      ${count}
+    </span>
+  `;
+}
+
 function getPreviewMeta(state) {
   const previewHits = getLiveHits(state);
   const previewScore = getPreviewScoreFromHits(previewHits);
@@ -201,28 +233,6 @@ function getStatsLabelEntries(scoreLabels = {}) {
 
     return ai - bi;
   });
-}
-
-function renderHitBadge(number) {
-  return `
-    <span style="
-      width:26px;
-      height:26px;
-      border-radius:999px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      background:#111111;
-      color:#facc15;
-      border:2px solid #facc15;
-      font-size:14px;
-      font-weight:bold;
-      margin-right:8px;
-      flex-shrink:0;
-    ">
-      ${number}
-    </span>
-  `;
 }
 
 /* -------------------------
@@ -561,20 +571,17 @@ function renderThrowControls(container, state) {
   ];
 
   topOptions.forEach(opt => {
+    const count = getHitCountForValue(state, opt.value);
+
     const btn = document.createElement("div");
     btn.innerHTML = `
-      <span style="
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        gap:0;
-      ">
-        ${renderHitBadge(opt.value)}
-        <span>${opt.label}</span>
-      </span>
+      <span>${opt.label}</span>
+      ${renderHitCountBadge(count)}
     `;
+
     btn.style = `
       ${buttonStyle()}
+      position:relative;
       padding:10px 8px;
       font-size:16px;
       min-height:44px;
