@@ -16,7 +16,16 @@ export function initGame(players) {
     players: playerNames.map(name => ({
       name,
       scores: Array(18).fill(null),
-      total: 0
+      total: 0,
+      stats: {
+        turnsTaken: 0,
+        dartsThrown: 0,
+        misses: 0,
+        singles: 0,
+        doubles: 0,
+        triples: 0,
+        scoreLabels: {}
+      }
     })),
 
     currentHole: 0,
@@ -54,6 +63,10 @@ export function getState() {
   return gameState;
 }
 
+export function getStats() {
+  return buildStatsSummary();
+}
+
 function cloneState(state) {
   return JSON.parse(JSON.stringify(state));
 }
@@ -64,12 +77,59 @@ function normalizePlayerName(player, index) {
   return `Player ${index + 1}`;
 }
 
+function ensureStats(player) {
+  if (!player.stats) {
+    player.stats = {
+      turnsTaken: 0,
+      dartsThrown: 0,
+      misses: 0,
+      singles: 0,
+      doubles: 0,
+      triples: 0,
+      scoreLabels: {}
+    };
+  }
+
+  if (!player.stats.scoreLabels) {
+    player.stats.scoreLabels = {};
+  }
+
+  return player.stats;
+}
+
+function recordDartStats(player, hitValue) {
+  const stats = ensureStats(player);
+
+  stats.dartsThrown++;
+
+  if (hitValue === 0) stats.misses++;
+  if (hitValue === 1) stats.singles++;
+  if (hitValue === 2) stats.doubles++;
+  if (hitValue === 3) stats.triples++;
+}
+
+function fillUnthrownDartsAsMisses(player) {
+  while (gameState.currentTurnThrows.length < 3) {
+    gameState.currentTurnThrows.push(0);
+    recordDartStats(player, 0);
+  }
+}
+
+function recordScoreLabel(player, scoreLabel) {
+  const stats = ensureStats(player);
+
+  stats.turnsTaken++;
+  stats.scoreLabels[scoreLabel] = (stats.scoreLabels[scoreLabel] || 0) + 1;
+}
+
 function buildStatsSummary() {
   return gameState.players.map(player => ({
     name: player.name,
     score: player.total,
+    total: player.total,
     scores: [...player.scores],
-    result: player.name === getWinnerName() ? "winner" : "played"
+    result: player.name === getWinnerName() ? "winner" : "played",
+    stats: JSON.parse(JSON.stringify(ensureStats(player)))
   }));
 }
 
@@ -88,6 +148,7 @@ function saveGolfDartsHistory() {
 
   const players = gameState.players.map((player, index) => {
     const profile = selectedProfiles[index] || {};
+    const stats = ensureStats(player);
 
     return {
       id: profile.id || null,
@@ -98,7 +159,14 @@ function saveGolfDartsHistory() {
       scores: [...player.scores],
       stats: {
         total: player.total,
-        shanghai: gameState.shanghaiWinner === player.name
+        shanghai: gameState.shanghaiWinner === player.name,
+        turnsTaken: stats.turnsTaken || 0,
+        dartsThrown: stats.dartsThrown || 0,
+        misses: stats.misses || 0,
+        singles: stats.singles || 0,
+        doubles: stats.doubles || 0,
+        triples: stats.triples || 0,
+        scoreLabels: { ...(stats.scoreLabels || {}) }
       }
     };
   });
@@ -132,14 +200,15 @@ export function recordThrow(hitValue) {
   if (
     gameState.currentHole >= 18 ||
     gameState.shanghaiWinner ||
-    gameState.pendingShanghai
+    gameState.pendingShanghai ||
+    gameState.awaitingHazardInput ||
+    gameState.awaitingHammerInput ||
+    gameState.dartsThrown >= 3
   ) {
     return;
   }
 
   history.push(cloneState(gameState));
-
-  if (gameState.awaitingHazardInput || gameState.awaitingHammerInput) return;
 
   const player = gameState.players[gameState.currentPlayer];
   const safeHitValue = Math.max(0, Math.min(3, hitValue));
@@ -147,6 +216,8 @@ export function recordThrow(hitValue) {
   gameState.turnHitsCount += safeHitValue;
   gameState.dartsThrown++;
   gameState.currentTurnThrows.push(safeHitValue);
+
+  recordDartStats(player, safeHitValue);
 
   if (safeHitValue > 0) {
     gameState.currentTurnHits.push(safeHitValue);
@@ -157,23 +228,12 @@ export function recordThrow(hitValue) {
     return;
   }
 
-  if (gameState.dartsThrown === 3) {
-    const hole = gameState.currentHole;
-    const isHazard = gameState.hazardHoles.includes(hole);
-    const isHammer = gameState.hammerHoles.includes(hole);
-
-    if (isHazard) {
-      gameState.awaitingHazardInput = true;
-      return;
-    }
-
-    if (isHammer) {
-      finalizeTurn(0, true);
-      return;
-    }
-
-    finalizeTurn(0, false);
-  }
+  /*
+    Important:
+    Do not auto-advance or finalize after dart 3.
+    The player must press Next Player.
+    This keeps GolfDarts consistent with the other Barndarts games.
+  */
 }
 
 export function getBaseFromHits(hits) {
@@ -245,7 +305,6 @@ export function getMeta(score) {
   };
 }
 
-
 function generateHazardHoles() {
   const frontNine = shuffle([0, 1, 2, 3, 4, 5, 6, 7, 8]).slice(0, 2);
   const backNine = shuffle([9, 10, 11, 12, 13, 14, 15, 16, 17]).slice(0, 2);
@@ -254,15 +313,20 @@ function generateHazardHoles() {
 
 function shuffle(array) {
   const copy = [...array];
+
   for (let i = copy.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
+
   return copy;
 }
 
 function finalizeTurn(hazards = 0, isHammer = false) {
   const player = gameState.players[gameState.currentPlayer];
+  if (!player || gameState.currentHole >= 18) return;
+
+  fillUnthrownDartsAsMisses(player);
 
   let hits;
 
@@ -279,6 +343,8 @@ function finalizeTurn(hazards = 0, isHammer = false) {
 
   player.scores[gameState.currentHole] = score;
   player.total += score;
+
+  recordScoreLabel(player, scoreLabel);
 
   gameState.lastScoreMessage = `${player.name} scores ${scoreLabel}!`;
   gameState.lastScoreColor = meta.color || "#ffffff";
@@ -310,8 +376,12 @@ function finalizeTurn(hazards = 0, isHammer = false) {
 }
 
 function generateHammerHoles(hazardHoles) {
-  const frontNine = [0,1,2,3,4,5,6,7,8].filter(h => !hazardHoles.includes(h));
-  const backNine = [9,10,11,12,13,14,15,16,17].filter(h => !hazardHoles.includes(h));
+  const frontNine = [0, 1, 2, 3, 4, 5, 6, 7, 8].filter(
+    h => !hazardHoles.includes(h)
+  );
+  const backNine = [9, 10, 11, 12, 13, 14, 15, 16, 17].filter(
+    h => !hazardHoles.includes(h)
+  );
 
   const frontHammer = shuffle(frontNine)[0];
   const backHammer = shuffle(backNine)[0];
@@ -320,18 +390,18 @@ function generateHammerHoles(hazardHoles) {
 }
 
 export function submitHazards(hazardCount) {
-  history.push(cloneState(gameState));
-
   if (!gameState.awaitingHazardInput) return;
+
+  history.push(cloneState(gameState));
 
   const safeHazards = Math.max(0, Math.min(3, hazardCount));
   finalizeTurn(safeHazards);
 }
 
 export function submitHammer() {
-  history.push(cloneState(gameState));
-
   if (!gameState.awaitingHammerInput) return;
+
+  history.push(cloneState(gameState));
 
   finalizeTurn(0, true);
 }
@@ -381,7 +451,9 @@ export function nextPlayer() {
   }
 
   if (isHammerHole) {
-    finalizeTurn(0, true);
+    gameState.awaitingHammerInput = true;
+    gameState.pendingTurnPlayerIndex = gameState.currentPlayer;
+    gameState.pendingTurnHole = gameState.currentHole;
     return;
   }
 
@@ -390,6 +462,8 @@ export function nextPlayer() {
 
 export function confirmShanghaiWinner() {
   if (!gameState.pendingShanghai || gameState.shanghaiWinner) return;
+
+  history.push(cloneState(gameState));
 
   gameState.shanghaiWinner = gameState.pendingShanghai;
   gameState.pendingShanghai = null;
@@ -404,25 +478,17 @@ export function confirmShanghaiWinner() {
 export function cancelPendingShanghai() {
   if (!gameState.pendingShanghai || gameState.shanghaiWinner) return;
 
+  history.push(cloneState(gameState));
+
   gameState.pendingShanghai = null;
+  gameState.lastScoreMessage = "Shanghai canceled. Continue the turn.";
+  gameState.lastScoreColor = "#facc15";
+  gameState.lastScoreTimestamp = Date.now();
 
-  if (gameState.dartsThrown >= 3) {
-    const hole = gameState.currentHole;
-    const isHazard = gameState.hazardHoles.includes(hole);
-    const isHammer = gameState.hammerHoles.includes(hole);
-
-    if (isHazard) {
-      gameState.awaitingHazardInput = true;
-      return;
-    }
-
-    if (isHammer) {
-      finalizeTurn(0, true);
-      return;
-    }
-
-    finalizeTurn(0, false);
-  }
+  /*
+    Do not auto-finalize after canceling Shanghai.
+    If this was the third dart, the player still needs to press Next Player.
+  */
 }
 
 export function isGameOver() {
