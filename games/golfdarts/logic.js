@@ -115,6 +115,24 @@ function fillUnthrownDartsAsMisses(player) {
   }
 }
 
+function getScoreLabel(score, hazards = 0, isHammer = false) {
+  const meta = getMeta(score);
+  let scoreLabel = score === 1 ? "Hole in One" : meta.label;
+
+  const isBarnDartPar =
+    !isHammer &&
+    hazards === 0 &&
+    score === 3 &&
+    gameState.turnHitsCount === 1 &&
+    gameState.currentTurnThrows[2] === 1;
+
+  if (isBarnDartPar) {
+    scoreLabel = "Barn Dart Par";
+  }
+
+  return scoreLabel;
+}
+
 function recordScoreLabel(player, scoreLabel) {
   const stats = ensureStats(player);
 
@@ -225,15 +243,7 @@ export function recordThrow(hitValue) {
 
   if (checkShanghai(gameState.currentTurnHits)) {
     gameState.pendingShanghai = player.name;
-    return;
   }
-
-  /*
-    Important:
-    Do not auto-advance or finalize after dart 3.
-    The player must press Next Player.
-    This keeps GolfDarts consistent with the other Barndarts games.
-  */
 }
 
 export function getBaseFromHits(hits) {
@@ -338,8 +348,7 @@ function finalizeTurn(hazards = 0, isHammer = false) {
 
   const score = getFinalScore(hits, hazards);
   const meta = getMeta(score);
-
-  const scoreLabel = score === 1 ? "Hole in One" : meta.label;
+  const scoreLabel = getScoreLabel(score, hazards, isHammer);
 
   player.scores[gameState.currentHole] = score;
   player.total += score;
@@ -399,11 +408,10 @@ export function submitHazards(hazardCount) {
 }
 
 export function submitHammer() {
-  if (!gameState.awaitingHammerInput) return;
-
-  history.push(cloneState(gameState));
-
-  finalizeTurn(0, true);
+  if (gameState.awaitingHammerInput) {
+    history.push(cloneState(gameState));
+    finalizeTurn(0, true);
+  }
 }
 
 function getHammerHitsFromThrows(throws) {
@@ -450,14 +458,7 @@ export function nextPlayer() {
     return;
   }
 
-  if (isHammerHole) {
-    gameState.awaitingHammerInput = true;
-    gameState.pendingTurnPlayerIndex = gameState.currentPlayer;
-    gameState.pendingTurnHole = gameState.currentHole;
-    return;
-  }
-
-  finalizeTurn(0, false);
+  finalizeTurn(0, isHammerHole);
 }
 
 export function confirmShanghaiWinner() {
@@ -484,11 +485,6 @@ export function cancelPendingShanghai() {
   gameState.lastScoreMessage = "Shanghai canceled. Continue the turn.";
   gameState.lastScoreColor = "#facc15";
   gameState.lastScoreTimestamp = Date.now();
-
-  /*
-    Do not auto-finalize after canceling Shanghai.
-    If this was the third dart, the player still needs to press Next Player.
-  */
 }
 
 export function isGameOver() {
