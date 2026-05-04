@@ -619,7 +619,7 @@ const gameRules = {
       }
     ]
   }
-};
+},
 
 "battledarts": {
   title: "BattleDarts",
@@ -709,7 +709,7 @@ const gameRules = {
       ]
     }
   ]
-},
+};
 
 function loadProfiles() {
   try {
