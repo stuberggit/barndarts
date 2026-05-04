@@ -13,11 +13,16 @@ import {
   endGameEarly,
   undo,
   isGameOver,
-  initGame,
-  getRotatedPlayersForReplay
+  initGame
 } from "./logic.js";
 import { store } from "../../core/store.js";
 import { renderApp } from "../../core/router.js";
+
+/* -------------------------
+   UI STATE
+--------------------------*/
+
+const revealedTeams = new Set();
 
 /* -------------------------
    HELPERS
@@ -202,10 +207,6 @@ function getRemainingShips(team) {
   return team.ships.filter(ship => ship.lives > 0).length;
 }
 
-function getRemainingLives(team) {
-  return team.ships.reduce((sum, ship) => sum + Math.max(0, ship.lives), 0);
-}
-
 function rotatePlayers(players) {
   if (!players || players.length <= 1) return [...(players || [])];
   return [...players.slice(1), players[0]];
@@ -222,6 +223,13 @@ function getSetupShipPreview(team, hitType) {
         : 0;
 
   return base + bonus;
+}
+
+function getShipTileWidth(shipCount) {
+  if (shipCount <= 3) return "31%";
+  if (shipCount === 4) return "23.5%";
+  if (shipCount === 5) return "18.5%";
+  return "15.25%";
 }
 
 /* -------------------------
@@ -358,6 +366,7 @@ function renderModeSelect(container, state) {
 
     attachButtonClick(card, () => {
       if (disabled) return;
+      revealedTeams.clear();
       startMode(mode.id);
       renderUI(container);
     });
@@ -389,7 +398,7 @@ function renderSetup(container, state) {
 
     <div style="
       margin-bottom:12px;
-      padding:14px;
+      padding:12px;
       border-radius:12px;
       background:#111111;
       border:2px solid ${team.color};
@@ -397,7 +406,7 @@ function renderSetup(container, state) {
       text-align:center;
       font-weight:bold;
     ">
-      <div style="font-size:18px;margin-bottom:4px;">${getTeamPlayersText(team)}</div>
+      <div style="font-size:17px;margin-bottom:4px;">${getTeamPlayersText(team)}</div>
       <div style="font-size:14px;color:#facc15;">
         Ship ${Math.min(team.ships.length + 1, maxShips)}/${maxShips}
       </div>
@@ -540,15 +549,17 @@ function renderFleetList(team, hidden) {
 
   const wrap = document.createElement("div");
   wrap.style = `
-    display:grid;
-    grid-template-columns:1fr;
-    gap:8px;
+    display:flex;
+    flex-wrap:nowrap;
+    gap:6px;
+    width:100%;
+    overflow:hidden;
   `;
 
   if (!team.ships.length) {
     const empty = document.createElement("div");
     empty.style = `
-      padding:12px;
+      padding:10px;
       border-radius:12px;
       background:#111111;
       border:1px solid rgba(255,255,255,0.35);
@@ -556,52 +567,51 @@ function renderFleetList(team, hidden) {
       text-align:center;
       font-weight:bold;
       opacity:0.85;
+      width:100%;
+      box-sizing:border-box;
     `;
     empty.innerText = hidden ? "Fleet Hidden" : "No ships placed yet.";
     wrap.appendChild(empty);
   }
+
+  const tileWidth = getShipTileWidth(team.ships.length || 1);
 
   team.ships.forEach(ship => {
     const isSunk = ship.lives <= 0;
 
     const row = document.createElement("div");
     row.style = `
-      padding:12px;
-      border-radius:12px;
+      padding:8px 6px;
+      border-radius:10px;
       background:${isSunk ? "#1f2937" : "#111111"};
       border:${isSunk ? "1px solid #6b7280" : "1px solid #ffffff"};
       color:#ffffff;
       display:flex;
-      justify-content:space-between;
+      flex-direction:column;
+      justify-content:center;
       align-items:center;
-      gap:10px;
+      gap:2px;
       font-weight:bold;
       opacity:${isSunk ? 0.7 : 1};
+      width:${tileWidth};
+      min-width:0;
+      box-sizing:border-box;
+      text-align:center;
     `;
 
     row.innerHTML = hidden
       ? `
-        <div>🚢 Hidden Ship</div>
-        <div style="color:${isSunk ? "#ff4c4c" : "#facc15"};">
-          ${isSunk ? "Sunk" : "Afloat"}
+        <div style="font-size:14px;white-space:nowrap;">🚢 Hidden</div>
+        <div style="font-size:11px;color:${isSunk ? "#ff4c4c" : "#facc15"};">
+          ${isSunk ? "Sunk" : "Known"}
         </div>
       `
       : `
-        <div>
-          <div style="font-size:18px;">
-            ${isSunk ? "💥" : "🚢"} ${formatTarget(ship.target)}
-          </div>
-          <div style="font-size:12px;opacity:0.8;margin-top:2px;">
-            ${formatHitType(ship.hitType)} setup · Ship ${ship.order}
-          </div>
+        <div style="font-size:16px;white-space:nowrap;">
+          ${isSunk ? "💥" : "🚢"} ${formatTarget(ship.target)}
         </div>
-        <div style="text-align:right;">
-          <div style="font-size:18px;color:${isSunk ? "#ff4c4c" : "#facc15"};">
-            ${ship.lives}/${ship.originalLives}
-          </div>
-          <div style="font-size:12px;opacity:0.8;">
-            ${isSunk ? "Sunk" : "Lives"}
-          </div>
+        <div style="font-size:11px;color:${isSunk ? "#ff4c4c" : "#facc15"};">
+          ${ship.lives}/${ship.originalLives}
         </div>
       `;
 
@@ -715,6 +725,7 @@ function renderSetupComplete(container, state) {
   });
 
   attachButtonClick(document.getElementById("startBattleBtn"), () => {
+    revealedTeams.clear();
     startGameplay();
     renderUI(container);
   });
@@ -731,8 +742,8 @@ function renderGame(container, state) {
   container.innerHTML = `
     <div style="
       text-align:center;
-      margin-bottom:12px;
-      font-size:24px;
+      margin-bottom:10px;
+      font-size:22px;
       font-weight:bold;
       color:${team.color};
     ">
@@ -740,8 +751,8 @@ function renderGame(container, state) {
     </div>
 
     <div style="
-      margin-bottom:12px;
-      padding:14px;
+      margin-bottom:10px;
+      padding:11px 12px;
       border-radius:12px;
       background:#11361a;
       border:2px solid #f0970a;
@@ -749,19 +760,17 @@ function renderGame(container, state) {
       text-align:center;
       font-weight:bold;
     ">
-      <div style="font-size:22px;margin-bottom:4px;">
+      <div style="font-size:20px;margin-bottom:2px;">
         ${getTeamPlayersText(team)}
       </div>
-      <div style="font-size:16px;color:#facc15;">
+      <div style="font-size:15px;color:#facc15;">
         Dart ${state.throwsThisTurn + 1}/3
       </div>
     </div>
 
-    <div id="teamStatusGrid"></div>
-
     <div style="
-      min-height:54px;
-      margin:12px 0;
+      min-height:48px;
+      margin:8px 0 10px;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -771,32 +780,35 @@ function renderGame(container, state) {
       </div>
     </div>
 
-    <div id="turnSummary"></div>
+    <div id="teamStatusGrid"></div>
+
     <div id="controls"></div>
     <div id="modal"></div>
   `;
 
-  renderTeamStatusGrid(state);
-  renderTurnSummary(state);
+  renderTeamStatusGrid(container, state);
   renderGameControls(container, state);
 }
 
-function renderTeamStatusGrid(state) {
+function renderTeamStatusGrid(container, state) {
   const grid = document.getElementById("teamStatusGrid");
   grid.innerHTML = "";
   grid.style = `
     display:grid;
     grid-template-columns:1fr;
-    gap:10px;
+    gap:8px;
+    margin-bottom:10px;
   `;
 
   state.teams.forEach((team, index) => {
     const isCurrent = index === state.currentTeamIndex;
     const eliminated = isTeamEliminated(team);
+    const activeFleetRevealed = revealedTeams.has(index);
+    const visible = isCurrent && activeFleetRevealed;
 
     const card = document.createElement("div");
     card.style = `
-      padding:12px;
+      padding:9px 10px;
       border-radius:12px;
       background:${isCurrent ? "#11361a" : "#111111"};
       border:${isCurrent ? "2px solid #facc15" : eliminated ? "1px solid #6b7280" : `1px solid ${team.color}`};
@@ -809,124 +821,149 @@ function renderTeamStatusGrid(state) {
         display:flex;
         justify-content:space-between;
         align-items:center;
-        gap:10px;
-        margin-bottom:8px;
+        gap:8px;
+        margin-bottom:7px;
         font-weight:bold;
       ">
-        <div>
-          <div style="font-size:18px;color:${team.color};">${team.name}</div>
-          <div style="font-size:12px;opacity:0.85;">${getTeamPlayersText(team)}</div>
+        <div style="min-width:0;">
+          <div style="font-size:16px;color:${team.color};line-height:1.15;">
+            ${team.name}
+          </div>
+          <div style="
+            font-size:11px;
+            opacity:0.85;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+          ">
+            ${getTeamPlayersText(team)}
+          </div>
         </div>
-        <div style="text-align:right;">
-          <div style="font-size:16px;color:${eliminated ? "#ff4c4c" : "#facc15"};">
-            ${eliminated ? "Eliminated" : `${getRemainingShips(team)} ships`}
+
+        <div style="
+          text-align:right;
+          flex-shrink:0;
+          display:flex;
+          align-items:center;
+          gap:8px;
+        ">
+          <div>
+            <div style="font-size:14px;color:${eliminated ? "#ff4c4c" : "#facc15"};">
+              ${eliminated ? "Eliminated" : `${getRemainingShips(team)} ships`}
+            </div>
           </div>
-          <div style="font-size:12px;opacity:0.8;">
-            ${getRemainingLives(team)} lives
-          </div>
+
+          ${
+            isCurrent
+              ? `
+                <div id="revealFleet-${index}" style="
+                  ${lightButtonStyle()}
+                  padding:6px 8px;
+                  min-height:30px;
+                  font-size:12px;
+                  white-space:nowrap;
+                ">
+                  ${activeFleetRevealed ? "Hide" : "Reveal"}
+                </div>
+              `
+              : ""
+          }
         </div>
       </div>
+
       <div id="fleet-${index}"></div>
     `;
 
     grid.appendChild(card);
 
+    if (isCurrent) {
+      const revealBtn = document.getElementById(`revealFleet-${index}`);
+      attachButtonClick(revealBtn, () => {
+        if (revealedTeams.has(index)) {
+          revealedTeams.delete(index);
+        } else {
+          revealedTeams.add(index);
+        }
+
+        renderUI(container);
+      });
+    }
+
     const fleetDiv = document.getElementById(`fleet-${index}`);
     fleetDiv.innerHTML = "";
 
-    const visible = isCurrent;
     const fleetWrap = document.createElement("div");
     fleetWrap.style = `
-      display:grid;
-      grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));
-      gap:6px;
+      display:flex;
+      flex-wrap:nowrap;
+      gap:5px;
+      width:100%;
+      overflow:hidden;
     `;
+
+    const tileWidth = getShipTileWidth(team.ships.length || 1);
 
     team.ships.forEach(ship => {
       const sunk = ship.lives <= 0;
 
       const shipCard = document.createElement("div");
       shipCard.style = `
-        padding:8px;
-        border-radius:10px;
+        padding:6px 4px;
+        border-radius:9px;
         background:${sunk ? "#1f2937" : "rgba(255,255,255,0.06)"};
         border:${sunk ? "1px solid #6b7280" : "1px solid rgba(255,255,255,0.25)"};
         font-weight:bold;
         text-align:center;
+        width:${tileWidth};
+        min-width:0;
+        box-sizing:border-box;
       `;
 
-      shipCard.innerHTML = visible
-        ? `
-          <div style="font-size:18px;">${sunk ? "💥" : "🚢"} ${formatTarget(ship.target)}</div>
-          <div style="font-size:12px;color:${sunk ? "#ff4c4c" : "#facc15"};">
+      if (visible) {
+        shipCard.innerHTML = `
+          <div style="
+            font-size:14px;
+            line-height:1.1;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+          ">
+            ${sunk ? "💥" : "🚢"} ${formatTarget(ship.target)}
+          </div>
+          <div style="font-size:10px;color:${sunk ? "#ff4c4c" : "#facc15"};">
             ${ship.lives}/${ship.originalLives}
           </div>
-        `
-        : `
-          <div style="font-size:18px;">${sunk ? "💥" : "🚢"} ${sunk ? formatTarget(ship.target) : "Hidden"}</div>
-          <div style="font-size:12px;color:${sunk ? "#ff4c4c" : "#facc15"};">
-            ${sunk ? "Sunk" : "Unknown"}
+        `;
+      } else {
+        shipCard.innerHTML = `
+          <div style="
+            font-size:13px;
+            line-height:1.1;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+          ">
+            ${sunk ? "💥" : "🚢"} Hidden
+          </div>
+          <div style="font-size:10px;color:${sunk ? "#ff4c4c" : "#facc15"};">
+            ${
+              isCurrent
+                ? sunk
+                  ? "Known Sunk"
+                  : "Known"
+                : sunk
+                  ? "Unknown Sunk"
+                  : "Unknown"
+            }
           </div>
         `;
+      }
 
       fleetWrap.appendChild(shipCard);
     });
 
     fleetDiv.appendChild(fleetWrap);
   });
-}
-
-function renderTurnSummary(state) {
-  const summary = document.getElementById("turnSummary");
-  const throws = state.currentTurnThrows || [];
-
-  summary.innerHTML = `
-    <div style="
-      margin-top:12px;
-      padding:12px;
-      border-radius:12px;
-      background:#111111;
-      border:1px solid #ffffff;
-      color:#ffffff;
-    ">
-      <div style="
-        text-align:center;
-        font-size:18px;
-        font-weight:bold;
-        margin-bottom:10px;
-      ">
-        Turn
-      </div>
-
-      ${
-        throws.length === 0
-          ? `
-            <div style="text-align:center;opacity:0.85;font-weight:bold;">
-              No darts thrown.
-            </div>
-          `
-          : throws.map((throwRecord, index) => `
-            <div style="
-              padding:8px 0;
-              border-top:${index === 0 ? "none" : "1px solid rgba(255,255,255,0.2)"};
-              font-weight:bold;
-            ">
-              <div>
-                Dart ${index + 1}:
-                ${
-                  throwRecord.hitType === "miss"
-                    ? "Miss Board"
-                    : `${formatHitType(throwRecord.hitType)} ${formatTarget(throwRecord.target)}`
-                }
-              </div>
-              <div style="font-size:13px;color:#facc15;margin-top:2px;">
-                ${throwRecord.summary}
-              </div>
-            </div>
-          `).join("")
-      }
-    </div>
-  `;
 }
 
 function renderGameControls(container, state) {
@@ -940,7 +977,7 @@ function renderGameControls(container, state) {
     display:grid;
     grid-template-columns:1fr 1fr 1fr;
     gap:8px;
-    margin-top:10px;
+    margin-top:8px;
   `;
 
   [
@@ -975,7 +1012,7 @@ function renderGameControls(container, state) {
   `;
 
   const missBtn = document.createElement("div");
-  missBtn.innerText = "Miss";
+  missBtn.innerText = "❌ Miss";
   missBtn.style = `
     ${buttonStyle()}
     padding:12px;
@@ -990,7 +1027,7 @@ function renderGameControls(container, state) {
   });
 
   const nextBtn = document.createElement("div");
-  nextBtn.innerText = "Next Team";
+  nextBtn.innerText = "➡️ Next Team";
   nextBtn.style = `
     ${buttonStyle()}
     padding:12px;
@@ -1004,6 +1041,11 @@ function renderGameControls(container, state) {
 
   actionRow.appendChild(missBtn);
   actionRow.appendChild(nextBtn);
+
+  controls.appendChild(hitRow);
+  controls.appendChild(actionRow);
+
+  renderTurnSummaryIntoControls(controls, state);
 
   const utilityRow = document.createElement("div");
   utilityRow.style = `
@@ -1054,9 +1096,63 @@ function renderGameControls(container, state) {
   utilityRow.appendChild(undoBtn);
   utilityRow.appendChild(endBtn);
 
-  controls.appendChild(hitRow);
-  controls.appendChild(actionRow);
   controls.appendChild(utilityRow);
+}
+
+function renderTurnSummaryIntoControls(parent, state) {
+  const throws = state.currentTurnThrows || [];
+
+  const summary = document.createElement("div");
+  summary.style = `
+    margin-top:10px;
+    padding:10px;
+    border-radius:12px;
+    background:#111111;
+    border:1px solid #ffffff;
+    color:#ffffff;
+  `;
+
+  summary.innerHTML = `
+    <div style="
+      text-align:center;
+      font-size:16px;
+      font-weight:bold;
+      margin-bottom:8px;
+    ">
+      Turn Summary
+    </div>
+
+    ${
+      throws.length === 0
+        ? `
+          <div style="text-align:center;opacity:0.85;font-weight:bold;font-size:14px;">
+            No darts thrown.
+          </div>
+        `
+        : throws.map((throwRecord, index) => `
+          <div style="
+            padding:7px 0;
+            border-top:${index === 0 ? "none" : "1px solid rgba(255,255,255,0.2)"};
+            font-weight:bold;
+            font-size:14px;
+          ">
+            <div>
+              Dart ${index + 1}:
+              ${
+                throwRecord.hitType === "miss"
+                  ? "Miss Board"
+                  : `${formatHitType(throwRecord.hitType)} ${formatTarget(throwRecord.target)}`
+              }
+            </div>
+            <div style="font-size:12px;color:#facc15;margin-top:2px;">
+              ${throwRecord.summary}
+            </div>
+          </div>
+        `).join("")
+    }
+  `;
+
+  parent.appendChild(summary);
 }
 
 /* -------------------------
@@ -1265,7 +1361,6 @@ function renderStatsModal(stats) {
       <div style="font-size:14px;line-height:1.6;">
         • Remaining Ships: ${team.remainingShips}<br>
         • Sunk Ships: ${team.sunkShips}<br>
-        • Remaining Lives: ${team.remainingLives}<br>
         • Throws: ${team.stats.throws}<br>
         • Hits: ${team.stats.hits}<br>
         • Misses: ${team.stats.misses}<br>
@@ -1484,7 +1579,6 @@ function renderEnd(container, state) {
       </div>
       <div style="text-align:right;">
         <div>${team.remainingShips} ships</div>
-        <div style="font-size:12px;color:#facc15;">${team.remainingLives} lives</div>
       </div>
     `;
 
@@ -1496,16 +1590,14 @@ function renderEnd(container, state) {
     const mode = state.selectedMode;
 
     store.players = [...rotatedPlayers];
+    revealedTeams.clear();
     initGame(rotatedPlayers);
 
     if (mode) {
-      import("./logic.js").then(module => {
-        module.startMode(mode);
-        renderUI(container);
-      });
-    } else {
-      renderUI(container);
+      startMode(mode);
     }
+
+    renderUI(container);
   });
 
   attachButtonClick(document.getElementById("statsBtn"), () => {
@@ -1515,6 +1607,7 @@ function renderEnd(container, state) {
   attachButtonClick(document.getElementById("mainMenuBtn"), () => {
     store.screen = "HOME";
     store.players = [];
+    revealedTeams.clear();
     renderApp();
   });
 }
