@@ -621,6 +621,96 @@ const gameRules = {
   }
 };
 
+"battledarts": {
+  title: "BattleDarts",
+  quick: [
+    "Sink every opposing fleet before your own fleet is destroyed.",
+    "Teams secretly place ships on dartboard numbers 1–20 or Bull.",
+    "On your turn, throw up to 3 darts to find and damage enemy ships.",
+    "Shanghai instantly wins: Single + Dub + Trip on the same live enemy target in one turn."
+  ],
+  details: [
+    {
+      heading: "Goal",
+      items: [
+        "Be the last team with at least one ship still afloat.",
+        "A team is eliminated when all of its ships are sunk.",
+        "Shanghai can end the game instantly."
+      ]
+    },
+    {
+      heading: "Game Modes",
+      items: [
+        "1v1: 2 teams, 1 player per team, 3 ships each.",
+        "2v2: 2 teams, 2 players per team, 4 ships each.",
+        "3v3: 2 teams, 3 players per team, 6 ships each.",
+        "1v1v1: 3 teams, 1 player per team, 3 ships each.",
+        "Teams are created automatically from the selected player order."
+      ]
+    },
+    {
+      heading: "Fleet Setup",
+      items: [
+        "Each team secretly places ships on target numbers from 1–20 or Bull.",
+        "A team cannot place two ships on the same number.",
+        "Different teams may use the same ship number.",
+        "Ship size is based on placement order: 1st ship = 2 lives, 2nd = 3 lives, 3rd = 4 lives, 4th = 5 lives, 5th = 6 lives, 6th = 7 lives.",
+        "Setup hit type modifies the ship size: Single adds 0, Dub adds 1, Trip adds 2.",
+        "For Bull setup, use Sing Bull or Dub Bull. There is no Trip Bull."
+      ]
+    },
+    {
+      heading: "Gameplay",
+      items: [
+        "Each team gets up to 3 darts per turn.",
+        "Choose Single, Dub, or Trip, then choose the target number.",
+        "Damage is based on hit type: Single = 1, Dub = 2, Trip = 3.",
+        "For Bull, Sing Bull = 1 damage and Dub Bull = 2 damage.",
+        "If the target number matches a live opposing ship, that ship takes damage.",
+        "If the ship reaches zero lives, it is sunk.",
+        "If no live opposing ship has that target number, the throw is recorded as a miss.",
+        "A single throw can damage multiple opposing teams if more than one opponent has a live ship on that target."
+      ]
+    },
+    {
+      heading: "Hidden Fleets and Intel",
+      items: [
+        "Opponent fleets stay hidden.",
+        "Your own fleet is hidden by default to prevent accidental peeking.",
+        "The active team can reveal its own fleet when needed.",
+        "Targets Identified shows enemy ship numbers your team has hit.",
+        "Targets Identified shows damage dealt as a known number over ??? so total ship size stays hidden.",
+        "Misses Identified shows target numbers your team has already confirmed are empty."
+      ]
+    },
+    {
+      heading: "Shanghai",
+      items: [
+        "Shanghai is an instant win.",
+        "For number targets, hit Single + Dub + Trip on the same live enemy ship number in one turn.",
+        "For Bull, any 3 Bull hits in one turn count as Bull Shanghai.",
+        "Shanghai only counts if the target is a live enemy ship."
+      ]
+    },
+    {
+      heading: "Turn Flow",
+      items: [
+        "After 3 darts, the turn is complete.",
+        "The game does not automatically advance to the next team.",
+        "Tap Next Team to pass the turn.",
+        "Use Undo if a score, target, or turn action was entered incorrectly."
+      ]
+    },
+    {
+      heading: "Winning",
+      items: [
+        "The last team with at least one ship remaining wins.",
+        "A team can also win instantly by Shanghai."
+      ]
+    }
+  ]
+},
+
 function loadProfiles() {
   try {
     return JSON.parse(localStorage.getItem(PLAYER_PROFILES_KEY)) || [];
