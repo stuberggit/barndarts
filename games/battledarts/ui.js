@@ -108,6 +108,14 @@ function formatTarget(target) {
   return target === 25 ? "Bull" : String(target);
 }
 
+function getKnownMisses(team) {
+  return Object.values(team.missIntel || {}).sort((a, b) => {
+    if (a.target === 25) return 1;
+    if (b.target === 25) return -1;
+    return a.target - b.target;
+  });
+}
+
 function getKnownTargets(team) {
   return Object.values(team.intel || {}).sort((a, b) => {
     if (a.target === 25) return 1;
@@ -814,6 +822,7 @@ function renderTeamStatusGrid(container, state) {
     const activeFleetRevealed = revealedTeams.has(index);
     const visible = isCurrent && activeFleetRevealed;
     const knownTargets = isCurrent ? getKnownTargets(team) : [];
+    const knownMisses = isCurrent ? getKnownMisses(team) : [];
 
     const card = document.createElement("div");
     card.style = `
@@ -882,6 +891,7 @@ function renderTeamStatusGrid(container, state) {
 
       <div id="fleet-${index}"></div>
       ${isCurrent ? `<div id="knownTargets-${index}"></div>` : ""}
+      ${isCurrent ? `<div id="knownMisses-${index}"></div>` : ""}
     `;
 
     grid.appendChild(card);
@@ -1034,6 +1044,67 @@ function renderTeamStatusGrid(container, state) {
         });
 
         knownDiv.appendChild(knownWrap);
+      }
+
+      const missesDiv = document.getElementById(`knownMisses-${index}`);
+      missesDiv.innerHTML = "";
+
+      if (knownMisses.length > 0) {
+        const missLabel = document.createElement("div");
+        missLabel.style = `
+          font-size:11px;
+          color:#ff4c4c;
+          font-weight:bold;
+          margin:7px 0 4px;
+          text-align:left;
+        `;
+        missLabel.innerText = "Misses Identified";
+        missesDiv.appendChild(missLabel);
+
+        const missWrap = document.createElement("div");
+        missWrap.style = `
+          display:flex;
+          flex-wrap:nowrap;
+          gap:5px;
+          width:100%;
+          overflow:hidden;
+        `;
+
+        const missTileWidth = getShipTileWidth(knownMisses.length || 1);
+
+        knownMisses.forEach(missInfo => {
+          const tile = document.createElement("div");
+          tile.style = `
+            padding:6px 4px;
+            border-radius:9px;
+            background:rgba(255,76,76,0.08);
+            border:1px solid rgba(255,76,76,0.55);
+            font-weight:bold;
+            text-align:center;
+            width:${missTileWidth};
+            min-width:0;
+            box-sizing:border-box;
+          `;
+
+          tile.innerHTML = `
+            <div style="
+              font-size:13px;
+              line-height:1.1;
+              white-space:nowrap;
+              overflow:hidden;
+              text-overflow:ellipsis;
+            ">
+              ❌ ${formatTarget(missInfo.target)}
+            </div>
+            <div style="font-size:10px;color:#ff4c4c;">
+              Avoid
+            </div>
+          `;
+
+          missWrap.appendChild(tile);
+        });
+
+        missesDiv.appendChild(missWrap);
       }
     }
   });
