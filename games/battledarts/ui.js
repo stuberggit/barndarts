@@ -108,6 +108,14 @@ function formatTarget(target) {
   return target === 25 ? "Bull" : String(target);
 }
 
+function getKnownTargets(team) {
+  return Object.values(team.intel || {}).sort((a, b) => {
+    if (a.target === 25) return 1;
+    if (b.target === 25) return -1;
+    return a.target - b.target;
+  });
+}
+
 function formatHitType(hitType) {
   if (hitType === "single") return "Single";
   if (hitType === "double") return "Dub";
@@ -751,8 +759,8 @@ function renderGame(container, state) {
     </div>
 
     <div style="
-      margin-bottom:10px;
-      padding:11px 12px;
+      margin-bottom:8px;
+      padding:10px 12px;
       border-radius:12px;
       background:#11361a;
       border:2px solid #f0970a;
@@ -760,17 +768,17 @@ function renderGame(container, state) {
       text-align:center;
       font-weight:bold;
     ">
-      <div style="font-size:20px;margin-bottom:2px;">
+      <div style="font-size:19px;margin-bottom:2px;">
         ${getTeamPlayersText(team)}
       </div>
-      <div style="font-size:15px;color:#facc15;">
-        Dart ${state.throwsThisTurn + 1}/3
+      <div style="font-size:14px;color:#facc15;">
+        Dart ${Math.min(state.throwsThisTurn + 1, 3)}/3
       </div>
     </div>
 
     <div style="
-      min-height:48px;
-      margin:8px 0 10px;
+      min-height:44px;
+      margin:6px 0 8px;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -805,6 +813,7 @@ function renderTeamStatusGrid(container, state) {
     const eliminated = isTeamEliminated(team);
     const activeFleetRevealed = revealedTeams.has(index);
     const visible = isCurrent && activeFleetRevealed;
+    const knownTargets = isCurrent ? getKnownTargets(team) : [];
 
     const card = document.createElement("div");
     card.style = `
@@ -872,6 +881,7 @@ function renderTeamStatusGrid(container, state) {
       </div>
 
       <div id="fleet-${index}"></div>
+      ${isCurrent ? `<div id="knownTargets-${index}"></div>` : ""}
     `;
 
     grid.appendChild(card);
@@ -963,6 +973,69 @@ function renderTeamStatusGrid(container, state) {
     });
 
     fleetDiv.appendChild(fleetWrap);
+
+    if (isCurrent) {
+      const knownDiv = document.getElementById(`knownTargets-${index}`);
+      knownDiv.innerHTML = "";
+
+      if (knownTargets.length > 0) {
+        const label = document.createElement("div");
+        label.style = `
+          font-size:11px;
+          color:#facc15;
+          font-weight:bold;
+          margin:7px 0 4px;
+          text-align:left;
+        `;
+        label.innerText = "Targets Identified";
+        knownDiv.appendChild(label);
+
+        const knownWrap = document.createElement("div");
+        knownWrap.style = `
+          display:flex;
+          flex-wrap:nowrap;
+          gap:5px;
+          width:100%;
+          overflow:hidden;
+        `;
+
+        const knownTileWidth = getShipTileWidth(knownTargets.length || 1);
+
+        knownTargets.forEach(targetInfo => {
+          const tile = document.createElement("div");
+          tile.style = `
+            padding:6px 4px;
+            border-radius:9px;
+            background:rgba(250,204,21,0.08);
+            border:1px solid rgba(250,204,21,0.55);
+            font-weight:bold;
+            text-align:center;
+            width:${knownTileWidth};
+            min-width:0;
+            box-sizing:border-box;
+          `;
+
+          tile.innerHTML = `
+            <div style="
+              font-size:13px;
+              line-height:1.1;
+              white-space:nowrap;
+              overflow:hidden;
+              text-overflow:ellipsis;
+            ">
+              🎯 ${formatTarget(targetInfo.target)}
+            </div>
+            <div style="font-size:10px;color:#facc15;">
+              ${targetInfo.damageKnown} / ???
+            </div>
+          `;
+
+          knownWrap.appendChild(tile);
+        });
+
+        knownDiv.appendChild(knownWrap);
+      }
+    }
   });
 }
 
@@ -989,9 +1062,9 @@ function renderGameControls(container, state) {
     btn.innerText = option.label;
     btn.style = `
       ${buttonStyle()}
-      padding:12px;
-      min-height:52px;
-      font-size:18px;
+      padding:10px;
+      min-height:42px;
+      font-size:15px;
       ${canThrow ? "" : "opacity:0.45;cursor:not-allowed;"}
     `;
 
@@ -1008,16 +1081,16 @@ function renderGameControls(container, state) {
     display:grid;
     grid-template-columns:1fr 1fr;
     gap:8px;
-    margin-top:10px;
+    margin-top:8px;
   `;
 
   const missBtn = document.createElement("div");
   missBtn.innerText = "❌ Miss";
   missBtn.style = `
     ${buttonStyle()}
-    padding:12px;
-    min-height:52px;
-    font-size:18px;
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
     ${canThrow ? "" : "opacity:0.45;cursor:not-allowed;"}
   `;
   attachButtonClick(missBtn, () => {
@@ -1030,9 +1103,9 @@ function renderGameControls(container, state) {
   nextBtn.innerText = "➡️ Next Team";
   nextBtn.style = `
     ${buttonStyle()}
-    padding:12px;
-    min-height:52px;
-    font-size:18px;
+    padding:10px;
+    min-height:42px;
+    font-size:15px;
   `;
   attachButtonClick(nextBtn, () => {
     nextTeam();
@@ -1052,7 +1125,7 @@ function renderGameControls(container, state) {
     display:grid;
     grid-template-columns:1fr 1fr 1fr;
     gap:8px;
-    margin-top:10px;
+    margin-top:8px;
   `;
 
   const statsBtn = document.createElement("div");
@@ -1178,18 +1251,38 @@ function renderTurnTransition(container, state) {
         Pass the device to ${nextTeamObj ? nextTeamObj.name : "the next team"}.
       </div>
 
-      <div id="nextTurnBtn" style="
-        ${buttonStyle()}
-        padding:14px;
-        min-height:52px;
-        font-size:18px;
+      <div style="
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:8px;
       ">
-        Next Team: ${nextTeamObj ? nextTeamObj.name : "N/A"}
+        <div id="undoTurnTransitionBtn" style="
+          ${undoButtonStyle()}
+          padding:10px;
+          min-height:42px;
+          font-size:15px;
+        ">
+          Undo
+        </div>
+
+        <div id="nextTurnBtn" style="
+          ${buttonStyle()}
+          padding:10px;
+          min-height:42px;
+          font-size:15px;
+        ">
+          ➡️ ${nextTeamObj ? nextTeamObj.name : "Next Team"}
+        </div>
       </div>
     </div>
 
     <div id="modal"></div>
   `;
+
+  attachButtonClick(document.getElementById("undoTurnTransitionBtn"), () => {
+    undo();
+    renderUI(container);
+  });
 
   attachButtonClick(document.getElementById("nextTurnBtn"), () => {
     startNextTurn();
