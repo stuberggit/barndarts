@@ -227,7 +227,7 @@ const gameRules = {
         items: [
           "Players first throw with their Non-Dominant Hand to claim a target.",
           "Targets can be numbers 1–20 or Bull.",
-          "If a player claims a target with a Dub, Trip, Sing Bull, or Dub Bull, they immediately start as a Killer.",
+          "If a player claims a target with a Dub, Trip, Sing Bull, or Dub Bull, they immediately  as a Killer.",
           "If a player claims a target with a Single, they own the target but still need to unlock Killer status."
         ]
       },
@@ -251,7 +251,7 @@ const gameRules = {
       {
         heading: "Lives",
         items: [
-          "Each player starts with 6 lives.",
+          "Each player s with 6 lives.",
           "Single removes 1 life.",
           "Dub removes 2 lives.",
           "Trip removes 3 lives.",
@@ -311,7 +311,7 @@ const gameRules = {
   "survivor-301": {
     title: "Survivor 301",
     quick: [
-      "Everyone starts at 301.",
+      "Everyone s at 301.",
       "Most hits subtract points from your own score.",
       "Bonus targets and Bulls can add points.",
       "Last player above zero wins."
@@ -324,9 +324,9 @@ const gameRules = {
         ]
       },
       {
-        heading: "Starting Score",
+        heading: "ing Score",
         items: [
-          "Each player starts with 301 points."
+          "Each player s with 301 points."
         ]
       },
       {
@@ -371,7 +371,7 @@ const gameRules = {
   "gotcha": {
     title: "Gotcha 301",
     quick: [
-      "Start at 0 and race to exactly 301.",
+      " at 0 and race to exactly 301.",
       "If you match another player’s score, you Gotcha them back to zero.",
       "Going over 301 busts your whole turn.",
       "First player to exactly 301 wins."
@@ -384,9 +384,9 @@ const gameRules = {
         ]
       },
       {
-        heading: "Starting Score",
+        heading: "ing Score",
         items: [
-          "Each player starts at 0."
+          "Each player s at 0."
         ]
       },
       {
@@ -429,7 +429,7 @@ const gameRules = {
   "301": {
     title: "301",
     quick: [
-      "Start at 301 and race down to exactly 0.",
+      " at 301 and race down to exactly 0.",
       "Straight-in and straight-out.",
       "Busts reset your whole turn.",
       "First player to exactly 0 wins."
@@ -444,7 +444,7 @@ const gameRules = {
       {
         heading: "How to Play",
         items: [
-          "Each player starts at 301.",
+          "Each player s at 301.",
           "Players subtract points by hitting numbers, Dubs, Trips, and Bulls.",
           "This is straight-in and straight-out."
         ]
@@ -475,7 +475,7 @@ const gameRules = {
   "x01": {
     title: "X01",
     quick: [
-      "Choose an X01 starting score and race down to exactly 0.",
+      "Choose an X01 ing score and race down to exactly 0.",
       "Straight-in and straight-out.",
       "Busts reset your whole turn.",
       "First player to exactly 0 wins."
@@ -484,7 +484,7 @@ const gameRules = {
       {
         heading: "Goal",
         items: [
-          "Be the first player to count down from the starting score to exactly 0."
+          "Be the first player to count down from the ing score to exactly 0."
         ]
       },
       {
@@ -740,6 +740,13 @@ function miniButtonStyle() {
     padding:8px;
     min-height:38px;
     font-size:13px;
+  `;
+}
+
+function startButtonStyle() {
+  return `
+    ${buttonStyle()}
+    border:2px solid rgb(250, 204, 21);
   `;
 }
 
@@ -1040,7 +1047,7 @@ export function renderSetup(container) {
     <div id="orderPreview"></div>
 
     <div id="start" style="${buttonStyle()}">Start Game</div>
-    <div id="back" style="${lightButtonStyle()}">Back</div>
+    <div id="start" style="${startButtonStyle()}">Start Game</div>
 
     <div id="modal"></div>
   `;
