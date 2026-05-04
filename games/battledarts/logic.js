@@ -191,6 +191,7 @@ function buildTeams(modeId, playerNames) {
       ships: [],
       setupDone: false,
       intel: {},
+      missIntel: {},
       stats: {
         throws: 0,
         misses: 0,
@@ -210,6 +211,21 @@ function hasLiveEnemyShipOnTarget(attackingTeamIndex, target) {
     if (index === attackingTeamIndex) return false;
     return team.ships.some(ship => ship.target === target && ship.lives > 0);
   });
+}
+
+function updateMissIntelForTarget(attackingTeam, target) {
+  if (target == null) return;
+
+  const key = String(target);
+
+  if (!attackingTeam.missIntel[key]) {
+    attackingTeam.missIntel[key] = {
+      target,
+      count: 0
+    };
+  }
+
+  attackingTeam.missIntel[key].count += 1;
 }
 
 function updateIntelForTarget(attackingTeam, target, damage, sunk = false) {
@@ -394,6 +410,7 @@ export function getStats() {
       players: [...team.players],
       ships: team.ships.map(ship => ({ ...ship })),
       intel: { ...(team.intel || {}) },
+      missIntel: { ...(team.missIntel || {}) },
       remainingShips: countRemainingShips(team),
       sunkShips: countSunkShips(team),
       remainingLives: getTeamRemainingLives(team),
@@ -683,8 +700,9 @@ export function submitThrow(hitType, target = null) {
   }
 
   if (results.length === 0) {
-    attackingTeam.stats.misses += 1;
-  }
+  attackingTeam.stats.misses += 1;
+  updateMissIntelForTarget(attackingTeam, target);
+}
 
   const summary = buildThrowResultSummary(results);
 
