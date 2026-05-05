@@ -39,14 +39,6 @@ function getKnownTargets(team) {
   });
 }
 
-function getKnownMisses(team) {
-  return Object.values(team.missIntel || {}).sort((a, b) => {
-    if (a.target === 25) return 1;
-    if (b.target === 25) return -1;
-    return a.target - b.target;
-  });
-}
-
 function getFleetIntelForShip(activeTeam, targetTeamIndex, target) {
   return activeTeam?.fleetIntel?.[`${targetTeamIndex}:${target}`] || null;
 }
