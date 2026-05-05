@@ -104,6 +104,24 @@ function getSetupBonus(hitType) {
   return 0;
 }
 
+export function renameTeam(teamIndex, newName) {
+  if (!gameState.teams?.[teamIndex]) return false;
+
+  const cleanedName = String(newName || "").trim();
+
+  if (!cleanedName) {
+    updateMessage("Team name cannot be blank.", "#ff4c4c");
+    return false;
+  }
+
+  saveHistory();
+
+  gameState.teams[teamIndex].name = cleanedName;
+  updateMessage(`Team renamed to ${cleanedName}.`, "#22c55e");
+
+  return true;
+}
+
 function getGameplayDamage(hitType) {
   if (hitType === "single" || hitType === "greenBull") return 1;
   if (hitType === "double" || hitType === "redBull") return 2;
@@ -190,8 +208,17 @@ function buildTeams(modeId, playerNames) {
       players: teamPlayers,
       ships: [],
       setupDone: false,
+
+      // Targets this team has successfully hit, grouped by target number.
       intel: {},
+
+      // Targets this team has confirmed as misses.
       missIntel: {},
+
+      // Exact opponent/team ship intel this team has discovered.
+      // Key shape: `${targetTeamIndex}:${target}`
+      fleetIntel: {},
+
       stats: {
         throws: 0,
         misses: 0,
@@ -213,6 +240,39 @@ function hasLiveEnemyShipOnTarget(attackingTeamIndex, target) {
   });
 }
 
+function updateIntelForTarget(attackingTeam, defendingTeamIndex, target, damage, sunk = false) {
+  if (target == null) return;
+
+  const targetKey = String(target);
+
+  if (!attackingTeam.intel[targetKey]) {
+    attackingTeam.intel[targetKey] = {
+      target,
+      damageKnown: 0,
+      hasSunk: false
+    };
+  }
+
+  attackingTeam.intel[targetKey].damageKnown += damage;
+  attackingTeam.intel[targetKey].hasSunk =
+    attackingTeam.intel[targetKey].hasSunk || sunk;
+
+  const fleetKey = `${defendingTeamIndex}:${target}`;
+
+  if (!attackingTeam.fleetIntel[fleetKey]) {
+    attackingTeam.fleetIntel[fleetKey] = {
+      targetTeamIndex: defendingTeamIndex,
+      target,
+      damageKnown: 0,
+      hasSunk: false
+    };
+  }
+
+  attackingTeam.fleetIntel[fleetKey].damageKnown += damage;
+  attackingTeam.fleetIntel[fleetKey].hasSunk =
+    attackingTeam.fleetIntel[fleetKey].hasSunk || sunk;
+}
+
 function updateMissIntelForTarget(attackingTeam, target) {
   if (target == null) return;
 
@@ -226,21 +286,6 @@ function updateMissIntelForTarget(attackingTeam, target) {
   }
 
   attackingTeam.missIntel[key].count += 1;
-}
-
-function updateIntelForTarget(attackingTeam, target, damage, sunk = false) {
-  const key = String(target);
-
-  if (!attackingTeam.intel[key]) {
-    attackingTeam.intel[key] = {
-      target,
-      damageKnown: 0,
-      hasSunk: false
-    };
-  }
-
-  attackingTeam.intel[key].damageKnown += damage;
-  attackingTeam.intel[key].hasSunk = attackingTeam.intel[key].hasSunk || sunk;
 }
 
 function hasShanghaiThisTurn(target) {
@@ -313,13 +358,19 @@ function finishShanghaiWin(teamIndex, target) {
 function finishTurn() {
   const nextIndex = getNextActiveTeamIndex(gameState.currentTeamIndex);
 
-  gameState.lastTurnTeamIndex = gameState.currentTeamIndex;
-  gameState.nextTeamIndex = nextIndex;
-  gameState.phase = "TURN_TRANSITION";
-
   if (nextIndex == null) {
     maybeDeclareWinner();
+    return;
   }
+
+  gameState.lastTurnTeamIndex = gameState.currentTeamIndex;
+  gameState.nextTeamIndex = nextIndex;
+  gameState.currentTeamIndex = nextIndex;
+  gameState.phase = "GAME";
+
+  resetTurnTracking();
+
+  updateMessage(`${gameState.teams[nextIndex].name} is up.`, "#facc15");
 }
 
 function buildThrowResultSummary(results) {
@@ -411,6 +462,7 @@ export function getStats() {
       ships: team.ships.map(ship => ({ ...ship })),
       intel: { ...(team.intel || {}) },
       missIntel: { ...(team.missIntel || {}) },
+      fleetIntel: { ...(team.fleetIntel || {}) },
       remainingShips: countRemainingShips(team),
       sunkShips: countSunkShips(team),
       remainingLives: getTeamRemainingLives(team),
@@ -668,11 +720,12 @@ export function submitThrow(hitType, target = null) {
       const beforeLives = ship.lives;
       ship.lives = Math.max(0, ship.lives - damage);
       const actualDamage = beforeLives - ship.lives;
+      const sunk = ship.lives <= 0;
 
       attackingTeam.stats.damageDealt += actualDamage;
-      updateIntelForTarget(attackingTeam, target, actualDamage, ship.lives <= 0);
+      updateIntelForTarget(attackingTeam, i, target, actualDamage, sunk);
 
-      if (ship.lives <= 0) {
+      if (sunk) {
         ship.isSunk = true;
         attackingTeam.stats.shipsSunk += 1;
 
@@ -700,9 +753,9 @@ export function submitThrow(hitType, target = null) {
   }
 
   if (results.length === 0) {
-  attackingTeam.stats.misses += 1;
-  updateMissIntelForTarget(attackingTeam, target);
-}
+    attackingTeam.stats.misses += 1;
+    updateMissIntelForTarget(attackingTeam, target);
+  }
 
   const summary = buildThrowResultSummary(results);
 
@@ -742,7 +795,6 @@ export function submitThrow(hitType, target = null) {
 
   return true;
 }
-
 export function nextTeam() {
   if (gameState.phase !== "GAME") return false;
 
@@ -752,24 +804,11 @@ export function nextTeam() {
 }
 
 export function startNextTurn() {
-  if (gameState.phase !== "TURN_TRANSITION") return false;
-
-  if (gameState.nextTeamIndex == null) {
-    maybeDeclareWinner();
-    return false;
+  if (gameState.phase === "TURN_TRANSITION") {
+    gameState.phase = "GAME";
   }
 
-  saveHistory();
-
-  gameState.currentTeamIndex = gameState.nextTeamIndex;
-  gameState.lastTurnTeamIndex = null;
-  gameState.nextTeamIndex = null;
-  gameState.phase = "GAME";
-  resetTurnTracking();
-
-  updateMessage(`${gameState.teams[gameState.currentTeamIndex].name} is up.`, "#facc15");
-
-  return true;
+  return nextTeam();
 }
 
 export function endGameEarly() {
