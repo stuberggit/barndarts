@@ -1375,7 +1375,146 @@ function renderNumberPicker(container, context, hitType) {
   const isTriple = hitType === "triple";
   const state = getState();
   const setupTeam = state.phase === "SETUP" ? state.teams[state.setupTeamIndex] : null;
+  const activeTeam = state.phase === "GAME" ? state.teams[state.currentTeamIndex] : null;
   const setupPreview = setupTeam ? getSetupShipPreview(setupTeam, hitType) : null;
+
+  function getTargetIntel(target) {
+    if (!activeTeam || context !== "game") {
+      return {
+        status: "unknown",
+        label: "",
+        title: ""
+      };
+    }
+
+    const key = String(target);
+    const hitIntel = activeTeam.intel?.[key] || null;
+    const missIntel = activeTeam.missIntel?.[key] || null;
+
+    if (hitIntel?.hasSunk) {
+      return {
+        status: "sunk",
+        label: "Sunk",
+        title: `${formatTarget(target)} has a known sunk ship`
+      };
+    }
+
+    if (hitIntel) {
+      return {
+        status: "hit",
+        label: "Hit",
+        title: `${formatTarget(target)} is a known enemy target`
+      };
+    }
+
+    if (missIntel) {
+      return {
+        status: "miss",
+        label: "Miss",
+        title: `${formatTarget(target)} is a known miss`
+      };
+    }
+
+    return {
+      status: "unknown",
+      label: "",
+      title: ""
+    };
+  }
+
+  function getTargetButtonStyle(target) {
+    const intel = getTargetIntel(target);
+
+    let extra = "";
+
+    if (intel.status === "miss") {
+      extra = `
+        background:#374151;
+        color:#9ca3af;
+        border:1px solid #6b7280;
+        opacity:0.72;
+      `;
+    }
+
+    if (intel.status === "hit") {
+      extra = `
+        background:#111111;
+        color:#ffffff;
+        border:2px solid #ff4c4c;
+        box-shadow:0 0 0 1px rgba(255,76,76,0.25);
+      `;
+    }
+
+    if (intel.status === "sunk") {
+      extra = `
+        background:#1f2937;
+        color:#ffffff;
+        border:2px solid #ff4c4c;
+        box-shadow:0 0 0 1px rgba(255,76,76,0.25);
+      `;
+    }
+
+    return `
+      ${buttonStyle()}
+      width:100%;
+      min-width:0;
+      height:58px;
+      min-height:58px;
+      padding:0;
+      margin:0;
+      font-size:22px;
+      line-height:1;
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
+      appearance:none;
+      -webkit-appearance:none;
+      position:relative;
+      flex-direction:column;
+      gap:2px;
+      ${extra}
+    `;
+  }
+
+  function getTargetButtonHtml(target) {
+    const intel = getTargetIntel(target);
+    const targetLabel = formatTarget(target);
+
+    if (intel.status === "unknown") {
+      return `
+        <div style="font-size:22px;line-height:1;">${targetLabel}</div>
+      `;
+    }
+
+    if (intel.status === "miss") {
+      return `
+        <div style="font-size:21px;line-height:1;">${targetLabel}</div>
+        <div style="font-size:10px;line-height:1;color:#cbd5e1;">Miss</div>
+      `;
+    }
+
+    if (intel.status === "hit") {
+      return `
+        <div style="
+          position:absolute;
+          top:3px;
+          right:4px;
+          font-size:8px;
+          line-height:1;
+          color:#ff4c4c;
+          font-weight:bold;
+          letter-spacing:0.4px;
+        ">
+          HIT
+        </div>
+        <div style="font-size:22px;line-height:1;">${targetLabel}</div>
+      `;
+    }
+
+    return `
+      <div style="font-size:20px;line-height:1;">☠️ ${targetLabel}</div>
+      <div style="font-size:10px;line-height:1;color:#ff4c4c;">Sunk</div>
+    `;
+  }
 
   renderModalShell(`
     <h2 style="text-align:center;margin-top:0;">
@@ -1403,6 +1542,44 @@ function renderNumberPicker(container, context, hitType) {
           ">
             Choose enemy target number.
           </div>
+
+          <div style="
+            display:grid;
+            grid-template-columns:repeat(3, 1fr);
+            gap:6px;
+            margin-bottom:12px;
+            font-size:11px;
+            font-weight:bold;
+            text-align:center;
+          ">
+            <div style="
+              padding:5px;
+              border-radius:8px;
+              background:#374151;
+              color:#cbd5e1;
+              border:1px solid #6b7280;
+            ">
+              Gray = Miss
+            </div>
+            <div style="
+              padding:5px;
+              border-radius:8px;
+              background:#111111;
+              color:#ff4c4c;
+              border:1px solid #ff4c4c;
+            ">
+              Red = Hit
+            </div>
+            <div style="
+              padding:5px;
+              border-radius:8px;
+              background:#1f2937;
+              color:#ff4c4c;
+              border:1px solid #ff4c4c;
+            ">
+              ☠️ = Sunk
+            </div>
+          </div>
         `
     }
 
@@ -1415,7 +1592,7 @@ function renderNumberPicker(container, context, hitType) {
       margin-top:12px;
     ">
       <button id="bullBtn" type="button" style="
-        ${buttonStyle()}
+        ${context === "game" ? getTargetButtonStyle(25) : buttonStyle()}
         width:100%;
         padding:0;
         min-height:56px;
@@ -1424,7 +1601,9 @@ function renderNumberPicker(container, context, hitType) {
         touch-action:manipulation;
         -webkit-tap-highlight-color:transparent;
         ${isTriple ? "background:#555;color:#bbb;border:1px solid #999;cursor:not-allowed;" : ""}
-      ">Bull</button>
+      ">
+        ${context === "game" ? getTargetButtonHtml(25) : "Bull"}
+      </button>
 
       <button id="closeModalBtn" type="button" style="
         ${buttonStyle()}
@@ -1450,23 +1629,27 @@ function renderNumberPicker(container, context, hitType) {
   for (let i = 1; i <= 20; i++) {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.innerText = i;
+    btn.innerHTML = context === "game" ? getTargetButtonHtml(i) : i;
+    btn.title = context === "game" ? getTargetIntel(i).title : "";
 
-    btn.style = `
-      ${buttonStyle()}
-      width:100%;
-      min-width:0;
-      height:58px;
-      min-height:58px;
-      padding:0;
-      margin:0;
-      font-size:22px;
-      line-height:1;
-      touch-action:manipulation;
-      -webkit-tap-highlight-color:transparent;
-      appearance:none;
-      -webkit-appearance:none;
-    `;
+    btn.style =
+      context === "game"
+        ? getTargetButtonStyle(i)
+        : `
+          ${buttonStyle()}
+          width:100%;
+          min-width:0;
+          height:58px;
+          min-height:58px;
+          padding:0;
+          margin:0;
+          font-size:22px;
+          line-height:1;
+          touch-action:manipulation;
+          -webkit-tap-highlight-color:transparent;
+          appearance:none;
+          -webkit-appearance:none;
+        `;
 
     attachNumberButtonClick(btn, () => {
       if (context === "setup") {
@@ -1486,6 +1669,8 @@ function renderNumberPicker(container, context, hitType) {
   const closeBtn = document.getElementById("closeModalBtn");
 
   if (!isTriple) {
+    bullBtn.title = context === "game" ? getTargetIntel(25).title : "";
+
     attachNumberButtonClick(bullBtn, () => {
       const bullHitType = hitType === "single" ? "greenBull" : "redBull";
 
