@@ -13,7 +13,8 @@ import {
   endGameEarly,
   undo,
   isGameOver,
-  initGame
+  initGame,
+  renameTeam
 } from "./logic.js";
 import { store } from "../../core/store.js";
 import { renderApp } from "../../core/router.js";
@@ -27,6 +28,69 @@ const revealedTeams = new Set();
 /* -------------------------
    HELPERS
 --------------------------*/
+
+function getKnownTargets(team) {
+  return Object.values(team.intel || {}).sort((a, b) => {
+    if (a.hasSunk && !b.hasSunk) return -1;
+    if (!a.hasSunk && b.hasSunk) return 1;
+    if (a.target === 25) return 1;
+    if (b.target === 25) return -1;
+    return a.target - b.target;
+  });
+}
+
+function getKnownMisses(team) {
+  return Object.values(team.missIntel || {}).sort((a, b) => {
+    if (a.target === 25) return 1;
+    if (b.target === 25) return -1;
+    return a.target - b.target;
+  });
+}
+
+function getFleetIntelForShip(activeTeam, targetTeamIndex, target) {
+  return activeTeam?.fleetIntel?.[`${targetTeamIndex}:${target}`] || null;
+}
+
+function sortShipsForDisplay(ships = []) {
+  return [...ships].sort((a, b) => {
+    const aSunk = a.lives <= 0;
+    const bSunk = b.lives <= 0;
+
+    if (aSunk && !bSunk) return -1;
+    if (!aSunk && bSunk) return 1;
+
+    return 0;
+  });
+}
+
+function attachNumberButtonClick(el, handler) {
+  let handled = false;
+
+  el.addEventListener(
+    "pointerup",
+    event => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (handled) return;
+      handled = true;
+
+      handler();
+
+      setTimeout(() => {
+        handled = false;
+      }, 250);
+    },
+    { passive: false }
+  );
+
+  el.addEventListener("keydown", event => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+
+    event.preventDefault();
+    handler();
+  });
+}
 
 function buttonStyle() {
   return `
@@ -426,6 +490,35 @@ function renderSetup(container, state) {
       <div style="font-size:14px;color:#facc15;">
         Ship ${Math.min(team.ships.length + 1, maxShips)}/${maxShips}
       </div>
+
+      <div style="
+        display:grid;
+        grid-template-columns:1fr 82px;
+        gap:8px;
+        margin-top:10px;
+      ">
+        <input
+          id="teamNameInput"
+          value="${team.name}"
+          style="
+            width:100%;
+            box-sizing:border-box;
+            padding:9px;
+            border-radius:10px;
+            border:1px solid #9ca3af;
+            font-size:16px;
+          "
+        />
+        <div id="saveTeamNameBtn" style="
+          ${buttonStyle()}
+          padding:8px;
+          min-height:38px;
+          font-size:13px;
+          margin-top:0;
+        ">
+          Save
+        </div>
+      </div>
     </div>
 
     <div id="fleetList"></div>
@@ -445,6 +538,12 @@ function renderSetup(container, state) {
     <div id="setupControls"></div>
     <div id="modal"></div>
   `;
+
+  document.getElementById("saveTeamNameBtn").onclick = () => {
+    const value = document.getElementById("teamNameInput").value;
+    renameTeam(state.setupTeamIndex, value);
+    renderUI(container);
+  };
 
   renderFleetList(team, false);
 
@@ -808,6 +907,8 @@ function renderGame(container, state) {
 
 function renderTeamStatusGrid(container, state) {
   const grid = document.getElementById("teamStatusGrid");
+  const activeTeam = state.teams[state.currentTeamIndex];
+
   grid.innerHTML = "";
   grid.style = `
     display:grid;
@@ -921,17 +1022,21 @@ function renderTeamStatusGrid(container, state) {
       overflow:hidden;
     `;
 
-    const tileWidth = getShipTileWidth(team.ships.length || 1);
+    const displayShips = sortShipsForDisplay(team.ships);
+    const tileWidth = getShipTileWidth(displayShips.length || 1);
 
-    team.ships.forEach(ship => {
+    displayShips.forEach(ship => {
       const sunk = ship.lives <= 0;
+      const intel = isCurrent ? null : getFleetIntelForShip(activeTeam, index, ship.target);
+      const knownToActiveTeam = !!intel;
+      const shouldRevealNumber = visible || sunk || knownToActiveTeam;
 
       const shipCard = document.createElement("div");
       shipCard.style = `
         padding:6px 4px;
         border-radius:9px;
-        background:${sunk ? "#1f2937" : "rgba(255,255,255,0.06)"};
-        border:${sunk ? "1px solid #6b7280" : "1px solid rgba(255,255,255,0.25)"};
+        background:${sunk ? "#1f2937" : knownToActiveTeam ? "rgba(250,204,21,0.08)" : "rgba(255,255,255,0.06)"};
+        border:${sunk ? "1px solid #6b7280" : knownToActiveTeam ? "1px solid rgba(250,204,21,0.55)" : "1px solid rgba(255,255,255,0.25)"};
         font-weight:bold;
         text-align:center;
         width:${tileWidth};
@@ -939,7 +1044,7 @@ function renderTeamStatusGrid(container, state) {
         box-sizing:border-box;
       `;
 
-      if (visible) {
+      if (shouldRevealNumber) {
         shipCard.innerHTML = `
           <div style="
             font-size:14px;
@@ -951,7 +1056,13 @@ function renderTeamStatusGrid(container, state) {
             ${sunk ? "💥" : "🚢"} ${formatTarget(ship.target)}
           </div>
           <div style="font-size:10px;color:${sunk ? "#ff4c4c" : "#facc15"};">
-            ${ship.lives}/${ship.originalLives}
+            ${
+              visible
+                ? `${ship.lives}/${ship.originalLives}`
+                : sunk
+                  ? "Sunk"
+                  : `${intel.damageKnown}/???`
+            }
           </div>
         `;
       } else {
@@ -963,18 +1074,10 @@ function renderTeamStatusGrid(container, state) {
             overflow:hidden;
             text-overflow:ellipsis;
           ">
-            ${sunk ? "💥" : "🚢"} Hidden
+            🚢 Hidden
           </div>
-          <div style="font-size:10px;color:${sunk ? "#ff4c4c" : "#facc15"};">
-            ${
-              isCurrent
-                ? sunk
-                  ? "Known Sunk"
-                  : "Known"
-                : sunk
-                  ? "Unknown Sunk"
-                  : "Unknown"
-            }
+          <div style="font-size:10px;color:${isCurrent ? "#facc15" : "#9ca3af"};">
+            ${isCurrent ? "Known" : "Unknown"}
           </div>
         `;
       }
@@ -1003,40 +1106,30 @@ function renderTeamStatusGrid(container, state) {
         const knownWrap = document.createElement("div");
         knownWrap.style = `
           display:flex;
-          flex-wrap:nowrap;
+          flex-wrap:wrap;
           gap:5px;
           width:100%;
-          overflow:hidden;
         `;
-
-        const knownTileWidth = getShipTileWidth(knownTargets.length || 1);
 
         knownTargets.forEach(targetInfo => {
           const tile = document.createElement("div");
           tile.style = `
-            padding:6px 4px;
+            padding:6px 8px;
             border-radius:9px;
-            background:rgba(250,204,21,0.08);
-            border:1px solid rgba(250,204,21,0.55);
+            background:${targetInfo.hasSunk ? "rgba(255,76,76,0.1)" : "rgba(250,204,21,0.08)"};
+            border:${targetInfo.hasSunk ? "1px solid rgba(255,76,76,0.65)" : "1px solid rgba(250,204,21,0.55)"};
             font-weight:bold;
             text-align:center;
-            width:${knownTileWidth};
-            min-width:0;
+            min-width:64px;
             box-sizing:border-box;
           `;
 
           tile.innerHTML = `
-            <div style="
-              font-size:13px;
-              line-height:1.1;
-              white-space:nowrap;
-              overflow:hidden;
-              text-overflow:ellipsis;
-            ">
-              🎯 ${formatTarget(targetInfo.target)}
+            <div style="font-size:13px;line-height:1.1;">
+              ${targetInfo.hasSunk ? "💥" : "🎯"} ${formatTarget(targetInfo.target)}
             </div>
-            <div style="font-size:10px;color:#facc15;">
-              ${targetInfo.damageKnown} / ???
+            <div style="font-size:10px;color:${targetInfo.hasSunk ? "#ff4c4c" : "#facc15"};">
+              ${targetInfo.hasSunk ? "Sunk" : `${targetInfo.damageKnown} / ???`}
             </div>
           `;
 
@@ -1064,42 +1157,26 @@ function renderTeamStatusGrid(container, state) {
         const missWrap = document.createElement("div");
         missWrap.style = `
           display:flex;
-          flex-wrap:nowrap;
+          flex-wrap:wrap;
           gap:5px;
           width:100%;
-          overflow:hidden;
         `;
-
-        const missTileWidth = getShipTileWidth(knownMisses.length || 1);
 
         knownMisses.forEach(missInfo => {
           const tile = document.createElement("div");
           tile.style = `
-            padding:6px 4px;
-            border-radius:9px;
+            padding:5px 8px;
+            border-radius:999px;
             background:rgba(255,76,76,0.08);
             border:1px solid rgba(255,76,76,0.55);
             font-weight:bold;
             text-align:center;
-            width:${missTileWidth};
-            min-width:0;
             box-sizing:border-box;
+            font-size:12px;
+            color:#ffffff;
           `;
 
-          tile.innerHTML = `
-            <div style="
-              font-size:13px;
-              line-height:1.1;
-              white-space:nowrap;
-              overflow:hidden;
-              text-overflow:ellipsis;
-            ">
-              ❌ ${formatTarget(missInfo.target)}
-            </div>
-            <div style="font-size:10px;color:#ff4c4c;">
-              Avoid
-            </div>
-          `;
+          tile.innerHTML = `❌ ${formatTarget(missInfo.target)}`;
 
           missWrap.appendChild(tile);
         });
@@ -1304,61 +1381,8 @@ function renderTurnSummaryIntoControls(parent, state) {
 --------------------------*/
 
 function renderTurnTransition(container, state) {
-  const lastTeam = state.teams[state.lastTurnTeamIndex];
-  const nextTeamObj = state.teams[state.nextTeamIndex];
-
-  container.innerHTML = `
-    <div style="
-      padding:18px 16px;
-      border-radius:18px;
-      background:linear-gradient(180deg, #102417 0%, #0b0f0c 100%);
-      border:2px solid #facc15;
-      color:#ffffff;
-      text-align:center;
-    ">
-      <div style="font-size:42px;line-height:1;margin-bottom:10px;">🎯</div>
-      <h2 style="margin:0 0 8px;">${lastTeam ? lastTeam.name : "Team"} Turn Complete</h2>
-      <div style="font-size:15px;opacity:0.9;margin-bottom:16px;">
-        Pass the device to ${nextTeamObj ? nextTeamObj.name : "the next team"}.
-      </div>
-
-      <div style="
-        display:grid;
-        grid-template-columns:1fr 1fr;
-        gap:8px;
-      ">
-        <div id="undoTurnTransitionBtn" style="
-          ${undoButtonStyle()}
-          padding:10px;
-          min-height:42px;
-          font-size:15px;
-        ">
-          Undo
-        </div>
-
-        <div id="nextTurnBtn" style="
-          ${buttonStyle()}
-          padding:10px;
-          min-height:42px;
-          font-size:15px;
-        ">
-          ➡️ ${nextTeamObj ? nextTeamObj.name : "Next Team"}
-        </div>
-      </div>
-    </div>
-
-    <div id="modal"></div>
-  `;
-
-  attachButtonClick(document.getElementById("undoTurnTransitionBtn"), () => {
-    undo();
-    renderUI(container);
-  });
-
-  attachButtonClick(document.getElementById("nextTurnBtn"), () => {
-    startNextTurn();
-    renderUI(container);
-  });
+  startNextTurn();
+  renderUI(container);
 }
 
 /* -------------------------
@@ -1408,42 +1432,61 @@ function renderNumberPicker(container, context, hitType) {
       gap:8px;
       margin-top:12px;
     ">
-      <div id="bullBtn" style="
+      <button id="bullBtn" type="button" style="
         ${buttonStyle()}
-        padding:12px;
-        min-height:52px;
+        width:100%;
+        padding:0;
+        min-height:56px;
         font-size:20px;
+        margin-top:0;
+        touch-action:manipulation;
+        -webkit-tap-highlight-color:transparent;
         ${isTriple ? "background:#555;color:#bbb;border:1px solid #999;cursor:not-allowed;" : ""}
-      ">Bull</div>
+      ">Bull</button>
 
-      <div id="closeModalBtn" style="
+      <button id="closeModalBtn" type="button" style="
         ${buttonStyle()}
-        padding:12px;
-        min-height:52px;
+        width:100%;
+        padding:0;
+        min-height:56px;
         font-size:20px;
+        margin-top:0;
         border:1px solid #ff4c4c;
-      ">Close</div>
+        touch-action:manipulation;
+        -webkit-tap-highlight-color:transparent;
+      ">Close</button>
     </div>
   `);
 
   const grid = document.getElementById("numberGrid");
   grid.style = `
     display:grid;
-    grid-template-columns:repeat(4, 1fr);
-    gap:8px;
+    grid-template-columns:repeat(4, minmax(0, 1fr));
+    gap:10px;
   `;
 
   for (let i = 1; i <= 20; i++) {
-    const btn = document.createElement("div");
+    const btn = document.createElement("button");
+    btn.type = "button";
     btn.innerText = i;
+
     btn.style = `
       ${buttonStyle()}
-      padding:12px;
-      min-height:52px;
-      font-size:20px;
+      width:100%;
+      min-width:0;
+      height:58px;
+      min-height:58px;
+      padding:0;
+      margin:0;
+      font-size:22px;
+      line-height:1;
+      touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
+      appearance:none;
+      -webkit-appearance:none;
     `;
 
-    attachButtonClick(btn, () => {
+    attachNumberButtonClick(btn, () => {
       if (context === "setup") {
         addSetupShip(hitType, i);
       } else {
@@ -1461,7 +1504,7 @@ function renderNumberPicker(container, context, hitType) {
   const closeBtn = document.getElementById("closeModalBtn");
 
   if (!isTriple) {
-    attachButtonClick(bullBtn, () => {
+    attachNumberButtonClick(bullBtn, () => {
       const bullHitType = hitType === "single" ? "greenBull" : "redBull";
 
       if (context === "setup") {
@@ -1475,7 +1518,7 @@ function renderNumberPicker(container, context, hitType) {
     });
   }
 
-  attachButtonClick(closeBtn, closeModal);
+  attachNumberButtonClick(closeBtn, closeModal);
 }
 
 /* -------------------------
