@@ -233,21 +233,35 @@ function buildStatsSummary() {
 }
 
 function maybeDeclareWinner() {
+  if (gameState.pendingWinnerConfirmation || gameState.winner) {
+    return true;
+  }
+
   const activePlayers = getActivePlayers();
 
   if (activePlayers.length === 1) {
-    gameState.winner = activePlayers[0].name;
+    gameState.pendingWinnerConfirmation = true;
+    gameState.pendingWinner = activePlayers[0].name;
     gameState.finalStats = buildStatsSummary();
-    updateMessage(`${activePlayers[0].name} is the last survivor!`, "#facc15");
-    saveSurvivorHistory();
+
+    updateMessage(
+      `${activePlayers[0].name} appears to be the last survivor. Confirm winner.`,
+      "#facc15"
+    );
+
     return true;
   }
 
   if (activePlayers.length === 0) {
-    gameState.winner = "No Survivor";
+    gameState.pendingWinnerConfirmation = true;
+    gameState.pendingWinner = "No Survivor";
     gameState.finalStats = buildStatsSummary();
-    updateMessage("Everybody is out. No survivor remains.", "#ff4c4c");
-    saveSurvivorHistory();
+
+    updateMessage(
+      "Everybody appears to be out. Confirm no survivor remains.",
+      "#ff4c4c"
+    );
+
     return true;
   }
 
@@ -255,6 +269,8 @@ function maybeDeclareWinner() {
 }
 
 function advanceTurn() {
+  if (gameState.pendingWinnerConfirmation || gameState.winner) return;
+
   resetTurnTracking();
 
   let attempts = 0;
@@ -341,8 +357,12 @@ export function initGame(players) {
     lastMessageTimestamp: 0,
 
     winner: null,
+    pendingWinner: null,
+    pendingWinnerConfirmation: false,
+
     pendingShanghai: null,
     shanghaiWinner: null,
+
     finalStats: null,
     historySaved: false
   };
@@ -364,6 +384,10 @@ export function getStats() {
 }
 
 export function getCurrentTargetDisplay() {
+  if (gameState.pendingWinnerConfirmation) {
+    return "Confirm winner";
+  }
+
   if (gameState.turnReadyForNext) {
     return "Turn complete — tap Next Player";
   }
@@ -419,13 +443,25 @@ function padRemainingDartsAsMisses() {
   const player = gameState.players[gameState.currentPlayer];
   if (!player || !isPlayerActive(player)) return;
 
-  while (!gameState.winner && !gameState.pendingShanghai && gameState.dartsThrown < 3) {
+  while (
+    !gameState.winner &&
+    !gameState.pendingWinnerConfirmation &&
+    !gameState.pendingShanghai &&
+    gameState.dartsThrown < 3
+  ) {
     applySurvivorThrow("miss", null, true);
   }
 }
 
 function applySurvivorThrow(hitType, target = null, isAutoMiss = false) {
-  if (gameState.winner || gameState.pendingShanghai || gameState.turnReadyForNext) return;
+  if (
+    gameState.winner ||
+    gameState.pendingWinnerConfirmation ||
+    gameState.pendingShanghai ||
+    gameState.turnReadyForNext
+  ) {
+    return;
+  }
 
   const player = gameState.players[gameState.currentPlayer];
   if (!player || !isPlayerActive(player)) return;
@@ -545,19 +581,29 @@ export function submitThrow(hitType, target = null) {
 }
 
 export function nextPlayer() {
-  if (gameState.winner || gameState.pendingShanghai) return;
+  if (
+    gameState.winner ||
+    gameState.pendingWinnerConfirmation ||
+    gameState.pendingShanghai
+  ) {
+    return;
+  }
 
   history.push(cloneState(gameState));
 
   padRemainingDartsAsMisses();
 
-  if (!gameState.winner && !gameState.pendingShanghai) {
+  if (
+    !gameState.winner &&
+    !gameState.pendingWinnerConfirmation &&
+    !gameState.pendingShanghai
+  ) {
     advanceTurn();
   }
 }
 
 export function endGameEarly() {
-  if (gameState.winner) return;
+  if (gameState.winner || gameState.pendingWinnerConfirmation) return;
 
   history.push(cloneState(gameState));
 
@@ -570,7 +616,10 @@ export function endGameEarly() {
     gameState.winner = "No Survivor";
   }
 
+  gameState.pendingWinner = null;
+  gameState.pendingWinnerConfirmation = false;
   gameState.finalStats = buildStatsSummary();
+
   saveSurvivorHistory();
   updateMessage("Game ended early.", "#facc15");
 }
@@ -588,6 +637,8 @@ export function confirmShanghaiWinner() {
   gameState.shanghaiWinner = playerName;
   gameState.winner = playerName;
   gameState.pendingShanghai = null;
+  gameState.pendingWinner = null;
+  gameState.pendingWinnerConfirmation = false;
   gameState.finalStats = buildStatsSummary();
 
   updateMessage(`${playerName} hit SHANGHAI on ${target}!`, "#ffcc00");
@@ -603,6 +654,37 @@ export function cancelPendingShanghai() {
   } else {
     gameState.pendingShanghai = null;
   }
+}
+
+export function confirmPendingWinner() {
+  if (!gameState.pendingWinnerConfirmation || gameState.winner) return;
+
+  gameState.winner = gameState.pendingWinner || "No Survivor";
+  gameState.pendingWinner = null;
+  gameState.pendingWinnerConfirmation = false;
+  gameState.finalStats = buildStatsSummary();
+
+  if (gameState.winner === "No Survivor") {
+    updateMessage("Everybody is out. No survivor remains.", "#ff4c4c");
+  } else {
+    updateMessage(`${gameState.winner} is the last survivor!`, "#facc15");
+  }
+
+  saveSurvivorHistory();
+}
+
+export function cancelPendingWinner() {
+  if (!gameState.pendingWinnerConfirmation || gameState.winner) return;
+
+  if (history.length) {
+    gameState = history.pop();
+    updateMessage("Final elimination undone. Continue playing.", "#facc15");
+    return;
+  }
+
+  gameState.pendingWinner = null;
+  gameState.pendingWinnerConfirmation = false;
+  updateMessage("Final elimination cancelled. Continue playing.", "#facc15");
 }
 
 export function getThrowLog() {
