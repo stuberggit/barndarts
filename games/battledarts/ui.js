@@ -1193,7 +1193,7 @@ function renderGameControls(container, state) {
   const controls = document.getElementById("controls");
   controls.innerHTML = "";
 
-  const canThrow = state.throwsThisTurn < 3;
+  const canThrow = state.throwsThisTurn < 3 && !state.pendingWinnerConfirmation;
 
   const hitRow = document.createElement("div");
   hitRow.style = `
