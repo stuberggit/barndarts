@@ -907,6 +907,27 @@ function renderTeamStatusGrid(container, state) {
     const knownTargets = isCurrent ? getKnownTargets(team) : [];
     const knownMisses = isCurrent ? getKnownMisses(team) : [];
 
+    const getShipIntel = ship => {
+      if (isCurrent) return null;
+      return activeTeam?.fleetIntel?.[`${index}:${ship.target}`] || null;
+    };
+
+    const displayShips = [...team.ships].sort((a, b) => {
+      const aSunk = a.lives <= 0;
+      const bSunk = b.lives <= 0;
+
+      if (aSunk && !bSunk) return -1;
+      if (!aSunk && bSunk) return 1;
+
+      const aKnown = !!getShipIntel(a);
+      const bKnown = !!getShipIntel(b);
+
+      if (aKnown && !bKnown) return -1;
+      if (!aKnown && bKnown) return 1;
+
+      return 0;
+    });
+
     const card = document.createElement("div");
     card.style = `
       padding:9px 10px;
@@ -1004,12 +1025,11 @@ function renderTeamStatusGrid(container, state) {
       overflow:hidden;
     `;
 
-    const displayShips = sortShipsForDisplay(team.ships);
     const tileWidth = getShipTileWidth(displayShips.length || 1);
 
     displayShips.forEach(ship => {
       const sunk = ship.lives <= 0;
-      const intel = isCurrent ? null : getFleetIntelForShip(activeTeam, index, ship.target);
+      const intel = getShipIntel(ship);
       const knownToActiveTeam = !!intel;
       const shouldRevealNumber = visible || sunk || knownToActiveTeam;
 
@@ -1017,8 +1037,8 @@ function renderTeamStatusGrid(container, state) {
       shipCard.style = `
         padding:6px 4px;
         border-radius:9px;
-        background:${sunk ? "#1f2937" : knownToActiveTeam ? "rgba(250,204,21,0.08)" : "rgba(255,255,255,0.06)"};
-        border:${sunk ? "1px solid #6b7280" : knownToActiveTeam ? "1px solid rgba(250,204,21,0.55)" : "1px solid rgba(255,255,255,0.25)"};
+        background:${sunk ? "#1f2937" : knownToActiveTeam ? "rgba(255,76,76,0.08)" : "rgba(255,255,255,0.06)"};
+        border:${sunk ? "1px solid #6b7280" : knownToActiveTeam ? "1px solid rgba(255,76,76,0.65)" : "1px solid rgba(255,255,255,0.25)"};
         font-weight:bold;
         text-align:center;
         width:${tileWidth};
