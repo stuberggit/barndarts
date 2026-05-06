@@ -9,8 +9,13 @@ import {
   endGameEarly,
   undo,
   isGameOver,
+  confirmShanghaiWinner,
+  cancelPendingShanghai,
+  confirmPendingWinner,
+  cancelPendingWinner,
   initGame
 } from "./logic.js";
+
 import { store } from "../../core/store.js";
 import { renderApp } from "../../core/router.js";
 
@@ -220,6 +225,16 @@ function getPlayerRowOpacity(player) {
 
 export function renderUI(container) {
   const state = getState();
+
+  if (state.pendingWinnerConfirmation) {
+    renderPendingWinnerConfirm(container, state);
+    return;
+  }
+
+  if (state.pendingShanghai) {
+    renderPendingShanghaiConfirm(container, state);
+    return;
+  }
 
   if (isGameOver()) {
     renderEnd(container, state);
@@ -798,6 +813,129 @@ function renderStatsModal(throwLog) {
   });
 
   attachButtonClick(document.getElementById("closeModalBtn"), closeModal);
+}
+
+function renderPendingWinnerConfirm(container, state) {
+  const winnerName = state.pendingWinner || "No Survivor";
+
+  container.innerHTML = `
+    <div style="
+      border-radius:18px;
+      padding:18px 16px 20px;
+      background:
+        radial-gradient(circle at top, rgba(250,204,21,0.18), transparent 35%),
+        linear-gradient(180deg, #102417 0%, #0b0f0c 100%);
+      border:2px solid #facc15;
+      color:#ffffff;
+      text-align:center;
+    ">
+      <div style="font-size:46px;line-height:1;margin-bottom:10px;">
+        ⚠️☣️⚠️
+      </div>
+
+      <h2 style="
+        margin:0 0 8px;
+        font-size:26px;
+        color:#facc15;
+      ">
+        Confirm Final Elimination
+      </h2>
+
+      <div style="
+        font-size:18px;
+        font-weight:bold;
+        margin-bottom:10px;
+      ">
+        ${winnerName === "No Survivor" ? "No Survivor?" : `${winnerName} Survives?`}
+      </div>
+
+      <div style="
+        font-size:15px;
+        line-height:1.5;
+        color:#d1fae5;
+        background:rgba(255,255,255,0.06);
+        border:1px solid rgba(255,255,255,0.12);
+        border-radius:14px;
+        padding:12px;
+        margin-bottom:16px;
+      ">
+        The final player appears to have been eliminated.
+        <br><br>
+        Confirm the winner, or undo the final hit if this was accidental.
+      </div>
+
+      <div id="pendingWinnerBoard"></div>
+
+      <div style="
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:10px;
+        margin-top:14px;
+      ">
+        <div id="undoFinalBtn" style="
+          ${lightButtonStyle()}
+          padding:12px;
+          min-height:52px;
+          font-size:16px;
+        ">Undo Final Hit</div>
+
+        <div id="confirmWinnerBtn" style="
+          ${buttonStyle()}
+          padding:12px;
+          min-height:52px;
+          font-size:16px;
+          border:2px solid #facc15;
+        ">Confirm Winner</div>
+      </div>
+
+      <div id="modal"></div>
+    </div>
+  `;
+
+  const board = document.getElementById("pendingWinnerBoard");
+  board.style = "margin-top:12px;text-align:left;";
+
+  state.players.forEach(player => {
+    const row = document.createElement("div");
+
+    row.style = `
+      margin-bottom:8px;
+      padding:10px 12px;
+      border-radius:10px;
+      background:${player.isEliminated ? "#1f2937" : "#11361a"};
+      border:${player.isEliminated ? "1px solid #6b7280" : "1px solid #facc15"};
+      color:#ffffff;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      font-weight:bold;
+      opacity:${player.isEliminated ? 0.72 : 1};
+    `;
+
+    row.innerHTML = `
+      <span>
+        ${player.name}
+        ${
+          player.isEliminated
+            ? `<span style="font-size:13px;margin-left:8px;color:#9ca3af;">☠️ OUT</span>`
+            : `<span style="font-size:13px;margin-left:8px;color:#22c55e;">SURVIVING</span>`
+        }
+      </span>
+      <span>${player.score}</span>
+    `;
+
+    board.appendChild(row);
+  });
+
+  attachButtonClick(document.getElementById("undoFinalBtn"), () => {
+    cancelPendingWinner();
+    renderUI(container);
+  });
+
+  attachButtonClick(document.getElementById("confirmWinnerBtn"), () => {
+    confirmPendingWinner();
+    renderUI(container);
+  });
 }
 
 function renderEndGameConfirm(container) {
