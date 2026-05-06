@@ -356,10 +356,15 @@ function finishShanghaiWin(teamIndex, target) {
 }
 
 function finishTurn() {
+  if (gameState.pendingWinnerConfirmation || getActiveTeamIndexes().length <= 1) {
+    maybeDeclareWinner("elimination");
+    return;
+  }
+
   const nextIndex = getNextActiveTeamIndex(gameState.currentTeamIndex);
 
   if (nextIndex == null) {
-    maybeDeclareWinner();
+    maybeDeclareWinner("elimination");
     return;
   }
 
@@ -367,6 +372,7 @@ function finishTurn() {
   gameState.nextTeamIndex = nextIndex;
   gameState.currentTeamIndex = nextIndex;
   gameState.phase = "GAME";
+  gameState.pendingWinnerConfirmation = false;
 
   resetTurnTracking();
 
@@ -418,6 +424,7 @@ export function initGame(players) {
     currentTurnThrows: [],
     currentTurnLiveTargets: [],
     allThrows: [],
+    pendingWinnerConfirmation: false,
 
     lastMessage: "",
     lastMessageColor: "#ffffff",
@@ -639,6 +646,11 @@ export function submitThrow(hitType, target = null) {
   const attackingTeam = getCurrentTeam();
   if (!attackingTeam) return false;
 
+  if (gameState.pendingWinnerConfirmation) {
+    updateMessage("Final ship sunk. Tap Next Team to confirm the winner, or Undo to correct the throw.", "#facc15");
+    return false;
+  }
+
   if (gameState.throwsThisTurn >= 3) {
     updateMessage("Turn complete. Tap Next Team.", "#facc15");
     return false;
@@ -791,10 +803,17 @@ export function submitThrow(hitType, target = null) {
     return true;
   }
 
-  maybeDeclareWinner();
+  if (getActiveTeamIndexes().length <= 1) {
+    gameState.pendingWinnerConfirmation = true;
+    updateMessage(
+      `${attackingTeam.name}: ${getHitTypeLabel(hitType)} ${formatTarget(target)} — Final ship sunk. Tap Next Team to confirm the winner, or Undo to correct the throw.`,
+      "#facc15"
+    );
+  }
 
   return true;
 }
+
 export function nextTeam() {
   if (gameState.phase !== "GAME") return false;
 
