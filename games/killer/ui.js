@@ -388,18 +388,29 @@ function rowForPlayer(parent, player, isHighlighted, showTargetDetail = false) {
         min-height:42px;
         padding:5px 8px;
         border-radius:10px;
-        border:2px solid ${player.isDormantDead ? "#6b7280" : "#facc15"};
-        background:${player.isDormantDead ? "#27272a" : "rgba(250,204,21,0.12)"};
-        color:${player.isDormantDead ? "#d4d4d8" : "#facc15"};
+        border:2px solid ${player.isDormantDead ? "#6b7280" : player.isZombie ? "#22c55e" : "#facc15"};
+        background:${
+          player.isDormantDead
+            ? "#27272a"
+            : player.isZombie
+              ? "linear-gradient(180deg, #14532d 0%, #052e16 100%)"
+              : "rgba(250,204,21,0.12)"
+        };
+        color:${player.isDormantDead ? "#d4d4d8" : player.isZombie ? "#dcfce7" : "#facc15"};
         display:flex;
         flex-direction:column;
         align-items:center;
         justify-content:center;
         line-height:1.05;
         flex-shrink:0;
+        box-shadow:${player.isZombie ? "inset 0 0 12px rgba(34,197,94,0.25)" : "none"};
       ">
-        <div style="font-size:10px;letter-spacing:0.6px;opacity:0.9;">TARGET</div>
-        <div style="font-size:22px;font-weight:900;">${formatTargetNumber(player.target)}</div>
+        <div style="font-size:10px;letter-spacing:0.6px;opacity:0.95;white-space:nowrap;">
+          ${player.isZombie ? "🧟 ZOMBIE" : "TARGET"}
+        </div>
+        <div style="font-size:22px;font-weight:900;text-shadow:${player.isZombie ? "0 0 8px rgba(34,197,94,0.6)" : "none"};">
+          ${formatTargetNumber(player.target)}
+        </div>
       </div>
     `
     : `
@@ -779,6 +790,7 @@ function getTileInfoForTarget(state, target) {
       number: formatTargetNumber(target),
       name: currentPlayer.name,
       isDormantDead: false,
+      isZombie: !!currentPlayer.isZombie,
       isOwnTarget: true
     };
   }
@@ -789,6 +801,7 @@ function getTileInfoForTarget(state, target) {
     number: formatTargetNumber(target),
     name: targetPlayer?.name || "",
     isDormantDead: !!targetPlayer?.isDormantDead,
+    isZombie: !!targetPlayer?.isZombie,
     isOwnTarget: false
   };
 }
@@ -811,7 +824,9 @@ function renderGameControls(container, state) {
 
   targets.forEach(target => {
     const info = getTileInfoForTarget(state, target);
-    const ownTargetIsDanger = info.isOwnTarget && currentPlayer.isKiller;
+    const zombieTarget = info.isZombie && !info.isDormantDead;
+    const ownTargetIsDanger = info.isOwnTarget && currentPlayer.isKiller && !zombieTarget;
+    const ownTargetIsUnlock = info.isOwnTarget && !currentPlayer.isKiller && !zombieTarget;
 
     const btn = document.createElement("div");
     btn.dataset.disabled = canThrow ? "false" : "true";
@@ -830,7 +845,8 @@ function renderGameControls(container, state) {
           font-size:${info.isOwnTarget ? "30px" : "34px"};
           line-height:1;
           ${info.isDormantDead ? "color:#d4d4d8;" : ""}
-          ${info.isOwnTarget ? "color:#facc15;" : ""}
+          ${zombieTarget ? "color:#bbf7d0;text-shadow:0 0 8px rgba(34,197,94,0.6);" : ""}
+          ${info.isOwnTarget && !zombieTarget ? "color:#facc15;" : ""}
         ">
           ${info.number}
         </div>
@@ -853,6 +869,31 @@ function renderGameControls(container, state) {
                 letter-spacing:1px;
               ">
                 DEAD
+              </div>
+            `
+            : ""
+        }
+
+        ${
+          zombieTarget
+            ? `
+              <div style="
+                position:absolute;
+                top:8px;
+                left:50%;
+                transform:translateX(-50%) rotate(-6deg);
+                background:rgba(20,83,45,0.98);
+                color:#dcfce7;
+                border:1px solid #86efac;
+                border-radius:999px;
+                padding:2px 8px;
+                font-size:12px;
+                font-weight:bold;
+                letter-spacing:0.5px;
+                box-shadow:0 0 10px rgba(34,197,94,0.35);
+                white-space:nowrap;
+              ">
+                🧟 Zombie 🧟
               </div>
             `
             : ""
@@ -882,7 +923,7 @@ function renderGameControls(container, state) {
         }
 
         ${
-          info.isOwnTarget && !currentPlayer.isKiller
+          ownTargetIsUnlock
             ? `
               <div style="
                 position:absolute;
@@ -910,7 +951,8 @@ function renderGameControls(container, state) {
           margin-top:6px;
           opacity:0.9;
           ${info.isDormantDead ? "color:#d4d4d8;" : ""}
-          ${info.isOwnTarget ? "color:#facc15;font-weight:bold;" : ""}
+          ${zombieTarget ? "color:#dcfce7;font-weight:bold;" : ""}
+          ${info.isOwnTarget && !zombieTarget ? "color:#facc15;font-weight:bold;" : ""}
         ">
           ${info.name}
         </div>
@@ -936,19 +978,28 @@ function renderGameControls(container, state) {
           : ""
       }
       ${
-        ownTargetIsDanger
+        zombieTarget
           ? `
-            background:#451a1a;
-            color:#facc15;
-            border:2px solid #facc15;
+            background:
+              radial-gradient(circle at top, rgba(134,239,172,0.22), transparent 42%),
+              linear-gradient(180deg, #14532d 0%, #052e16 100%);
+            color:#dcfce7;
+            border:2px solid #22c55e;
+            box-shadow:inset 0 0 18px rgba(34,197,94,0.22);
           `
-          : info.isOwnTarget
+          : ownTargetIsDanger
             ? `
-              background:#11361a;
+              background:#451a1a;
               color:#facc15;
-              border:2px solid #22c55e;
+              border:2px solid #facc15;
             `
-            : ""
+            : info.isOwnTarget
+              ? `
+                background:#11361a;
+                color:#facc15;
+                border:2px solid #22c55e;
+              `
+              : ""
       }
     `;
 
