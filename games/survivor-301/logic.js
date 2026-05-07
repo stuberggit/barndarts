@@ -9,6 +9,8 @@ const STARTING_SCORE = 301;
 
 const BONUS_MIN = 5;
 const BONUS_MAX = 12;
+const BONUS_ROUND_CHANCE = 0.25;
+const MAX_BONUS_ROUNDS_IN_A_ROW = 2;
 
 const GREEN_BULL_BASE_BONUS = 10;
 const GREEN_BULL_STEP = 5;
@@ -38,6 +40,40 @@ function getRandomBonusTarget() {
   return Math.floor(Math.random() * (BONUS_MAX - BONUS_MIN + 1)) + BONUS_MIN;
 }
 
+function getConsecutiveBonusRoundCount() {
+  const history = gameState.bonusRoundHistory || [];
+  let count = 0;
+
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i] !== true) break;
+    count++;
+  }
+
+  return count;
+}
+
+function shouldCreateBonusRound() {
+  const consecutiveBonusRounds = getConsecutiveBonusRoundCount();
+
+  if (consecutiveBonusRounds >= MAX_BONUS_ROUNDS_IN_A_ROW) {
+    return false;
+  }
+
+  return Math.random() < BONUS_ROUND_CHANCE;
+}
+
+function setBonusForNewRound() {
+  const bonusActive = shouldCreateBonusRound();
+
+  gameState.bonusTarget = bonusActive ? getRandomBonusTarget() : null;
+
+  if (!Array.isArray(gameState.bonusRoundHistory)) {
+    gameState.bonusRoundHistory = [];
+  }
+
+  gameState.bonusRoundHistory.push(bonusActive);
+}
+
 function isBullHitType(hitType) {
   return hitType === "greenBull" || hitType === "redBull";
 }
@@ -57,7 +93,7 @@ function getHitMultiplier(hitType) {
 }
 
 function isBonusRound() {
-  return gameState.turnNumber > 0 && gameState.turnNumber % 3 === 0;
+  return !!gameState.bonusTarget;
 }
 
 function getActiveBonusTarget() {
@@ -292,7 +328,7 @@ function advanceTurn() {
   );
 
   if (wrappedToNewRound) {
-    gameState.bonusTarget = isBonusRound() ? getRandomBonusTarget() : null;
+    setBonusForNewRound();
   }
 
   maybeDeclareWinner();
@@ -344,6 +380,7 @@ export function initGame(players) {
     })),
 
     bonusTarget: null,
+    bonusRoundHistory: [],
 
     currentPlayer: 0,
     turnNumber: 1,
@@ -372,7 +409,10 @@ export function initGame(players) {
   if (playerNames.length < 2) {
     gameState.winner = "No Survivor";
     updateMessage("Survivor 301 needs at least 2 players.", "#ff4c4c");
+    return;
   }
+
+  setBonusForNewRound();
 }
 
 export function getState() {
