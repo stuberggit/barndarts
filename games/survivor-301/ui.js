@@ -1200,7 +1200,7 @@ function renderEnd(container, state) {
   });
 
   attachButtonClick(statsBtn, () => {
-    renderStatsModal(stats);
+    renderStatsModal(getStats);
   });
 
   attachButtonClick(mainMenuBtn, () => {
