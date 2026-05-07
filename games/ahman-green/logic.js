@@ -24,6 +24,35 @@ function getCurrentTargetColor(progress) {
   return COLOR_ORDER[progress] || null;
 }
 
+function ensureStats(player) {
+  if (!player.stats) {
+    player.stats = {
+      dartsThrown: 0,
+      colorHits: 0,
+      misses: 0,
+      parties: 0,
+      acdcs: 0,
+      completedColors: {
+        Black: 0,
+        White: 0,
+        Green: 0,
+        Red: 0
+      }
+    };
+  }
+
+  if (!player.stats.completedColors) {
+    player.stats.completedColors = {
+      Black: 0,
+      White: 0,
+      Green: 0,
+      Red: 0
+    };
+  }
+
+  return player.stats;
+}
+
 function advanceTurn() {
   gameState.dartsThrown = 0;
 
@@ -34,11 +63,42 @@ function advanceTurn() {
   }
 }
 
+function getRankedPlayersForStats() {
+  return gameState.players
+    .map((player, index) => ({
+      player,
+      index
+    }))
+    .sort((a, b) => {
+      if (a.player.name === gameState.winner) return -1;
+      if (b.player.name === gameState.winner) return 1;
+
+      if (b.player.progress !== a.player.progress) {
+        return b.player.progress - a.player.progress;
+      }
+
+      const aStats = ensureStats(a.player);
+      const bStats = ensureStats(b.player);
+
+      if (aStats.dartsThrown !== bStats.dartsThrown) {
+        return aStats.dartsThrown - bStats.dartsThrown;
+      }
+
+      return a.index - b.index;
+    });
+}
+
 function buildStatsSummary() {
-  return gameState.players.map(player => ({
+  const ranked = getRankedPlayersForStats();
+
+  return ranked.map(({ player, index }, placementIndex) => ({
     name: player.name,
     progress: player.progress,
-    status: player.progress >= 4 ? "finished" : "active"
+    status: player.progress >= 4 ? "finished" : "active",
+    isWinner: player.name === gameState.winner,
+    placement: placementIndex + 1,
+    originalIndex: index,
+    stats: JSON.parse(JSON.stringify(ensureStats(player)))
   }));
 }
 
@@ -46,9 +106,12 @@ function saveAhmanGreenHistory() {
   if (gameState.historySaved) return;
 
   const selectedProfiles = store.selectedPlayerProfiles || [];
+  const finalStats = gameState.finalStats || buildStatsSummary();
 
   const players = gameState.players.map((player, index) => {
     const profile = selectedProfiles[index] || {};
+    const stats = ensureStats(player);
+    const finalStatRow = finalStats.find(row => row.name === player.name);
 
     return {
       id: profile.id || null,
@@ -56,9 +119,16 @@ function saveAhmanGreenHistory() {
       avatar: profile.avatar || null,
       score: player.progress,
       result: player.name === gameState.winner ? "winner" : "played",
+      placement: finalStatRow?.placement || null,
       stats: {
         progress: player.progress,
-        finished: player.progress >= 4
+        finished: player.progress >= 4,
+        dartsThrown: stats.dartsThrown,
+        colorHits: stats.colorHits,
+        misses: stats.misses,
+        parties: stats.parties,
+        acdcs: stats.acdcs,
+        completedColors: { ...stats.completedColors }
       }
     };
   });
@@ -78,7 +148,7 @@ function saveAhmanGreenHistory() {
       : null,
     meta: {
       colorOrder: [...COLOR_ORDER],
-      finalStats: buildStatsSummary()
+      finalStats
     }
   });
 
@@ -97,7 +167,20 @@ export function initGame(players) {
 
     players: playerNames.map(name => ({
       name,
-      progress: 0 // 0=Black, 1=White, 2=Green, 3=Red, 4=Finished
+      progress: 0, // 0=Black, 1=White, 2=Green, 3=Red, 4=Finished
+      stats: {
+        dartsThrown: 0,
+        colorHits: 0,
+        misses: 0,
+        parties: 0,
+        acdcs: 0,
+        completedColors: {
+          Black: 0,
+          White: 0,
+          Green: 0,
+          Red: 0
+        }
+      }
     })),
 
     currentPlayer: 0,
@@ -119,6 +202,10 @@ export function getState() {
   return gameState;
 }
 
+export function getStats() {
+  return gameState.finalStats || buildStatsSummary();
+}
+
 /* -------------------------
    GAME ACTIONS
 --------------------------*/
@@ -129,6 +216,7 @@ export function advancePlayer(colorClicked) {
   history.push(cloneState(gameState));
 
   const player = gameState.players[gameState.currentPlayer];
+  const stats = ensureStats(player);
   const targetColor = getCurrentTargetColor(player.progress);
 
   if (!targetColor) return;
@@ -136,6 +224,10 @@ export function advancePlayer(colorClicked) {
   if (colorClicked !== targetColor) {
     return;
   }
+
+  stats.dartsThrown++;
+  stats.colorHits++;
+  stats.completedColors[targetColor] = (stats.completedColors[targetColor] || 0) + 1;
 
   player.progress = Math.min(player.progress + 1, 4);
   gameState.dartsThrown++;
@@ -167,6 +259,11 @@ export function missBoard() {
   history.push(cloneState(gameState));
 
   const player = gameState.players[gameState.currentPlayer];
+  const stats = ensureStats(player);
+
+  stats.dartsThrown++;
+  stats.misses++;
+
   player.progress = 0;
   gameState.dartsThrown = 3;
 
@@ -183,6 +280,11 @@ export function partyJump() {
   history.push(cloneState(gameState));
 
   const player = gameState.players[gameState.currentPlayer];
+  const stats = ensureStats(player);
+
+  stats.dartsThrown++;
+  stats.parties++;
+
   player.progress = 3; // needs Red next
   gameState.dartsThrown++;
 
@@ -201,6 +303,11 @@ export function acdcJump() {
   history.push(cloneState(gameState));
 
   const player = gameState.players[gameState.currentPlayer];
+  const stats = ensureStats(player);
+
+  stats.dartsThrown++;
+  stats.acdcs++;
+
   player.progress = 0;
   gameState.dartsThrown++;
 
