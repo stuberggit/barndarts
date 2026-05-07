@@ -252,10 +252,7 @@ export function renderUI(container) {
   const round = state.rounds[state.currentRound];
   const currentPlayer = state.players[state.currentPlayer];
 
-  const scoreAge = Date.now() - (state.lastScoreTimestamp || 0);
-  const showScoreFlash = state.lastScoreMessage && scoreAge < 2500;
-
-  const scoreFlashHtml = showScoreFlash
+  const scoreMessageHtml = state.lastScoreMessage
     ? `
       <div style="
         padding:8px 10px;
@@ -264,15 +261,13 @@ export function renderUI(container) {
         color:${state.lastScoreColor || "#ffffff"};
         font-weight:bold;
         text-align:center;
-        opacity:${scoreAge > 1800 ? 0.35 : 1};
-        transition:opacity 0.6s ease;
       ">
         ${state.lastScoreMessage}
       </div>
     `
     : "";
 
-  const feedbackHtml = scoreFlashHtml || `<div></div>`;
+  const feedbackHtml = scoreMessageHtml || `<div></div>`;
 
   container.innerHTML = `
     <div style="text-align:center;margin-bottom:10px;">
@@ -317,12 +312,6 @@ export function renderUI(container) {
 
   renderPlayerTiles(state);
   renderControls(container);
-
-  if (showScoreFlash) {
-    setTimeout(() => {
-      renderUI(container);
-    }, 700);
-  }
 }
 
 /* -------------------------
@@ -558,23 +547,28 @@ function buildThrowSummaryHtml(state, round) {
               No darts thrown.
             </div>
           `
-          : throws.map((throwValue, index) => `
-            <div style="
-              display:flex;
-              justify-content:space-between;
-              align-items:center;
-              gap:10px;
-              padding:8px 0;
-              border-top:${index === 0 ? "none" : "1px solid rgba(255,255,255,0.2)"};
-              font-weight:bold;
-            ">
-              <div>Dart ${index + 1}: ${formatThrowValue(throwValue)}</div>
-              <div style="color:#facc15;">
-                ${round.target === 25 ? "Bull" : round.target}
-                × ${round.multipliers[index]}
+          : throws.map((throwValue, index) => {
+            const dartMultiplier = round.multipliers[index] || 0;
+            const effectiveMultiplier = Math.max(0, Math.min(3, throwValue)) * dartMultiplier;
+
+            return `
+              <div style="
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                gap:10px;
+                padding:8px 0;
+                border-top:${index === 0 ? "none" : "1px solid rgba(255,255,255,0.2)"};
+                font-weight:bold;
+              ">
+                <div>Dart ${index + 1}: ${formatThrowValue(throwValue)}</div>
+                <div style="color:#facc15;">
+                  ${round.target === 25 ? "Bull" : round.target}
+                  × ${effectiveMultiplier}
+                </div>
               </div>
-            </div>
-          `).join("")
+            `;
+          }).join("")
       }
 
       ${
