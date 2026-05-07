@@ -590,6 +590,24 @@ function applySurvivorThrow(hitType, target = null, isAutoMiss = false) {
 
   recordThrowHistory(player, throwRecord);
 
+  if (player.score <= 0) {
+    eliminateCurrentPlayer();
+
+    throwRecord.result = "eliminated";
+    gameState.turnReadyForNext = true;
+
+    if (maybeDeclareWinner()) {
+      return;
+    }
+
+    updateMessage(
+      `${player.name} busted and is out. Tap Next Player.`,
+      "#ff4c4c"
+    );
+
+    return;
+  }
+
   if (hitType === "miss") {
     updateMessage(`${player.name} misses the board and loses ${Math.abs(scoreChange)}.`, "#ff4c4c");
   } else if (isBullHitType(hitType)) {
@@ -598,16 +616,6 @@ function applySurvivorThrow(hitType, target = null, isAutoMiss = false) {
     updateMessage(`${player.name} hits bonus ${getHitLabel(hitType, target)} and gains ${scoreChange}!`, "#22c55e");
   } else {
     updateMessage(`${player.name} hits ${getHitLabel(hitType, target)} for ${Math.abs(scoreChange)} damage.`, "#facc15");
-  }
-
-  if (player.score <= 0) {
-    eliminateCurrentPlayer();
-
-    if (!maybeDeclareWinner() && !isAutoMiss) {
-      advanceTurn();
-    }
-
-    return;
   }
 
   if (gameState.dartsThrown >= 3) {
@@ -631,7 +639,11 @@ export function nextPlayer() {
 
   history.push(cloneState(gameState));
 
-  padRemainingDartsAsMisses();
+  const currentPlayer = gameState.players[gameState.currentPlayer];
+
+  if (currentPlayer && isPlayerActive(currentPlayer)) {
+    padRemainingDartsAsMisses();
+  }
 
   if (
     !gameState.winner &&
