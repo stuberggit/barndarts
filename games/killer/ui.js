@@ -1612,6 +1612,28 @@ function renderEnd(container, state) {
   const isShanghai = !!state.shanghaiWinner;
   const stats = state.finalStats || getStats();
 
+  const rankedPlayers = [...(state.players || [])].sort((a, b) => {
+    if (a.name === winnerName) return -1;
+    if (b.name === winnerName) return 1;
+
+    const aActiveScore = a.isDormantDead ? 0 : 1;
+    const bActiveScore = b.isDormantDead ? 0 : 1;
+
+    if (bActiveScore !== aActiveScore) {
+      return bActiveScore - aActiveScore;
+    }
+
+    if ((b.lives || 0) !== (a.lives || 0)) {
+      return (b.lives || 0) - (a.lives || 0);
+    }
+
+    if (a.isZombie !== b.isZombie) {
+      return a.isZombie ? -1 : 1;
+    }
+
+    return a.name.localeCompare(b.name);
+  });
+
   container.innerHTML = `
     <style>
       @keyframes zombieGlow {
@@ -1729,6 +1751,59 @@ function renderEnd(container, state) {
       </div>
 
       <div style="
+        margin-bottom:16px;
+        padding:12px;
+        border-radius:14px;
+        background:rgba(0,0,0,0.22);
+        border:1px solid rgba(255,255,255,0.14);
+      ">
+        <div style="
+          text-align:center;
+          color:#facc15;
+          font-weight:bold;
+          font-size:16px;
+          margin-bottom:10px;
+        ">
+          Final Order
+        </div>
+
+        <div style="
+          display:flex;
+          flex-direction:column;
+          gap:8px;
+        ">
+          ${rankedPlayers.map((player, index) => `
+            <div style="
+              display:flex;
+              justify-content:space-between;
+              align-items:center;
+              gap:10px;
+              padding:10px 12px;
+              border-radius:10px;
+              background:${index === 0 ? "rgba(250,204,21,0.16)" : "rgba(255,255,255,0.06)"};
+              border:${index === 0 ? "1px solid #facc15" : "1px solid rgba(255,255,255,0.12)"};
+              color:#ffffff;
+              font-weight:bold;
+            ">
+              <span style="min-width:0;word-break:break-word;">
+                ${index + 1}. ${player.name}${player.isZombie ? " 🧟‍♂️" : ""}
+              </span>
+              <span style="
+                color:${index === 0 ? "#facc15" : player.isDormantDead ? "#9ca3af" : "#ffffff"};
+                flex-shrink:0;
+              ">
+                ${
+                  player.isDormantDead
+                    ? "Dormant Dead"
+                    : `${player.lives || 0} ${player.lives === 1 ? "life" : "lives"}`
+                }
+              </span>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+
+      <div style="
         display:grid;
         grid-template-columns:1fr;
         gap:10px;
@@ -1738,6 +1813,7 @@ function renderEnd(container, state) {
           padding:14px;
           min-height:52px;
           font-size:18px;
+          border:2px solid #facc15;
         ">Play Again</div>
 
         <div id="statsBtn" style="
