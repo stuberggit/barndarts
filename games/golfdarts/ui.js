@@ -235,6 +235,26 @@ function getStatsLabelEntries(scoreLabels = {}) {
   });
 }
 
+function getRankedPlayers(state) {
+  const players = [...(state.players || [])];
+
+  if (state.shanghaiWinner) {
+    return players.sort((a, b) => {
+      if (a.name === state.shanghaiWinner) return -1;
+      if (b.name === state.shanghaiWinner) return 1;
+      return a.total - b.total;
+    });
+  }
+
+  return players.sort((a, b) => a.total - b.total);
+}
+
+function formatGolfScore(score) {
+  if (score > 0) return `+${score}`;
+  if (score < 0) return `${score}`;
+  return "E";
+}
+
 /* -------------------------
    MODAL SHELLS
 --------------------------*/
@@ -264,7 +284,7 @@ function renderModalShell(innerHtml) {
         padding:20px;
         border-radius:10px;
         width:90%;
-        max-width:700px;
+        max-width:760px;
         max-height:90vh;
         overflow:auto;
         border:1px solid #ffffff;
@@ -371,9 +391,11 @@ function renderEndGameConfirm(container) {
    STATS MODAL
 --------------------------*/
 
-function renderStatsModal(stats) {
+function renderStatsModal(stats, stateForScorecard = getState()) {
   renderModalShell(`
-    <h2 style="text-align:center;margin-top:0;">Game Stats</h2>
+    <h2 style="text-align:center;margin-top:0;color:#facc15;">Game Stats</h2>
+
+    <div id="scorecard"></div>
     <div id="statsList"></div>
 
     <div style="
@@ -391,6 +413,8 @@ function renderStatsModal(stats) {
     </div>
   `);
 
+  renderScorecard(stateForScorecard, { showFull: true });
+
   const list = document.getElementById("statsList");
   list.innerHTML = "";
 
@@ -405,7 +429,7 @@ function renderStatsModal(stats) {
 
     const row = document.createElement("div");
     row.style = `
-      margin-bottom:12px;
+      margin-top:12px;
       padding:14px;
       border-radius:10px;
       background:#1e293b;
@@ -759,7 +783,7 @@ function renderUtilityControls(container) {
   `;
 
   attachButtonClick(statsBtn, () => {
-    renderStatsModal(getStats());
+    renderStatsModal(getStats(), getState());
   });
 
   const undoBtn = document.createElement("div");
@@ -1046,96 +1070,224 @@ function renderEnd(container, state) {
     ? state.shanghaiWinner
     : [...state.players].sort((a, b) => a.total - b.total)[0].name;
 
+  const isShanghai = !!state.shanghaiWinner;
   const stats = state.finalStats || getStats();
+  const rankedPlayers = getRankedPlayers(state);
 
   container.innerHTML = `
+    <style>
+      @keyframes golfGlow {
+        0% { box-shadow: 0 0 0 rgba(250,204,21,0.0), 0 0 0 rgba(34,197,94,0.0); }
+        50% { box-shadow: 0 0 22px rgba(250,204,21,0.48), 0 0 38px rgba(34,197,94,0.22); }
+        100% { box-shadow: 0 0 0 rgba(250,204,21,0.0), 0 0 0 rgba(34,197,94,0.0); }
+      }
+
+      @keyframes golferFloat {
+        0% { transform: translateY(0px) rotate(0deg); }
+        50% { transform: translateY(-6px) rotate(2deg); }
+        100% { transform: translateY(0px) rotate(0deg); }
+      }
+
+      @keyframes tapeFlash {
+        0% { opacity: 0.8; }
+        50% { opacity: 1; }
+        100% { opacity: 0.8; }
+      }
+
+      @keyframes trophyPulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.08); }
+        100% { transform: scale(1); }
+      }
+    </style>
+
     <div style="
-      text-align:center;
-      margin-bottom:12px;
-      padding:14px;
-      border-radius:16px;
-      background:#11361a;
+      position:relative;
+      overflow:hidden;
+      border-radius:18px;
+      padding:18px 16px 20px;
+      background:
+        radial-gradient(circle at top, rgba(250,204,21,0.20), transparent 36%),
+        linear-gradient(180deg, #14351f 0%, #0b0f17 100%);
       border:2px solid #facc15;
-      box-shadow:0 0 18px rgba(250,204,21,0.28);
+      animation:golfGlow 2.8s infinite ease-in-out;
     ">
-      <h2 style="
-        margin:0 0 8px;
-        text-align:center;
+      <div style="
+        position:absolute;
+        top:10px;
+        left:-24px;
+        right:-24px;
+        display:flex;
+        justify-content:space-between;
+        pointer-events:none;
+        font-size:26px;
+        opacity:0.15;
       ">
-        ${state.shanghaiWinner ? "🔥 SHANGHAI 🔥" : "Game Over"}
+        <span style="animation:golferFloat 2.2s infinite ease-in-out;">⛳</span>
+        <span style="animation:golferFloat 2.6s infinite ease-in-out;">🏌️‍♂️</span>
+        <span style="animation:golferFloat 2.1s infinite ease-in-out;">🌲</span>
+        <span style="animation:golferFloat 2.8s infinite ease-in-out;">🏆</span>
+      </div>
+
+      <div style="
+        text-align:center;
+        margin:0 auto 12px;
+        max-width:340px;
+        background:#facc15;
+        color:#111111;
+        font-weight:bold;
+        font-size:15px;
+        padding:8px 12px;
+        border-radius:999px;
+        animation:tapeFlash 1.5s infinite ease-in-out;
+      ">
+        ! IT'S IN THE HOLE !
+      </div>
+
+      <div style="
+        text-align:center;
+        font-size:54px;
+        line-height:1;
+        margin-bottom:8px;
+        animation:trophyPulse 1.7s infinite ease-in-out;
+      ">
+        ${isShanghai ? "🏆💥🏌️‍♂️" : "🏆🏌️‍♂️🏆"}
+      </div>
+
+      <h2 style="
+        text-align:center;
+        margin:0 0 6px;
+        font-size:28px;
+        color:#ffffff;
+      ">
+        ${winner} Owns the Clubhouse!
       </h2>
 
-      <h3 style="
-        margin:0;
-        font-size:24px;
-        color:#facc15;
+      <div style="
         text-align:center;
+        font-size:18px;
+        color:#facc15;
+        font-weight:bold;
+        margin-bottom:10px;
       ">
-        🏆 Winner: ${winner} 🏆
-      </h3>
+        ${
+          isShanghai
+            ? "Shanghai from the fairway. The greenskeeper is filing a complaint."
+            : "Low score, high swagger, questionable cart etiquette."
+        }
+      </div>
+
+      <div style="
+        text-align:center;
+        font-size:15px;
+        color:#dbeafe;
+        background:rgba(255,255,255,0.06);
+        border:1px solid rgba(255,255,255,0.12);
+        border-radius:14px;
+        padding:12px;
+        margin-bottom:16px;
+      ">
+        ${
+          isShanghai
+            ? `${winner} skipped the putting lesson, grabbed the whole course by the flagstick, and ended this thing with a Shanghai mic drop.`
+            : `${winner} walked into the clubhouse like they owned the jacket, the cart path, and at least two questionable mulligans. Somewhere, a gopher is nodding in respect.`
+        }
+      </div>
+
+      <div style="
+        margin-bottom:16px;
+        padding:12px;
+        border-radius:14px;
+        background:rgba(0,0,0,0.22);
+        border:1px solid rgba(255,255,255,0.14);
+      ">
+        <div style="
+          text-align:center;
+          color:#facc15;
+          font-weight:bold;
+          font-size:16px;
+          margin-bottom:10px;
+        ">
+          Final Leaderboard
+        </div>
+
+        <div style="
+          display:flex;
+          flex-direction:column;
+          gap:8px;
+        ">
+          ${rankedPlayers.map((player, index) => `
+            <div style="
+              display:flex;
+              justify-content:space-between;
+              align-items:center;
+              gap:10px;
+              padding:10px 12px;
+              border-radius:10px;
+              background:${index === 0 ? "rgba(250,204,21,0.16)" : "rgba(255,255,255,0.06)"};
+              border:${index === 0 ? "1px solid #facc15" : "1px solid rgba(255,255,255,0.12)"};
+              color:#ffffff;
+              font-weight:bold;
+            ">
+              <span style="min-width:0;word-break:break-word;">
+                ${index + 1}. ${player.name}
+              </span>
+              <span style="
+                color:${index === 0 ? "#facc15" : "#ffffff"};
+                flex-shrink:0;
+              ">
+                ${formatGolfScore(player.total)}
+              </span>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+
+      <div style="
+        display:grid;
+        grid-template-columns:1fr;
+        gap:10px;
+      ">
+        <div id="playAgainBtn" style="
+          ${playAgainButtonStyle()}
+          padding:14px;
+          min-height:52px;
+          font-size:18px;
+        ">Play Again</div>
+
+        <div id="statsBtn" style="
+          ${leaderboardButtonStyle()}
+          padding:14px;
+          min-height:52px;
+          font-size:18px;
+        ">Stats</div>
+
+        <div id="mainMenuBtn" style="
+          ${buttonStyle()}
+          padding:14px;
+          min-height:52px;
+          font-size:18px;
+        ">Main Menu</div>
+      </div>
     </div>
-
-    <div id="scorecard"></div>
-
-    <div style="
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      margin-top:12px;
-    " id="endControls"></div>
 
     <div id="modal"></div>
   `;
 
-  renderScorecard(state, { showFull: true });
-
-  const controls = document.getElementById("endControls");
-
-  const statsBtn = document.createElement("div");
-  statsBtn.innerText = "Stats";
-  statsBtn.style = `
-    ${leaderboardButtonStyle()}
-    padding:10px;
-    font-size:16px;
-    min-height:44px;
-  `;
-
-  attachButtonClick(statsBtn, () => {
-    renderStatsModal(stats);
-  });
-
-  const playAgainBtn = document.createElement("div");
-  playAgainBtn.innerText = "Play Again";
-  playAgainBtn.style = `
-    ${playAgainButtonStyle()}
-    padding:10px;
-    font-size:16px;
-    min-height:44px;
-  `;
-
-  attachButtonClick(playAgainBtn, () => {
+  attachButtonClick(document.getElementById("playAgainBtn"), () => {
     const rotatedPlayers = getRotatedPlayersForReplay();
     store.players = [...rotatedPlayers];
     initGame(rotatedPlayers);
     renderUI(container);
   });
 
-  const mainMenuBtn = document.createElement("div");
-  mainMenuBtn.innerText = "Main Menu";
-  mainMenuBtn.style = `
-    ${buttonStyle()}
-    padding:10px;
-    font-size:16px;
-    min-height:44px;
-  `;
+  attachButtonClick(document.getElementById("statsBtn"), () => {
+    renderStatsModal(stats, state);
+  });
 
-  attachButtonClick(mainMenuBtn, () => {
+  attachButtonClick(document.getElementById("mainMenuBtn"), () => {
     store.screen = "HOME";
     store.players = [];
     renderApp();
   });
-
-  controls.appendChild(statsBtn);
-  controls.appendChild(playAgainBtn);
-  controls.appendChild(mainMenuBtn);
 }
