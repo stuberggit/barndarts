@@ -796,88 +796,177 @@ function renderEndGameConfirm(container) {
 --------------------------*/
 
 function renderEnd(container, state) {
-  const tiedPlayers = getTopTiePlayers(state);
-  const isTie = !state.shanghaiWinner && tiedPlayers.length > 1;
-
   const winner = state.shanghaiWinner
     ? state.shanghaiWinner
-    : isTie
-      ? null
-      : [...state.players].sort((a, b) => b.total - a.total)[0]?.name;
+    : [...state.players].sort((a, b) => b.total - a.total)[0]?.name;
+
+  const isShanghai = !!state.shanghaiWinner;
 
   container.innerHTML = `
-    <h2 style="text-align:center;">${state.shanghaiWinner ? "🔥 SHANGHAI 🔥" : "Game Over"}</h2>
-    <h3 style="text-align:center;">
-      ${
-        isTie
-          ? `🤝 Tie Game: ${tiedPlayers.map(player => player.name).join(" and ")}`
-          : `🏆 Winner: ${winner}`
+    <style>
+      @keyframes hammeredGlow {
+        0% { box-shadow: 0 0 0 rgba(250,204,21,0.0), 0 0 0 rgba(59,130,246,0.0); }
+        50% { box-shadow: 0 0 22px rgba(250,204,21,0.48), 0 0 38px rgba(59,130,246,0.25); }
+        100% { box-shadow: 0 0 0 rgba(250,204,21,0.0), 0 0 0 rgba(59,130,246,0.0); }
       }
-    </h3>
 
-    ${
-      isTie
-        ? `<div style="text-align:center;color:#facc15;font-weight:bold;margin-bottom:10px;">No winner declared.</div>`
-        : ""
-    }
+      @keyframes hammerFloat {
+        0% { transform: translateY(0px) rotate(0deg); }
+        50% { transform: translateY(-6px) rotate(3deg); }
+        100% { transform: translateY(0px) rotate(0deg); }
+      }
 
-    <div id="scorecard"></div>
+      @keyframes tapeFlash {
+        0% { opacity: 0.8; }
+        50% { opacity: 1; }
+        100% { opacity: 0.8; }
+      }
+
+      @keyframes trophyPulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.08); }
+        100% { transform: scale(1); }
+      }
+    </style>
 
     <div style="
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      margin-top:12px;
-    " id="endControls"></div>
+      position:relative;
+      overflow:hidden;
+      border-radius:18px;
+      padding:18px 16px 20px;
+      background:
+        radial-gradient(circle at top, rgba(250,204,21,0.20), transparent 36%),
+        linear-gradient(180deg, #172033 0%, #0b0f17 100%);
+      border:2px solid #facc15;
+      animation:hammeredGlow 2.8s infinite ease-in-out;
+    ">
+      <div style="
+        position:absolute;
+        top:10px;
+        left:-24px;
+        right:-24px;
+        display:flex;
+        justify-content:space-between;
+        pointer-events:none;
+        font-size:26px;
+        opacity:0.15;
+      ">
+        <span style="animation:hammerFloat 2.2s infinite ease-in-out;">🔨</span>
+        <span style="animation:hammerFloat 2.6s infinite ease-in-out;">🎯</span>
+        <span style="animation:hammerFloat 2.1s infinite ease-in-out;">🔨</span>
+        <span style="animation:hammerFloat 2.8s infinite ease-in-out;">💥</span>
+      </div>
+
+      <div style="
+        text-align:center;
+        margin:0 auto 12px;
+        max-width:340px;
+        background:#facc15;
+        color:#111111;
+        font-weight:bold;
+        font-size:15px;
+        padding:8px 12px;
+        border-radius:999px;
+        animation:tapeFlash 1.5s infinite ease-in-out;
+      ">
+        ! MOST HAMMERED !
+      </div>
+
+      <div style="
+        text-align:center;
+        font-size:54px;
+        line-height:1;
+        margin-bottom:8px;
+        animation:trophyPulse 1.7s infinite ease-in-out;
+      ">
+        ${isShanghai ? "🏆💥🔨" : "🏆🔨🏆"}
+      </div>
+
+      <h2 style="
+        text-align:center;
+        margin:0 0 6px;
+        font-size:28px;
+        color:#ffffff;
+      ">
+        ${winner} Got Hammered!
+      </h2>
+
+      <div style="
+        text-align:center;
+        font-size:18px;
+        color:#facc15;
+        font-weight:bold;
+        margin-bottom:10px;
+      ">
+        ${isShanghai ? "Shanghai with a hammer swing. Absolutely rude." : "The hammer found its champion."}
+      </div>
+
+      <div style="
+        text-align:center;
+        font-size:15px;
+        color:#dbeafe;
+        background:rgba(255,255,255,0.06);
+        border:1px solid rgba(255,255,255,0.12);
+        border-radius:14px;
+        padding:12px;
+        margin-bottom:16px;
+      ">
+        ${
+          isShanghai
+            ? `${winner} did not just win — they dropped the hammer, rang the bell, and left the scoreboard hiding under the workbench.`
+            : `${winner} got hammered the absolute most. Hammers hide when ${winner} walks in the room. There is no hammer they cannot hammer.`
+        }
+      </div>
+
+      <div style="
+        display:grid;
+        grid-template-columns:1fr;
+        gap:10px;
+      ">
+        <div id="playAgainBtn" style="
+          ${buttonStyle()}
+          padding:14px;
+          min-height:52px;
+          font-size:18px;
+          border:2px solid #facc15;
+        ">Play Again</div>
+
+        <div id="statsBtn" style="
+          ${lightButtonStyle()}
+          padding:14px;
+          min-height:52px;
+          font-size:18px;
+        ">Stats</div>
+
+        <div id="mainMenuBtn" style="
+          ${buttonStyle()}
+          padding:14px;
+          min-height:52px;
+          font-size:18px;
+        ">Main Menu</div>
+      </div>
+    </div>
 
     <div id="modal"></div>
   `;
 
-  renderScorecard(state);
+  const playAgainBtn = document.getElementById("playAgainBtn");
+  const statsBtn = document.getElementById("statsBtn");
+  const mainMenuBtn = document.getElementById("mainMenuBtn");
 
-  const controls = document.getElementById("endControls");
-
-  const statsBtn = document.createElement("div");
-  statsBtn.innerText = "Stats";
-  statsBtn.style = `
-    ${lightButtonStyle()}
-    padding:10px;
-    font-size:16px;
-    min-height:44px;
-  `;
-  attachButtonClick(statsBtn, () => {
-    renderStatsModal(state);
-  });
-
-  const playAgainBtn = document.createElement("div");
-  playAgainBtn.innerText = "Play Again";
-  playAgainBtn.style = `
-    ${buttonStyle()}
-    padding:10px;
-    font-size:16px;
-    min-height:44px;
-  `;
   attachButtonClick(playAgainBtn, () => {
     const rotatedPlayers = getRotatedPlayersForReplay();
     initGame(rotatedPlayers);
     renderUI(container);
   });
 
-  const mainMenuBtn = document.createElement("div");
-  mainMenuBtn.innerText = "Main Menu";
-  mainMenuBtn.style = `
-    ${buttonStyle()}
-    padding:10px;
-    font-size:16px;
-    min-height:44px;
-  `;
+  attachButtonClick(statsBtn, () => {
+    renderStatsModal(state);
+  });
+
   attachButtonClick(mainMenuBtn, () => {
     store.screen = "HOME";
     store.players = [];
     renderApp();
   });
-
-  controls.appendChild(statsBtn);
-  controls.appendChild(playAgainBtn);
-  controls.appendChild(mainMenuBtn);
 }
