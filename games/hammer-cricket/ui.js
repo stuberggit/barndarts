@@ -620,17 +620,16 @@ function renderStatsModal(state) {
   renderModalShell(`
     <h2 style="text-align:center;margin-top:0;">Stats</h2>
     <div id="scorecard"></div>
-    <div id="statsList"></div>
     <div id="closeModalBtn" style="
       ${buttonStyle()}
       padding:10px;
       min-height:44px;
       margin-top:12px;
+      border:1px solid #ff4c4c;
     ">Close</div>
   `);
 
   renderScorecard(state);
-  renderStatsList(state);
 
   const closeBtn = document.getElementById("closeModalBtn");
   attachButtonClick(closeBtn, closeModal);
@@ -748,37 +747,234 @@ function renderScorecard(state) {
    END GAME CONFIRM
 --------------------------*/
 
-function renderEndGameConfirm(container) {
-  renderModalShell(`
-    <h2 style="text-align:center;margin-top:0;color:#facc15;">End Game?</h2>
-    <div style="text-align:center;margin-bottom:14px;">
-      Are you sure you want to end this game early?
-    </div>
+function renderEnd(container, state) {
+  const winner = state.shanghaiWinner
+    ? state.shanghaiWinner
+    : [...state.players].sort((a, b) => b.total - a.total)[0]?.name;
+
+  const isShanghai = !!state.shanghaiWinner;
+
+  const rankedPlayers = [...state.players].sort((a, b) => {
+    if (state.shanghaiWinner) {
+      if (a.name === state.shanghaiWinner) return -1;
+      if (b.name === state.shanghaiWinner) return 1;
+    }
+
+    return b.total - a.total;
+  });
+
+  container.innerHTML = `
+    <style>
+      @keyframes hammeredGlow {
+        0% { box-shadow: 0 0 0 rgba(250,204,21,0.0), 0 0 0 rgba(59,130,246,0.0); }
+        50% { box-shadow: 0 0 22px rgba(250,204,21,0.48), 0 0 38px rgba(59,130,246,0.25); }
+        100% { box-shadow: 0 0 0 rgba(250,204,21,0.0), 0 0 0 rgba(59,130,246,0.0); }
+      }
+
+      @keyframes hammerFloat {
+        0% { transform: translateY(0px) rotate(0deg); }
+        50% { transform: translateY(-6px) rotate(3deg); }
+        100% { transform: translateY(0px) rotate(0deg); }
+      }
+
+      @keyframes tapeFlash {
+        0% { opacity: 0.8; }
+        50% { opacity: 1; }
+        100% { opacity: 0.8; }
+      }
+
+      @keyframes trophyPulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.08); }
+        100% { transform: scale(1); }
+      }
+    </style>
+
     <div style="
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
+      position:relative;
+      overflow:hidden;
+      border-radius:18px;
+      padding:18px 16px 20px;
+      background:
+        radial-gradient(circle at top, rgba(250,204,21,0.20), transparent 36%),
+        linear-gradient(180deg, #172033 0%, #0b0f17 100%);
+      border:2px solid #facc15;
+      animation:hammeredGlow 2.8s infinite ease-in-out;
     ">
-      <div id="cancelEndBtn" style="
-        ${lightButtonStyle()}
+      <div style="
+        position:absolute;
+        top:10px;
+        left:-24px;
+        right:-24px;
+        display:flex;
+        justify-content:space-between;
+        pointer-events:none;
+        font-size:26px;
+        opacity:0.15;
+      ">
+        <span style="animation:hammerFloat 2.2s infinite ease-in-out;">🔨</span>
+        <span style="animation:hammerFloat 2.6s infinite ease-in-out;">🎯</span>
+        <span style="animation:hammerFloat 2.1s infinite ease-in-out;">🔨</span>
+        <span style="animation:hammerFloat 2.8s infinite ease-in-out;">💥</span>
+      </div>
+
+      <div style="
+        text-align:center;
+        margin:0 auto 12px;
+        max-width:340px;
+        background:#facc15;
+        color:#111111;
+        font-weight:bold;
+        font-size:15px;
+        padding:8px 12px;
+        border-radius:999px;
+        animation:tapeFlash 1.5s infinite ease-in-out;
+      ">
+        ! MOST HAMMERED !
+      </div>
+
+      <div style="
+        text-align:center;
+        font-size:54px;
+        line-height:1;
+        margin-bottom:8px;
+        animation:trophyPulse 1.7s infinite ease-in-out;
+      ">
+        ${isShanghai ? "🏆💥🔨" : "🏆🔨🏆"}
+      </div>
+
+      <h2 style="
+        text-align:center;
+        margin:0 0 6px;
+        font-size:28px;
+        color:#ffffff;
+      ">
+        ${winner} Got Hammered!
+      </h2>
+
+      <div style="
+        text-align:center;
+        font-size:18px;
+        color:#facc15;
+        font-weight:bold;
+        margin-bottom:10px;
+      ">
+        ${isShanghai ? "Shanghai with a hammer swing. Absolutely rude." : "The hammer found its champion."}
+      </div>
+
+      <div style="
+        text-align:center;
+        font-size:15px;
+        color:#dbeafe;
+        background:rgba(255,255,255,0.06);
+        border:1px solid rgba(255,255,255,0.12);
+        border-radius:14px;
         padding:12px;
-        min-height:48px;
-      ">Cancel</div>
-      <div id="confirmEndBtn" style="
-        ${dangerButtonStyle()}
+        margin-bottom:16px;
+      ">
+        ${
+          isShanghai
+            ? `${winner} did not just win — they dropped the hammer, rang the bell, and left the scoreboard hiding under the workbench.`
+            : `${winner} got hammered the absolute most. Hammers hide when ${winner} walks in the room. There is no hammer they cannot hammer.`
+        }
+      </div>
+
+      <div style="
+        margin-bottom:16px;
         padding:12px;
-        min-height:48px;
-      ">End Game</div>
+        border-radius:14px;
+        background:rgba(0,0,0,0.22);
+        border:1px solid rgba(255,255,255,0.14);
+      ">
+        <div style="
+          text-align:center;
+          color:#facc15;
+          font-weight:bold;
+          font-size:16px;
+          margin-bottom:10px;
+        ">
+          Final Order
+        </div>
+
+        <div style="
+          display:flex;
+          flex-direction:column;
+          gap:8px;
+        ">
+          ${rankedPlayers.map((player, index) => `
+            <div style="
+              display:flex;
+              justify-content:space-between;
+              align-items:center;
+              gap:10px;
+              padding:10px 12px;
+              border-radius:10px;
+              background:${index === 0 ? "rgba(250,204,21,0.16)" : "rgba(255,255,255,0.06)"};
+              border:${index === 0 ? "1px solid #facc15" : "1px solid rgba(255,255,255,0.12)"};
+              color:#ffffff;
+              font-weight:bold;
+            ">
+              <span style="min-width:0;word-break:break-word;">
+                ${index + 1}. ${player.name}
+              </span>
+              <span style="
+                color:${index === 0 ? "#facc15" : "#ffffff"};
+                flex-shrink:0;
+              ">
+                ${player.total}
+              </span>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+
+      <div style="
+        display:grid;
+        grid-template-columns:1fr;
+        gap:10px;
+      ">
+        <div id="playAgainBtn" style="
+          ${buttonStyle()}
+          padding:14px;
+          min-height:52px;
+          font-size:18px;
+          border:2px solid #facc15;
+        ">Play Again</div>
+
+        <div id="statsBtn" style="
+          ${lightButtonStyle()}
+          padding:14px;
+          min-height:52px;
+          font-size:18px;
+        ">Stats</div>
+
+        <div id="mainMenuBtn" style="
+          ${buttonStyle()}
+          padding:14px;
+          min-height:52px;
+          font-size:18px;
+        ">Main Menu</div>
+      </div>
     </div>
-  `);
 
-  const cancelBtn = document.getElementById("cancelEndBtn");
-  const confirmBtn = document.getElementById("confirmEndBtn");
+    <div id="modal"></div>
+  `;
 
-  attachButtonClick(cancelBtn, closeModal);
+  const playAgainBtn = document.getElementById("playAgainBtn");
+  const statsBtn = document.getElementById("statsBtn");
+  const mainMenuBtn = document.getElementById("mainMenuBtn");
 
-  attachButtonClick(confirmBtn, () => {
-    closeModal();
+  attachButtonClick(playAgainBtn, () => {
+    const rotatedPlayers = getRotatedPlayersForReplay();
+    initGame(rotatedPlayers);
+    renderUI(container);
+  });
+
+  attachButtonClick(statsBtn, () => {
+    renderStatsModal(state);
+  });
+
+  attachButtonClick(mainMenuBtn, () => {
     store.screen = "HOME";
     store.players = [];
     renderApp();
