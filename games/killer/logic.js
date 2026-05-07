@@ -146,17 +146,18 @@ function ensureStats(player) {
 
 function buildStatsSummary() {
   return gameState.players.map(player => ({
-    name: player.name,
-    target: player.target,
-    hitType: player.hitType,
-    lives: player.lives,
-    isKiller: player.isKiller,
-    isZombie: player.isZombie,
-    isDormantDead: player.isDormantDead,
-    isRedemski: player.isRedemski,
-    redemskiCount: player.redemskiCount || 0,
-    stats: { ...ensureStats(player) }
-  }));
+  name: player.name,
+  target: player.target,
+  hitType: player.hitType,
+  lives: player.lives,
+  isKiller: player.isKiller,
+  isZombie: player.isZombie,
+  wasZombied: player.wasZombied,
+  isDormantDead: player.isDormantDead,
+  isRedemski: player.isRedemski,
+  redemskiCount: player.redemskiCount || 0,
+  stats: { ...ensureStats(player) }
+}));
 }
 
 function saveKillerHistory() {
@@ -362,6 +363,7 @@ function reviveZombie(playerIndex, revivedByIndex = null) {
   player.isActive = true;
   player.isDormantDead = false;
   player.isZombie = true;
+  player.wasZombied = true; 
   player.isKiller = true;
   player.isRedemski = false;
   ensureStats(player).zombied += 1;
@@ -636,6 +638,7 @@ export function initGame(players) {
       lives: 6,
       isKiller: false,
       isZombie: false,
+      wasZombied: false,
       isRedemski: false,
       redemskiCount: 0,
       isActive: true,
