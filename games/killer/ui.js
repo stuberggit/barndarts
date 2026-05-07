@@ -504,6 +504,10 @@ function renderNDHControls(container) {
   const controls = document.getElementById("controls");
   controls.innerHTML = "";
 
+  const state = getState();
+  const currentPlayer = state.players[state.currentPlayer];
+  const hasTarget = !!currentPlayer?.target;
+
   const hitTypeRow = document.createElement("div");
   hitTypeRow.style = `
     display:grid;
@@ -521,15 +525,20 @@ function renderNDHControls(container) {
   types.forEach(type => {
     const btn = document.createElement("div");
     btn.innerText = type.label;
+    btn.dataset.disabled = hasTarget ? "true" : "false";
     btn.style = `
       ${buttonStyle()}
       padding:8px;
       min-height:40px;
       font-size:16px;
+      ${hasTarget ? "opacity:0.35;cursor:not-allowed;" : ""}
     `;
+
     attachButtonClick(btn, () => {
+      if (hasTarget) return;
       renderNumberPicker(container, type.value);
     });
+
     hitTypeRow.appendChild(btn);
   });
 
@@ -541,18 +550,17 @@ function renderNDHControls(container) {
     margin-top:8px;
   `;
 
-  const clearBtn = document.createElement("div");
-  clearBtn.innerText = "Clear Target";
-  clearBtn.style = `
-    ${lightButtonStyle()}
+  const missBtn = document.createElement("div");
+  missBtn.innerText = "❌ Miss";
+  missBtn.dataset.disabled = "true";
+  missBtn.style = `
+    ${buttonStyle()}
     padding:8px;
     min-height:40px;
     font-size:15px;
+    opacity:0.35;
+    cursor:not-allowed;
   `;
-  attachButtonClick(clearBtn, () => {
-    clearNDHTarget();
-    renderUI(container);
-  });
 
   const nextBtn = document.createElement("div");
   nextBtn.innerText = "➡️ Next Player";
@@ -561,13 +569,15 @@ function renderNDHControls(container) {
     padding:8px;
     min-height:40px;
     font-size:15px;
+    ${hasTarget ? "border:2px solid #facc15;box-shadow:0 0 12px rgba(250,204,21,0.25);" : ""}
   `;
+
   attachButtonClick(nextBtn, () => {
     nextPlayer();
     renderUI(container);
   });
 
-  middleRow.appendChild(clearBtn);
+  middleRow.appendChild(missBtn);
   middleRow.appendChild(nextBtn);
 
   const utilityRow = document.createElement("div");
@@ -1612,6 +1622,84 @@ function renderEnd(container, state) {
   const isShanghai = !!state.shanghaiWinner;
   const stats = state.finalStats || getStats();
 
+  const winnerCopyOptions = isShanghai
+    ? [
+        {
+          headline: `${winnerName} Cleared the Horde!`,
+          subhead: "Shanghai headshot. Absolutely unnecessary. Absolutely beautiful.",
+          body: "The zombies lined up, the darts flew, and one perfect turn turned the apocalypse into target practice."
+        },
+        {
+          headline: `${winnerName} Ended It With Style!`,
+          subhead: "Single. Dub. Trip. Goodnight, undead.",
+          body: "That was not just a win. That was a full zombie eviction notice delivered point-first."
+        },
+        {
+          headline: `${winnerName} Went Full Zombie Slayer!`,
+          subhead: "Shanghai landed. The graveyard got quiet.",
+          body: "No Redemski, no comeback, no groaning from the cheap seats. Just one perfect turn and a whole lot of silence."
+        },
+        {
+          headline: `${winnerName} Brought the Boomstick!`,
+          subhead: "A Shanghai finish with maximum disrespect.",
+          body: "The undead came hungry. They left educated. Never stand in front of that throw again."
+        }
+      ]
+    : [
+        {
+          headline: `${winnerName} Survived the Horde!`,
+          subhead: "Brains protected. Zombies defeated. Glory secured.",
+          body: "Against skulls, zombies, and Redemskis, one survivor outlasted the apocalypse and claimed the crown."
+        },
+        {
+          headline: `${winnerName} Made It Out Alive!`,
+          subhead: "The horde swung first. Bad idea.",
+          body: "When the dust settled, the moaning stopped, and the last target fell, one player was still standing with darts in hand."
+        },
+        {
+          headline: `${winnerName} Is Not on the Menu!`,
+          subhead: "The zombies wanted brains. They got humbled.",
+          body: "Some players joined the undead. Some stayed down. One player walked through the chaos like they had cheat codes."
+        },
+        {
+          headline: `${winnerName} Beat the Apocalypse!`,
+          subhead: "Survival rating: extremely annoying to zombies.",
+          body: "Redemskis were attempted. Zombies returned. Hearts disappeared. Somehow, one survivor refused to become a snack."
+        },
+        {
+          headline: `${winnerName} Outran the Graveyard!`,
+          subhead: "Not dead. Not dormant. Definitely dangerous.",
+          body: "The board turned into a horror movie, and this player still found a way to be the final scene."
+        },
+        {
+          headline: `${winnerName} Stayed Human-ish!`,
+          subhead: "Close enough. We are counting it.",
+          body: "After all the bites, revives, and questionable life choices, one player had just enough pulse left to win."
+        }
+      ];
+
+  const selectedCopy = winnerCopyOptions[Math.floor(Math.random() * winnerCopyOptions.length)];
+
+  const loserTags = [
+    "1st Loser",
+    "Faster Than That Guy",
+    "Definitely Dead",
+    "Mostly Dead",
+    "Zombie Snack",
+    "Graveyard Regular",
+    "Redemski Regret",
+    "Board Meat",
+    "Undead Adjacent",
+    "Ran Out of Hearts",
+    "Certified Corpse",
+    "Almost Heroic",
+    "Bitten and Smitten",
+    "No Pulse, No Problem",
+    "Brains Were Optional"
+  ];
+
+  const shuffledLoserTags = [...loserTags].sort(() => Math.random() - 0.5);
+
   const rankedPlayers = [...(state.players || [])].sort((a, b) => {
     if (a.name === winnerName) return -1;
     if (b.name === winnerName) return 1;
@@ -1627,12 +1715,31 @@ function renderEnd(container, state) {
       return (b.lives || 0) - (a.lives || 0);
     }
 
-    if (a.isZombie !== b.isZombie) {
-      return a.isZombie ? -1 : 1;
+    const aZombieScore = a.wasZombied || a.isZombie || (a.stats?.zombied || 0) > 0 ? 1 : 0;
+    const bZombieScore = b.wasZombied || b.isZombie || (b.stats?.zombied || 0) > 0 ? 1 : 0;
+
+    if (bZombieScore !== aZombieScore) {
+      return bZombieScore - aZombieScore;
     }
 
     return a.name.localeCompare(b.name);
   });
+
+  function getPlayerFinalTag(player, index) {
+    if (index === 0) {
+      return player.isZombie || player.wasZombied || (player.stats?.zombied || 0) > 0
+        ? "Zombie King"
+        : "Survivor";
+    }
+
+    return shuffledLoserTags[index - 1] || "Very Dead";
+  }
+
+  function getZombieMarker(player) {
+    return player.isZombie || player.wasZombied || (player.stats?.zombied || 0) > 0
+      ? " 🧟‍♂️"
+      : "";
+  }
 
   container.innerHTML = `
     <style>
@@ -1720,7 +1827,7 @@ function renderEnd(container, state) {
         font-size:28px;
         color:#ffffff;
       ">
-        ${winnerName} Survived the Horde!
+        ${selectedCopy.headline}
       </h2>
 
       <div style="
@@ -1730,7 +1837,7 @@ function renderEnd(container, state) {
         font-weight:bold;
         margin-bottom:10px;
       ">
-        ${isShanghai ? "Shanghai headshot! The undead never stood a chance." : "Brains protected. Zombies defeated. Glory secured."}
+        ${selectedCopy.subhead}
       </div>
 
       <div style="
@@ -1743,11 +1850,7 @@ function renderEnd(container, state) {
         padding:12px;
         margin-bottom:16px;
       ">
-        ${
-          isShanghai
-            ? "A perfect zombie-slaying turn ended it in style. That’s not just a win — that’s a survivor legend."
-            : "Against skulls, zombies, and Redemskis, one survivor outlasted the apocalypse and claimed the crown."
-        }
+        ${selectedCopy.body}
       </div>
 
       <div style="
@@ -1786,17 +1889,14 @@ function renderEnd(container, state) {
               font-weight:bold;
             ">
               <span style="min-width:0;word-break:break-word;">
-                ${index + 1}. ${player.name}${player.isZombie ? " 🧟‍♂️" : ""}
+                ${index + 1}. ${player.name}${getZombieMarker(player)}
               </span>
               <span style="
-                color:${index === 0 ? "#facc15" : player.isDormantDead ? "#9ca3af" : "#ffffff"};
+                color:${index === 0 ? "#facc15" : "#ffffff"};
                 flex-shrink:0;
+                text-align:right;
               ">
-                ${
-                  player.isDormantDead
-                    ? "Dormant Dead"
-                    : `${player.lives || 0} ${player.lives === 1 ? "life" : "lives"}`
-                }
+                ${getPlayerFinalTag(player, index)}
               </span>
             </div>
           `).join("")}
