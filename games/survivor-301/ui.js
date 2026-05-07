@@ -979,6 +979,21 @@ function renderEndGameConfirm(container) {
 
 function renderEnd(container, state) {
   const winnerName = state.winner;
+  const stats = state.finalStats || getStats();
+
+  const rankedPlayers = [...(state.players || [])].sort((a, b) => {
+    if (a.name === winnerName) return -1;
+    if (b.name === winnerName) return 1;
+
+    const aOrder = a.eliminatedOrder ?? 0;
+    const bOrder = b.eliminatedOrder ?? 0;
+
+    if (aOrder !== bOrder) {
+      return bOrder - aOrder;
+    }
+
+    return b.score - a.score;
+  });
 
   container.innerHTML = `
     <style>
@@ -1093,6 +1108,55 @@ function renderEnd(container, state) {
       </div>
 
       <div style="
+        margin-bottom:16px;
+        padding:12px;
+        border-radius:14px;
+        background:rgba(0,0,0,0.22);
+        border:1px solid rgba(255,255,255,0.14);
+      ">
+        <div style="
+          text-align:center;
+          color:#facc15;
+          font-weight:bold;
+          font-size:16px;
+          margin-bottom:10px;
+        ">
+          Final Order
+        </div>
+
+        <div style="
+          display:flex;
+          flex-direction:column;
+          gap:8px;
+        ">
+          ${rankedPlayers.map((player, index) => `
+            <div style="
+              display:flex;
+              justify-content:space-between;
+              align-items:center;
+              gap:10px;
+              padding:10px 12px;
+              border-radius:10px;
+              background:${index === 0 ? "rgba(250,204,21,0.16)" : "rgba(255,255,255,0.06)"};
+              border:${index === 0 ? "1px solid #facc15" : "1px solid rgba(255,255,255,0.12)"};
+              color:#ffffff;
+              font-weight:bold;
+            ">
+              <span style="min-width:0;word-break:break-word;">
+                ${index + 1}. ${player.name}
+              </span>
+              <span style="
+                color:${index === 0 ? "#facc15" : player.isEliminated ? "#9ca3af" : "#ffffff"};
+                flex-shrink:0;
+              ">
+                ${player.isEliminated ? "Out" : `${player.score}`}
+              </span>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+
+      <div style="
         display:grid;
         grid-template-columns:1fr;
         gap:10px;
@@ -1102,6 +1166,7 @@ function renderEnd(container, state) {
           padding:14px;
           min-height:52px;
           font-size:18px;
+          border:2px solid #facc15;
         ">Play Again</div>
 
         <div id="statsBtn" style="
@@ -1135,7 +1200,7 @@ function renderEnd(container, state) {
   });
 
   attachButtonClick(statsBtn, () => {
-    renderStatsModal(getThrowLog());
+    renderStatsModal(stats);
   });
 
   attachButtonClick(mainMenuBtn, () => {
