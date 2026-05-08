@@ -1188,23 +1188,7 @@ function renderEnd(container, state) {
       border:2px solid #facc15;
       animation:golfGlow 2.8s infinite ease-in-out;
     ">
-      <div style="
-        position:absolute;
-        top:10px;
-        left:-24px;
-        right:-24px;
-        display:flex;
-        justify-content:space-between;
-        pointer-events:none;
-        font-size:26px;
-        opacity:0.15;
-      ">
-        <span style="animation:golferFloat 2.2s infinite ease-in-out;">⛳</span>
-        <span style="animation:golferFloat 2.6s infinite ease-in-out;">🏌️‍♂️</span>
-        <span style="animation:golferFloat 2.1s infinite ease-in-out;">🌲</span>
-        <span style="animation:golferFloat 2.8s infinite ease-in-out;">🏆</span>
-      </div>
-
+    
       <div style="
         text-align:center;
         margin:0 auto 12px;
