@@ -72,7 +72,7 @@ const GD_WIN_COPY = {
     "Every great round needs a little luck, a little nerve, and at least one shot nobody wants to admit was accidental.",
     "They didn’t just finish the round. They left the rest of the group staring at totals and doing uncomfortable math.",
     "Some players chase birdies. Some players avoid snowmen. This one did enough of both to win the damn thing.",
-    "They walked into the clubhouse like they owned the jacket, the cart path, and at least two questionable mulligans. Somewhere, a gopher is nodding in respect. 
+    "They walked into the clubhouse like they owned the jacket, the cart path, and at least two questionable mulligans. Somewhere, a gopher is nodding in respect." 
   ]
 };
 
