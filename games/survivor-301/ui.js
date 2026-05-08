@@ -981,6 +981,27 @@ function renderEnd(container, state) {
   const winnerName = state.winner;
   const stats = state.finalStats || getStats();
 
+  const survivorTags = [
+    "Cooked",
+    "Toast",
+    "Radiation Vacation",
+    "Melted",
+    "Biohazard BBQ",
+    "Glow Stick",
+    "Fallout Casualty",
+    "Crispy",
+    "Nuclear Nap",
+    "Hazmat Required",
+    "Overexposed",
+    "Burnt Ends",
+    "Containment Failed",
+    "Mutated and Booted",
+    "Geiger Counter Hero",
+    "Half-Life Crisis"
+  ];
+
+  const shuffledSurvivorTags = [...survivorTags].sort(() => Math.random() - 0.5);
+
   const rankedPlayers = [...(state.players || [])].sort((a, b) => {
     if (a.name === winnerName) return -1;
     if (b.name === winnerName) return 1;
@@ -994,6 +1015,15 @@ function renderEnd(container, state) {
 
     return b.score - a.score;
   });
+
+  function getFinalOrderLabel(player, index) {
+    if (!player.isEliminated) {
+      return `${player.score}`;
+    }
+
+    const tag = shuffledSurvivorTags[index - 1] || "Did Not Survive";
+    return `${player.score} • ${tag}`;
+  }
 
   container.innerHTML = `
     <style>
@@ -1148,8 +1178,9 @@ function renderEnd(container, state) {
               <span style="
                 color:${index === 0 ? "#facc15" : player.isEliminated ? "#9ca3af" : "#ffffff"};
                 flex-shrink:0;
+                text-align:right;
               ">
-                ${player.isEliminated ? "Out" : `${player.score}`}
+                ${getFinalOrderLabel(player, index)}
               </span>
             </div>
           `).join("")}
@@ -1200,7 +1231,7 @@ function renderEnd(container, state) {
   });
 
   attachButtonClick(statsBtn, () => {
-    renderStatsModal(getStats);
+    renderStatsModal(getStats());
   });
 
   attachButtonClick(mainMenuBtn, () => {
