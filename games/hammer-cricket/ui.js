@@ -17,95 +17,95 @@ import { renderApp } from "../../core/router.js";
 
 const HAMMER_WIN_COPY = {
   banners: [
-    `! MOST HAMMERED !`,
-    `HAMMER TIME`,
-    `NAILED IT`,
-    `HAMMERED CHAMPION`,
-    `TOOLBOX TAKEOVER`,
-    `FINAL SWING`,
-    `THE HAMMER DROPPED`,
-    `WORKBENCH WRECKER`,
-    `FULL SEND FORGE`,
-    `ANVIL APPROVED`,
-    `NO NAILS LEFT`
+    "! MOST HAMMERED !",
+    "HAMMER TIME",
+    "NAILED IT",
+    "HAMMERED CHAMPION",
+    "TOOLBOX TAKEOVER",
+    "FINAL SWING",
+    "THE HAMMER DROPPED",
+    "WORKBENCH WRECKER",
+    "FULL SEND FORGE",
+    "ANVIL APPROVED",
+    "NO NAILS LEFT"
   ],
 
   normalHeadlines: [
-    `{winnerName} Got Hammered!`,
-    `{winnerName} Dropped the Hammer!`,
-    `{winnerName} Nailed the Finish!`,
-    `{winnerName} Is Your Hammered Champion!`,
-    `{winnerName} Swung Big and Scored Bigger!`,
-    `{winnerName} Just Put the Board on the Workbench!`,
-    `{winnerName} Built a Lead Nobody Could Break!`,
-    `{winnerName} Went Full Sledgehammer!`,
-    `{winnerName} Hammered the Field Flat!`,
-    `{winnerName} Left Dents in the Scoreboard!`
+    "{winnerName} Got Hammered!",
+    "{winnerName} Dropped the Hammer!",
+    "{winnerName} Nailed the Finish!",
+    "{winnerName} Is Your Hammered Champion!",
+    "{winnerName} Swung Big and Scored Bigger!",
+    "{winnerName} Built a Lead Nobody Could Break!",
+    "{winnerName} Went Full Sledgehammer!",
+    "{winnerName} Hammered the Field Flat!",
+    "{winnerName} Left Dents in the Scoreboard!",
+    "{winnerName} Made the Hammer Proud!"
   ],
 
   shanghaiHeadlines: [
-    `{winnerName} Got Hammered!`,
-    `{winnerName} Dropped a Shanghai Hammer!`,
-    `{winnerName} Just Ended It With One Violent Swing!`,
-    `{winnerName} Hit Shanghai and Broke the Workbench!`,
-    `{winnerName} Brought a Hammer to a Dart Fight!`,
-    `{winnerName} Just Flattened the Whole Room!`,
-    `{winnerName} Nuked the Scoreboard With Shanghai!`,
-    `{winnerName} Went Full Thor Mode!`,
-    `{winnerName} Swung Once and Ended the Job!`,
-    `{winnerName} Just Turned Shanghai Into a Power Tool!`
+    "{winnerName} Got Hammered!",
+    "{winnerName} Dropped a Shanghai Hammer!",
+    "{winnerName} Ended It With One Violent Swing!",
+    "{winnerName} Hit Shanghai and Broke the Workbench!",
+    "{winnerName} Brought a Hammer to a Dart Fight!",
+    "{winnerName} Flattened the Whole Room!",
+    "{winnerName} Nuked the Scoreboard With Shanghai!",
+    "{winnerName} Went Full Thor Mode!",
+    "{winnerName} Swung Once and Ended the Job!",
+    "{winnerName} Turned Shanghai Into a Power Tool!"
   ],
 
   normalSubheads: [
-    `The hammer found its champion.`,
-    `Measure twice, score once, talk trash forever.`,
-    `That was a full-contact scoreboard remodel.`,
-    `No finesse. Just impact.`,
-    `The field got nailed to the wall.`,
-    `Somebody check the board for structural damage.`,
-    `The hammer was hot, and the darts were heavier.`,
-    `Built different. Scored louder.`,
-    `That wasn’t a win. That was a demolition estimate.`,
-    `The toolbox has spoken.`
+    "The hammer found its champion.",
+    "Measure twice, score once, talk trash forever.",
+    "That was a full-contact scoreboard remodel.",
+    "No finesse. Just impact.",
+    "The field got nailed to the wall.",
+    "Somebody check the board for structural damage.",
+    "The hammer was hot, and the darts were heavier.",
+    "Built different. Scored louder.",
+    "That was a demolition estimate with a scoreboard.",
+    "The toolbox has spoken."
   ],
 
   shanghaiSubheads: [
-    `Shanghai with a hammer swing. Absolutely rude.`,
-    `One swing, three hits, zero survivors.`,
-    `That Shanghai should require safety goggles.`,
-    `The scoreboard just filed a workplace injury report.`,
-    `The job ended early. The hammer approved.`,
-    `A precision strike with maximum disrespect.`,
-    `The board got nailed, framed, and condemned.`,
-    `That was less darts and more heavy machinery.`,
-    `Shanghai showed up wearing a hard hat.`,
-    `The room heard the hammer drop.`
+    "Shanghai with a hammer swing. Absolutely rude.",
+    "One swing, three hits, zero survivors.",
+    "That Shanghai should require safety goggles.",
+    "The scoreboard just filed a workplace injury report.",
+    "The job ended early. The hammer approved.",
+    "A precision strike with maximum disrespect.",
+    "The board got nailed, framed, and condemned.",
+    "That was less darts and more heavy machinery.",
+    "Shanghai showed up wearing a hard hat.",
+    "The room heard the hammer drop."
   ],
 
   normalBodyCopies: [
-    `{winnerName} got hammered the absolute most. Hammers hide when {winnerName} walks in the room. There is no hammer they cannot hammer.`,
-    `{winnerName} kept swinging, kept scoring, and left the rest of the field looking for a warranty.`,
-    `Some players chipped away. {winnerName} brought the sledge and turned the scoreboard into scrap wood.`,
-    `{winnerName} did not just win — they built a lead, reinforced it, and hammered everyone else shut.`,
-    `The darts landed, the totals climbed, and {winnerName} walked out holding the only tool that mattered.`,
-    `That was a clean build with a messy finish. {winnerName} hammered the field until the leaderboard stopped arguing.`,
-    `Every round needed a target. {winnerName} treated every target like a nail sticking out of the wall.`,
-    `{winnerName} swung through the whole game like the scoreboard owed them money.`,
-    `The field brought darts. {winnerName} brought a hammer, a hard hat, and absolutely no concern for property damage.`,
-    `{winnerName} left the scoreboard dented, the opponents dusty, and the toolbox emotionally unavailable.`
+    "{winnerName} got hammered the absolute most. Hammers hide when {winnerName} walks in the room.",
+    "{winnerName} kept swinging, kept scoring, and left the rest of the field looking for a warranty.",
+    "Some players chipped away. {winnerName} brought the sledge and turned the scoreboard into scrap wood.",
+    "{winnerName} built a lead, reinforced it, and hammered everyone else shut.",
+    "The darts landed, the totals climbed, and {winnerName} walked out holding the only tool that mattered.",
+    "That was a clean build with a messy finish. {winnerName} hammered the field until the leaderboard stopped arguing.",
+    "Every round needed a target. {winnerName} treated every target like a nail sticking out of the wall.",
+    "{winnerName} swung through the whole game like the scoreboard owed them money.",
+    "The field brought darts. {winnerName} brought a hammer, a hard hat, and no concern for property damage.",
+    "{winnerName} left the scoreboard dented, the opponents dusty, and the toolbox emotionally unavailable."
   ],
 
   shanghaiBodyCopies: [
-    `{winnerName} did not just win — they dropped the hammer, rang the bell, and left the scoreboard hiding under the workbench.`,
-    `{winnerName} hit Shanghai like a demolition crew with a tee time. The game was over before the dust settled.`,
-    `The round had plans. {winnerName} had a hammer. Plans lost.`,
-    `{winnerName} walked up, found the weak spot, and hit Shanghai hard enough to void the board’s warranty.`,
-    `No slow build. No final round drama. {winnerName} swung once, hit everything, and closed the job site.`,
-    `{winnerName} turned Shanghai into a power move and left everyone else reading the safety manual.`,
-    `The scoreboard heard Shanghai, saw the hammer, and immediately chose retirement.`,
-    `That was a precision strike wrapped in pure nonsense. {winnerName} hammered this thing into legend.`,
-    `{winnerName} brought the hammer down so hard the final order had to be swept into a pile.`,
-    `Shanghai usually ends a game. This one also required cleanup, insurance, and maybe a new dartboard.`
+    "{winnerName} dropped the hammer, rang the bell, and left the scoreboard hiding under the workbench.",
+    "{winnerName} hit Shanghai like a demolition crew with a tee time.",
+    "The round had plans. {winnerName} had a hammer. Plans lost.",
+    "{winnerName} found the weak spot and hit Shanghai hard enough to void the board warranty.",
+    "No slow build. No final round drama. {winnerName} swung once and closed the job site.",
+    "{winnerName} turned Shanghai into a power move and left everyone else reading the safety manual.",
+    "The scoreboard heard Shanghai, saw the hammer, and immediately chose retirement.",
+    "That was a precision strike wrapped in pure nonsense. {winnerName} hammered this thing into legend.",
+    "{winnerName} brought the hammer down so hard the final order had to be swept into a pile.",
+    "Shanghai usually ends a game. This one also required cleanup, insurance, and maybe a new dartboard."
   ]
 };
 
