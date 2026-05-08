@@ -18,6 +18,81 @@ import { renderApp } from "../../core/router.js";
 /* -------------------------
    HELPERS
 --------------------------*/
+const GD_WIN_COPY = {
+  banners: [
+    "GOLFDARTS CHAMPION",
+    "CLUBHOUSE LEADER",
+    "FINAL ROUND FINISHED",
+    "SCORECARD SIGNED",
+    "WALKING IT IN",
+    "LOW ROUND LOCKED",
+    "FAIRWAY FINISH",
+    "SUNDAY RED ENERGY",
+    "THE PUTT DROPPED",
+    "THE 18TH BELONGED TO THEM",
+    "IT'S IN THE HOLE"
+  ],
+
+  headlines: [
+    "{winnerName} Wins GolfDarts!",
+    "{winnerName} Is Your GolfDarts Champion!",
+    "{winnerName} Walked Off the 18th With the Win!",
+    "{winnerName} Just Signed the Winning Scorecard!",
+    "{winnerName} Took the Clubhouse Lead and Never Gave It Back!",
+    "{winnerName} Played It Like a Weekend Legend!",
+    "{winnerName} Found the Fairway When It Mattered!",
+    "{winnerName} Went Low and Left Everyone Chasing!",
+    "{winnerName} Finished Stronger Than a Cart Girl Bloody Mary!",
+    "{winnerName} Just Put the Round on Ice!",
+    "{winnerName} Owns the Clubhouse!"
+  ],
+
+  subheads: [
+    "Final score posted. Bragging rights secured.",
+    "That round had touch, timing, and questionable course management.",
+    "Not exactly Augusta, but the jacket still fits.",
+    "The gallery is stunned. Mostly because there is no gallery.",
+    "They avoided disaster, found a few birdies, and survived the card.",
+    "A clean finish with just enough bar-golf nonsense.",
+    "Somewhere, a scorekeeper is nodding respectfully.",
+    "They didn’t need a caddie. They needed three darts and a little swagger.",
+    "The leaderboard bent the knee.",
+    "That was a full 18-hole problem for everyone else.",
+    "Low score, high swagger, questionable cart etiquette."
+  ],
+
+  bodyCopies: [
+    "They worked the card, dodged the blowups, and walked into the clubhouse with the number everyone else had to chase.",
+    "A few darts found trouble, a few found magic, and somehow the final scorecard says champion.",
+    "This round had everything: pars, birdies, chaos, and one player who knew exactly when to stop bleeding strokes.",
+    "The course tried to fight back, but the winner kept it together long enough to own the leaderboard.",
+    "They played smart, scored low, and made the rest of the field explain what happened on the ride home.",
+    "The darts were flying, the scorecard got weird, and one player still managed to bring it home clean.",
+    "That was less of a golf round and more of a controlled demolition of the leaderboard.",
+    "Every great round needs a little luck, a little nerve, and at least one shot nobody wants to admit was accidental.",
+    "They didn’t just finish the round. They left the rest of the group staring at totals and doing uncomfortable math.",
+    "Some players chase birdies. Some players avoid snowmen. This one did enough of both to win the damn thing.",
+    "They walked into the clubhouse like they owned the jacket, the cart path, and at least two questionable mulligans. Somewhere, a gopher is nodding in respect. 
+  ]
+};
+
+function pickRandomCopy(items) {
+  if (!Array.isArray(items) || !items.length) return "";
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function personalizeCopyText(text, winnerName) {
+  return String(text || "").replaceAll("{winnerName}", winnerName || "Winner");
+}
+
+function getGdWinCopy(winnerName) {
+  return {
+    banner: personalizeCopyText(pickRandomCopy(GD_WIN_COPY.banners), winnerName),
+    headline: personalizeCopyText(pickRandomCopy(GD_WIN_COPY.headlines), winnerName),
+    subhead: personalizeCopyText(pickRandomCopy(GD_WIN_COPY.subheads), winnerName),
+    bodyCopy: personalizeCopyText(pickRandomCopy(GD_WIN_COPY.bodyCopies), winnerName)
+  };
+}
 
 function formatCurrentHits(hits = []) {
   if (!hits.length) return "";
@@ -1071,6 +1146,7 @@ function renderEnd(container, state) {
     : [...state.players].sort((a, b) => a.total - b.total)[0].name;
 
   const isShanghai = !!state.shanghaiWinner;
+  const winCopy = getGdWinCopy(winner, isShanghai);
   const stats = state.finalStats || getStats();
   const rankedPlayers = getRankedPlayers(state);
 
@@ -1141,7 +1217,7 @@ function renderEnd(container, state) {
         border-radius:999px;
         animation:tapeFlash 1.5s infinite ease-in-out;
       ">
-        ! IT'S IN THE HOLE !
+        ${winCopy.banner}
       </div>
 
       <div style="
@@ -1160,7 +1236,7 @@ function renderEnd(container, state) {
         font-size:28px;
         color:#ffffff;
       ">
-        ${winner} Owns the Clubhouse!
+        ${winCopy.headline}
       </h2>
 
       <div style="
@@ -1170,11 +1246,7 @@ function renderEnd(container, state) {
         font-weight:bold;
         margin-bottom:10px;
       ">
-        ${
-          isShanghai
-            ? "Shanghai from the fairway. The greenskeeper is filing a complaint."
-            : "Low score, high swagger, questionable cart etiquette."
-        }
+        ${winCopy.subhead}
       </div>
 
       <div style="
@@ -1187,11 +1259,7 @@ function renderEnd(container, state) {
         padding:12px;
         margin-bottom:16px;
       ">
-        ${
-          isShanghai
-            ? `${winner} skipped the putting lesson, grabbed the whole course by the flagstick, and ended this thing with a Shanghai mic drop.`
-            : `${winner} walked into the clubhouse like they owned the jacket, the cart path, and at least two questionable mulligans. Somewhere, a gopher is nodding in respect.`
-        }
+        ${winCopy.bodyCopy}
       </div>
 
       <div style="
