@@ -25,6 +25,82 @@ const COLORS = [
   { name: "Red", bg: "#ef4444", text: "#ffffff" }
 ];
 
+const AG_WIN_COPY = {
+  banners: [
+    "TOUCHDOWN RUN",
+    "BACK IN BLACK, OUT IN FRONT",
+    "PARTY IN THE END ZONE",
+    "GREEN MEANS GONE",
+    "RED ZONE RAID",
+    "FOUR-COLOR FINISH",
+    "BROKE ONE LOOSE",
+    "LAMBEAU LEAP LOADED",
+    "COLOR ROUTE COMPLETE",
+    "HOUSE CALL",
+    "IT AIN'T EASY BEING GREEN"
+  ],
+
+  headlines: [
+    "{winnerName} Took It to the House!",
+    "{winnerName} Wins Ahman Green!",
+    "{winnerName} Hit the Red Zone and Never Looked Back!",
+    "{winnerName} Just Ran Through the Whole Damn Color Wheel!",
+    "{winnerName} Finished the Drive!",
+    "{winnerName} Went Black, White, Green, Red… Ballgame!",
+    "{winnerName} Found Daylight!",
+    "{winnerName} Broke the Tackle and Hit Paydirt!",
+    "{winnerName} Just Put Six on the Board!",
+    "{winnerName} Is Your Ahman Green Champion!",
+    "{winnerName} Followed Orders!"
+  ],
+
+  subheads: [
+    "No flags. No review. Just victory.",
+    "That was a full-speed color-route clinic.",
+    "Somebody call the equipment guy — ankles were broken.",
+    "The defense guessed wrong on every color.",
+    "Red was waiting, and they punched it in.",
+    "A clean drive with just enough chaos.",
+    "Black to White to Green to Red. Textbook carnage.",
+    "The party button was jealous of that finish.",
+    "AC/DC can’t drag that one Back to Black.",
+    "A victory drive worthy of the highlight reel.",
+    "Black, White, Green, Red — no detours, no refunds."
+  ],
+
+  bodyCopies: [
+    "They worked through every color, survived the board, and crossed the goal line before anyone could catch them.",
+    "One player found the lane, hit the gas, and turned the color sequence into a victory parade.",
+    "Black tried to reset them, White tried to slow them down, Green opened the lane, and Red sealed the deal.",
+    "That was less of a darts turn and more of a running back lowering the shoulder at the goal line.",
+    "The board gave them four colors. They gave the board a problem.",
+    "Everyone else was still reading the playbook while they were already dancing in the end zone.",
+    "A little luck, a little touch, and one nasty finish through Red.",
+    "They didn’t just win — they marched the whole damn field one color at a time.",
+    "The route was simple: don’t miss, don’t panic, and absolutely do not get sent Back in Black.",
+    "That finish had everything: speed, chaos, and just enough bar-league nonsense to make it beautiful.",
+    "Stayed on assignment, dodged Back in Black, kept the partying under control, and cashed in the green. Compliance has never looked so profitable."
+  ]
+};
+
+function pickRandomCopy(items) {
+  if (!Array.isArray(items) || !items.length) return "";
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function personalizeCopy(text, winnerName) {
+  return String(text || "").replaceAll("{winnerName}", winnerName || "Winner");
+}
+
+function getAgWinCopy(winnerName) {
+  return {
+    banner: personalizeCopy(pickRandomCopy(AG_WIN_COPY.banners), winnerName),
+    headline: personalizeCopy(pickRandomCopy(AG_WIN_COPY.headlines), winnerName),
+    subhead: personalizeCopy(pickRandomCopy(AG_WIN_COPY.subheads), winnerName),
+    bodyCopy: personalizeCopy(pickRandomCopy(AG_WIN_COPY.bodyCopies), winnerName)
+  };
+}
+
 function buttonStyle() {
   return `
     background:#206a1e;
@@ -673,6 +749,7 @@ function renderStatsList(stats, elementId) {
 --------------------------*/
 
 function renderEnd(container, state) {
+  const winCopy = getAgWinCopy(state.winner);
   const winner = state.winner;
   const rankedPlayers = getRankedPlayers(state);
   const stats = state.finalStats || getStats();
@@ -744,7 +821,7 @@ function renderEnd(container, state) {
         border-radius:999px;
         animation:tapeFlash 1.5s infinite ease-in-out;
       ">
-        ! IT AIN'T EASY BEING GREEN !
+        ${winCopy.banner}
       </div>
 
       <div style="
@@ -763,7 +840,7 @@ function renderEnd(container, state) {
         font-size:28px;
         color:#ffffff;
       ">
-        ${winner} Followed Orders!
+        ${winCopy.headline}
       </h2>
 
       <div style="
@@ -773,7 +850,7 @@ function renderEnd(container, state) {
         font-weight:bold;
         margin-bottom:10px;
       ">
-        Black, White, Green, Red — no detours, no refunds.
+        ${winCopy.subhead}
       </div>
 
       <div style="
@@ -785,8 +862,8 @@ function renderEnd(container, state) {
         border-radius:14px;
         padding:12px;
         margin-bottom:16px;
-      ">
-        ${winner} stayed on assignment, dodged Back in Black, kept the partying under control, and cashed in the green. Compliance has never looked so profitable.
+      "> 
+      ${winCopy.bodyCopy}
       </div>
 
       <div style="
