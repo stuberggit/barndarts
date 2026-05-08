@@ -1811,6 +1811,97 @@ function renderEnd(container, state) {
   const isShanghai = state.winnerReason === "shanghai";
   const stats = state.finalStats || getStats();
 
+  const bannerOptions = isShanghai
+    ? [
+        "💥 SHANGHAI STRIKE 💥",
+        "! TORPEDO TRICK SHOT !",
+        "! THREE-DART BROADSIDE !",
+        "! DIRECT HIT DISRESPECT !",
+        "! NAVAL NONSENSE COMPLETE !"
+      ]
+    : [
+        "! FLEET VICTORY !",
+        "! ADMIRAL OF CHAOS !",
+        "! SHIP HAPPENS !",
+        "! UNSINKABLE-ISH !",
+        "! TORPEDO PARTY !",
+        "! HIGH SEAS HERO !",
+        "! THE FLEET HAS FALLEN !",
+        "! PERMISSION TO GLOAT !",
+        "! BATTLESHIP BRAGGING RIGHTS !",
+        "! FULL SEND FLOTILLA !"
+      ];
+
+  const headlineOptions = isShanghai
+    ? [
+        `${winnerName} Fired the Perfect Broadside!`,
+        `${winnerName} Hit the Naval Jackpot!`,
+        `${winnerName} Went Full Torpedo Wizard!`,
+        `${winnerName} Ended It With a Boom!`,
+        `${winnerName} Sank the Room in Three Shots!`
+      ]
+    : [
+        `${winnerName} Sank the Fleet!`,
+        `${winnerName} Rules the High Seas!`,
+        `${winnerName} Fired the Final Shot!`,
+        `${winnerName} Sent Them to Davy Jones!`,
+        `${winnerName} Won the Naval Nonsense!`,
+        `${winnerName} Torpedoed the Competition!`,
+        `${winnerName} Made It Rain Cannonballs!`,
+        `${winnerName} Left No Ships Floating!`
+      ];
+
+  const subheadOptions = isShanghai
+    ? [
+        "Single. Dub. Trip. That fleet never had a chance.",
+        "A perfect spread of destruction. The ocean felt that.",
+        "That was less strategy and more war crime adjacent.",
+        "Three darts, one disaster movie, zero survivors.",
+        "The ships were hidden. The disrespect was not."
+      ]
+    : [
+        "Shots fired. Ships sunk. Feelings damaged.",
+        "The ocean is calm because everyone else is underwater.",
+        "A tactical masterpiece, if you ignore the trash talk.",
+        "The fleet came in confident and left as artificial reef.",
+        "Not exactly Top Gun, but definitely top dart.",
+        "Misses were temporary. Sinking ships was forever.",
+        "Some captains go down with the ship. Others just go down.",
+        "That was less naval strategy and more beautiful chaos."
+      ];
+
+  const bodyOptions = isShanghai
+    ? [
+        `${winnerName} lined up the shot, dropped the hammer, and turned the enemy fleet into a very expensive snorkeling destination.`,
+        `The board said BattleDarts. ${winnerName} heard “naval demolition derby” and acted accordingly.`,
+        `${winnerName} did not just win — they delivered a three-dart torpedo seminar nobody asked to attend.`,
+        `Some victories are earned. This one was launched, detonated, and probably reported to the Coast Guard.`,
+        `${winnerName} hit the kind of Shanghai that makes captains quietly update their résumés.`
+      ]
+    : [
+        `${winnerName} found the targets, sunk the ships, and left the rest of the fleet bobbing around like pool noodles in a hurricane.`,
+        `When the smoke cleared, ${winnerName} was still standing on deck while everyone else was politely exploring the ocean floor.`,
+        `${winnerName} did not just win — they launched a full maritime meltdown and turned the scoreboard into a shipwreck documentary.`,
+        `The enemy fleet had plans. ${winnerName} had better darts. Somewhere, a tiny admiral is throwing his hat into the sea.`,
+        `${winnerName} brought torpedoes to a dart fight and somehow that was completely legal. The fleet never stood a chance.`,
+        `It started as a battle. It ended as a boating accident with witnesses. ${winnerName} takes the trophy and probably the insurance payout.`,
+        `The ships were hidden, the pressure was high, and ${winnerName} still managed to turn the board into Battleship: The Revenge Tour.`,
+        `${winnerName} sank ships with the calm confidence of someone who absolutely checked the rules and then ignored the spirit of them.`
+      ];
+
+  const pickRandom = options => options[Math.floor(Math.random() * options.length)];
+
+  const selectedBanner = pickRandom(bannerOptions);
+  const selectedHeadline = pickRandom(headlineOptions);
+  const selectedSubhead =
+    state.winnerReason === "ended_early"
+      ? "Game ended early. Winner chosen by remaining fleet strength."
+      : pickRandom(subheadOptions);
+  const selectedBody =
+    state.winnerReason === "ended_early"
+      ? `${winnerName} may not have finished the battle, but they had enough fleet left to claim the harbor and start acting insufferable about it.`
+      : pickRandom(bodyOptions);
+
   container.innerHTML = `
     <style>
       @keyframes battleGlow {
@@ -1823,6 +1914,12 @@ function renderEnd(container, state) {
         0% { transform: translateY(0px) rotate(0deg); }
         50% { transform: translateY(-6px) rotate(2deg); }
         100% { transform: translateY(0px) rotate(0deg); }
+      }
+
+      @keyframes tapeFlash {
+        0% { opacity: 0.8; }
+        50% { opacity: 1; }
+        100% { opacity: 0.8; }
       }
 
       @keyframes trophyPulse {
@@ -1863,15 +1960,16 @@ function renderEnd(container, state) {
       <div style="
         text-align:center;
         margin:0 auto 12px;
-        max-width:340px;
+        max-width:360px;
         background:#facc15;
         color:#111111;
         font-weight:bold;
         font-size:15px;
         padding:8px 12px;
         border-radius:999px;
+        animation:tapeFlash 1.5s infinite ease-in-out;
       ">
-        ${isShanghai ? "💥 SHANGHAI STRIKE 💥" : "⚓ FLEET VICTORY ⚓"}
+        ${selectedBanner}
       </div>
 
       <div style="
@@ -1890,7 +1988,7 @@ function renderEnd(container, state) {
         font-size:28px;
         color:#ffffff;
       ">
-        ${winnerName} Wins!
+        ${selectedHeadline}
       </h2>
 
       <div style="
@@ -1900,13 +1998,20 @@ function renderEnd(container, state) {
         font-weight:bold;
         margin-bottom:10px;
       ">
-        ${
-          isShanghai
-            ? `Instant win on ${formatTarget(state.shanghaiTarget)}.`
-            : state.winnerReason === "ended_early"
-              ? "Game ended early. Winner chosen by remaining fleet strength."
-              : "Last fleet floating."
-        }
+        ${selectedSubhead}
+      </div>
+
+      <div style="
+        text-align:center;
+        font-size:15px;
+        color:#dbeafe;
+        background:rgba(255,255,255,0.06);
+        border:1px solid rgba(255,255,255,0.12);
+        border-radius:14px;
+        padding:12px;
+        margin-bottom:16px;
+      ">
+        ${selectedBody}
       </div>
 
       <div id="finalFleetSummary"></div>
@@ -1922,6 +2027,7 @@ function renderEnd(container, state) {
           padding:14px;
           min-height:52px;
           font-size:18px;
+          border:2px solid #facc15;
         ">Play Again</div>
 
         <div id="statsBtn" style="
