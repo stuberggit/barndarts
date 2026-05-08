@@ -24,6 +24,130 @@ import { renderApp } from "../../core/router.js";
    STYLES / HELPERS
 --------------------------*/
 
+const KILLER_WIN_COPY = {
+  banners: [
+    "LAST HUMAN STANDING",
+    "HORDE CLEARED",
+    "GRAVEYARD CLOSED",
+    "BRAINS PROTECTED",
+    "APOCALYPSE SURVIVED",
+    "UNDEAD DENIED",
+    "ZOMBIE PROBLEM SOLVED",
+    "NO BITES LEFT",
+    "FINAL HEART BEATING",
+    "REDemski REJECTED",
+    "THE HORDE GOT HUMBLED"
+  ],
+
+  normalHeadlines: [
+    "{winnerName} Survived the Horde!",
+    "{winnerName} Made It Out Alive!",
+    "{winnerName} Is Not on the Menu!",
+    "{winnerName} Beat the Apocalypse!",
+    "{winnerName} Outran the Graveyard!",
+    "{winnerName} Stayed Human-ish!",
+    "{winnerName} Cleared the Board!",
+    "{winnerName} Sent the Horde Packing!",
+    "{winnerName} Refused to Become a Snack!",
+    "{winnerName} Is Your Killer Champion!"
+  ],
+
+  shanghaiHeadlines: [
+    "{winnerName} Cleared the Horde!",
+    "{winnerName} Ended It With Style!",
+    "{winnerName} Went Full Zombie Slayer!",
+    "{winnerName} Brought the Boomstick!",
+    "{winnerName} Hit the Apocalypse Walk-Off!",
+    "{winnerName} Just Buried the Horde!",
+    "{winnerName} Dropped a Shanghai Headshot!",
+    "{winnerName} Turned the Graveyard Silent!",
+    "{winnerName} Made the Undead Regret Everything!",
+    "{winnerName} Closed the Coffin With Shanghai!"
+  ],
+
+  normalSubheads: [
+    "Brains protected. Zombies defeated. Glory secured.",
+    "The horde swung first. Bad idea.",
+    "The zombies wanted brains. They got humbled.",
+    "Survival rating: extremely annoying to zombies.",
+    "Not dead. Not dormant. Definitely dangerous.",
+    "Close enough. We are counting it.",
+    "The last heartbeat on the board belongs to the winner.",
+    "The graveyard asked for mercy. Denied.",
+    "The undead came hungry and left embarrassed.",
+    "Somebody check the pulse. Actually, never mind."
+  ],
+
+  shanghaiSubheads: [
+    "Shanghai headshot. Absolutely unnecessary. Absolutely beautiful.",
+    "Single. Dub. Trip. Goodnight, undead.",
+    "Shanghai landed. The graveyard got quiet.",
+    "A Shanghai finish with maximum disrespect.",
+    "One perfect turn. Zero zombie morale.",
+    "The horde got lined up and deleted.",
+    "That was not survival. That was pest control.",
+    "The undead saw Shanghai and chose retirement.",
+    "A three-dart horror movie with a very short runtime.",
+    "That finish belongs in the zombie safety manual."
+  ],
+
+  normalBodyCopies: [
+    "Against skulls, zombies, and Redemskis, one survivor outlasted the apocalypse and claimed the crown.",
+    "When the dust settled, the moaning stopped, and the last target fell, one player was still standing with darts in hand.",
+    "Some players joined the undead. Some stayed down. One player walked through the chaos like they had cheat codes.",
+    "Redemskis were attempted. Zombies returned. Hearts disappeared. Somehow, one survivor refused to become a snack.",
+    "The board turned into a horror movie, and this player still found a way to be the final scene.",
+    "After all the bites, revives, and questionable life choices, one player had just enough pulse left to win.",
+    "{winnerName} dodged the dead, buried the comeback attempts, and left the rest of the field groaning in the dirt.",
+    "The horde kept coming, the hearts kept dropping, and {winnerName} kept refusing to die.",
+    "Every zombie movie needs one survivor with bad ideas and great timing. Tonight, that survivor was {winnerName}.",
+    "{winnerName} turned the board into a graveyard and somehow walked out cleaner than they had any right to."
+  ],
+
+  shanghaiBodyCopies: [
+    "The zombies lined up, the darts flew, and one perfect turn turned the apocalypse into target practice.",
+    "That was not just a win. That was a full zombie eviction notice delivered point-first.",
+    "No Redemski, no comeback, no groaning from the cheap seats. Just one perfect turn and a whole lot of silence.",
+    "The undead came hungry. They left educated. Never stand in front of that throw again.",
+    "{winnerName} did not survive the apocalypse. They ended it with three darts and a deeply disrespectful Shanghai.",
+    "The graveyard had plans. {winnerName} hit Shanghai and cancelled the whole undead itinerary.",
+    "The horde wanted brains. {winnerName} gave them Single, Dub, Trip, and a permanent nap.",
+    "Shanghai usually wins the game. This one also lowered property values in the cemetery.",
+    "{winnerName} stepped up, threw three clean hits, and made every zombie reconsider the career path.",
+    "That was less of a finish and more of a public service announcement for the undead."
+  ]
+};
+
+function pickRandomCopy(items) {
+  if (!Array.isArray(items) || !items.length) return "";
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function personalizeCopyText(text, winnerName) {
+  return String(text || "").replaceAll("{winnerName}", winnerName || "Winner");
+}
+
+function getKillerWinCopy(winnerName, isShanghai) {
+  const headlinePool = isShanghai
+    ? KILLER_WIN_COPY.shanghaiHeadlines
+    : KILLER_WIN_COPY.normalHeadlines;
+
+  const subheadPool = isShanghai
+    ? KILLER_WIN_COPY.shanghaiSubheads
+    : KILLER_WIN_COPY.normalSubheads;
+
+  const bodyCopyPool = isShanghai
+    ? KILLER_WIN_COPY.shanghaiBodyCopies
+    : KILLER_WIN_COPY.normalBodyCopies;
+
+  return {
+    banner: personalizeCopyText(pickRandomCopy(KILLER_WIN_COPY.banners), winnerName),
+    headline: personalizeCopyText(pickRandomCopy(headlinePool), winnerName),
+    subhead: personalizeCopyText(pickRandomCopy(subheadPool), winnerName),
+    bodyCopy: personalizeCopyText(pickRandomCopy(bodyCopyPool), winnerName)
+  };
+}
+
 function buttonStyle() {
   return `
     background:#206a1e;
@@ -1620,65 +1744,8 @@ function renderEndGameConfirm(container) {
 function renderEnd(container, state) {
   const winnerName = state.winner || state.shanghaiWinner;
   const isShanghai = !!state.shanghaiWinner;
+  const winCopy = getKillerWinCopy(winnerName, isShanghai);
   const stats = state.finalStats || getStats();
-
-  const winnerCopyOptions = isShanghai
-    ? [
-        {
-          headline: `${winnerName} Cleared the Horde!`,
-          subhead: "Shanghai headshot. Absolutely unnecessary. Absolutely beautiful.",
-          body: "The zombies lined up, the darts flew, and one perfect turn turned the apocalypse into target practice."
-        },
-        {
-          headline: `${winnerName} Ended It With Style!`,
-          subhead: "Single. Dub. Trip. Goodnight, undead.",
-          body: "That was not just a win. That was a full zombie eviction notice delivered point-first."
-        },
-        {
-          headline: `${winnerName} Went Full Zombie Slayer!`,
-          subhead: "Shanghai landed. The graveyard got quiet.",
-          body: "No Redemski, no comeback, no groaning from the cheap seats. Just one perfect turn and a whole lot of silence."
-        },
-        {
-          headline: `${winnerName} Brought the Boomstick!`,
-          subhead: "A Shanghai finish with maximum disrespect.",
-          body: "The undead came hungry. They left educated. Never stand in front of that throw again."
-        }
-      ]
-    : [
-        {
-          headline: `${winnerName} Survived the Horde!`,
-          subhead: "Brains protected. Zombies defeated. Glory secured.",
-          body: "Against skulls, zombies, and Redemskis, one survivor outlasted the apocalypse and claimed the crown."
-        },
-        {
-          headline: `${winnerName} Made It Out Alive!`,
-          subhead: "The horde swung first. Bad idea.",
-          body: "When the dust settled, the moaning stopped, and the last target fell, one player was still standing with darts in hand."
-        },
-        {
-          headline: `${winnerName} Is Not on the Menu!`,
-          subhead: "The zombies wanted brains. They got humbled.",
-          body: "Some players joined the undead. Some stayed down. One player walked through the chaos like they had cheat codes."
-        },
-        {
-          headline: `${winnerName} Beat the Apocalypse!`,
-          subhead: "Survival rating: extremely annoying to zombies.",
-          body: "Redemskis were attempted. Zombies returned. Hearts disappeared. Somehow, one survivor refused to become a snack."
-        },
-        {
-          headline: `${winnerName} Outran the Graveyard!`,
-          subhead: "Not dead. Not dormant. Definitely dangerous.",
-          body: "The board turned into a horror movie, and this player still found a way to be the final scene."
-        },
-        {
-          headline: `${winnerName} Stayed Human-ish!`,
-          subhead: "Close enough. We are counting it.",
-          body: "After all the bites, revives, and questionable life choices, one player had just enough pulse left to win."
-        }
-      ];
-
-  const selectedCopy = winnerCopyOptions[Math.floor(Math.random() * winnerCopyOptions.length)];
 
   const loserTags = [
     "1st Loser",
@@ -1808,7 +1875,7 @@ function renderEnd(container, state) {
         border-radius:999px;
         animation:tapeFlash 1.5s infinite ease-in-out;
       ">
-        ⚠️ LAST HUMAN STANDING ⚠️
+        ${winCopy.banner}
       </div>
 
       <div style="
@@ -1827,7 +1894,7 @@ function renderEnd(container, state) {
         font-size:28px;
         color:#ffffff;
       ">
-        ${selectedCopy.headline}
+        ${winCopy.headline}
       </h2>
 
       <div style="
@@ -1837,7 +1904,7 @@ function renderEnd(container, state) {
         font-weight:bold;
         margin-bottom:10px;
       ">
-        ${selectedCopy.subhead}
+        ${winCopy.subhead}
       </div>
 
       <div style="
@@ -1850,7 +1917,7 @@ function renderEnd(container, state) {
         padding:12px;
         margin-bottom:16px;
       ">
-        ${selectedCopy.body}
+        ${winCopy.bodyCopy}
       </div>
 
       <div style="
