@@ -23,6 +23,79 @@ import { renderApp } from "../../core/router.js";
    HELPERS
 --------------------------*/
 
+const SURVIVOR_WIN_COPY = {
+  banners: [
+    "LAST PLAYER STANDING",
+    "SURVIVOR SECURED",
+    "CONTAINMENT COMPLETE",
+    "HAZMAT HERO",
+    "ABOVE ZERO",
+    "FALLOUT FINISHED",
+    "BIOHAZARD BRAGGING RIGHTS",
+    "POINTS STILL PULSING",
+    "THE SAFE ZONE HAS A WINNER",
+    "GEIGER COUNTER APPROVED",
+    "MUTATION DENIED"
+  ],
+
+  headlines: [
+    "{winnerName} Survived 301!",
+    "{winnerName} Is the Last Player Standing!",
+    "{winnerName} Escaped the Fallout!",
+    "{winnerName} Stayed Above Zero!",
+    "{winnerName} Outlasted the Blast Zone!",
+    "{winnerName} Claimed the Safe Zone!",
+    "{winnerName} Survived the Meltdown!",
+    "{winnerName} Beat the Biohazard!",
+    "{winnerName} Made It Through the Containment Breach!",
+    "{winnerName} Is Your Survivor 301 Champion!"
+  ],
+
+  subheads: [
+    "Last player standing.",
+    "Everyone else hit zero. They hit victory.",
+    "The points got low. The drama got weird. The winner stayed alive.",
+    "Containment failed for everyone else.",
+    "Above zero and above the chaos.",
+    "The fallout cleared, and one score was still breathing.",
+    "No meltdown. No collapse. Just survival.",
+    "The board tried to erase everybody. One player declined.",
+    "Survival was optional. Winning was not.",
+    "The safe zone had room for exactly one."
+  ],
+
+  bodyCopies: [
+    "Everyone else ran out of points. One survivor stayed above zero and claimed the crown.",
+    "{winnerName} watched the field melt down, stayed above zero, and walked out of the blast zone with the win.",
+    "The scores dropped, the pressure climbed, and {winnerName} survived long enough to make the rest of the field glow in the dark.",
+    "Some players got cooked. Some got crispy. {winnerName} stayed alive and claimed the only clean exit.",
+    "The game turned radioactive, the points started vanishing, and {winnerName} somehow kept the Geiger counter from screaming.",
+    "Everyone else crossed the danger line. {winnerName} kept just enough score alive to own the final order.",
+    "Survivor 301 did what Survivor 301 does: punished bad turns, rewarded chaos, and left one player standing in the smoke.",
+    "{winnerName} did not need comfort. They needed points, nerve, and everyone else to make worse decisions.",
+    "The blast zone got crowded fast. {winnerName} found the exit while everyone else became a cautionary tale.",
+    "A little strategy, a little luck, and a whole lot of not being eliminated. That was enough for {winnerName}."
+  ]
+};
+
+function pickRandomCopy(items) {
+  if (!Array.isArray(items) || !items.length) return "";
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function personalizeCopyText(text, winnerName) {
+  return String(text || "").replaceAll("{winnerName}", winnerName || "Winner");
+}
+
+function getSurvivorWinCopy(winnerName) {
+  return {
+    banner: personalizeCopyText(pickRandomCopy(SURVIVOR_WIN_COPY.banners), winnerName),
+    headline: personalizeCopyText(pickRandomCopy(SURVIVOR_WIN_COPY.headlines), winnerName),
+    subhead: personalizeCopyText(pickRandomCopy(SURVIVOR_WIN_COPY.subheads), winnerName),
+    bodyCopy: personalizeCopyText(pickRandomCopy(SURVIVOR_WIN_COPY.bodyCopies), winnerName)
+  };
+}
+
 function buttonStyle() {
   return `
     background:#206a1e;
@@ -979,6 +1052,7 @@ function renderEndGameConfirm(container) {
 
 function renderEnd(container, state) {
   const winnerName = state.winner;
+  const winCopy = getSurvivorWinCopy(winnerName);
   const stats = state.finalStats || getStats();
 
   const survivorTags = [
@@ -1092,7 +1166,7 @@ function renderEnd(container, state) {
         border-radius:999px;
         animation:tapeFlash 1.5s infinite ease-in-out;
       ">
-        ⚠️ LAST PLAYER STANDING ⚠️
+        ${winCopy.banner}
       </div>
 
       <div style="
@@ -1111,7 +1185,7 @@ function renderEnd(container, state) {
         font-size:28px;
         color:#ffffff;
       ">
-        ${winnerName} Survived 301!
+        ${winCopy.headline}
       </h2>
 
       <div style="
@@ -1121,7 +1195,7 @@ function renderEnd(container, state) {
         font-weight:bold;
         margin-bottom:10px;
       ">
-        Last player standing.
+        ${winCopy.subhead}
       </div>
 
       <div style="
@@ -1134,7 +1208,7 @@ function renderEnd(container, state) {
         padding:12px;
         margin-bottom:16px;
       ">
-        Everyone else ran out of points. One survivor stayed above zero and claimed the crown.
+        ${winCopy.bodyCopy}
       </div>
 
       <div style="
