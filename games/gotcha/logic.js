@@ -269,11 +269,23 @@ function getWinMessage(player, hitType, value) {
 
   if (gentlemanly) {
     player.stats.gentlemanlyWins++;
-    return `${player.name} wins Gotcha 301 like a true gentleman!`;
+    return `${player.name} checks out like a true gentleman. Tap Next Player to make it official.`;
   }
 
   player.stats.ungentlemanlyWins++;
-  return `${player.name} wins Gotcha 301... but that single was wildly un-gentlemanly.`;
+  return `${player.name} hit the number... but that single was wildly un-gentlemanly. Tap Next Player to make it official.`;
+}
+
+function finalizePendingWinner() {
+  if (!gameState.pendingWinner || gameState.winner) return false;
+
+  gameState.winner = gameState.pendingWinner.playerName;
+  gameState.pendingWinner = null;
+  gameState.finalStats = buildStatsSummary();
+
+  saveGotchaHistory();
+
+  return true;
 }
 
 export function initGame(players) {
@@ -295,6 +307,7 @@ export function initGame(players) {
     lastMessageColor: "#ffffff",
 
     winner: null,
+    pendingWinner: null,
     pendingShanghai: null,
     shanghaiWinner: null,
     finalStats: null,
@@ -306,7 +319,12 @@ export function initGame(players) {
 }
 
 export function submitThrow(hitType, target = null) {
-  if (gameState.winner || gameState.pendingShanghai || gameState.turnReadyForNext) return;
+  if (
+    gameState.winner ||
+    gameState.pendingWinner ||
+    gameState.pendingShanghai ||
+    gameState.turnReadyForNext
+  ) return;
 
   const player = gameState.players[gameState.currentPlayer];
   if (!player) return;
@@ -387,12 +405,15 @@ export function submitThrow(hitType, target = null) {
     throwRecord.result = "checkout";
     recordThrowHistory(player, throwRecord);
 
-    gameState.winner = player.name;
-    gameState.finalStats = buildStatsSummary();
+    gameState.pendingWinner = {
+      playerName: player.name,
+      hitType,
+      value
+    };
+
+    gameState.turnReadyForNext = true;
     gameState.lastMessage = getWinMessage(player, hitType, value);
     gameState.lastMessageColor = "#22c55e";
-
-    saveGotchaHistory();
     return;
   }
 
@@ -422,6 +443,11 @@ export function nextPlayer() {
 
   history.push(cloneState(gameState));
 
+  if (gameState.pendingWinner) {
+    finalizePendingWinner();
+    return;
+  }
+
   padRemainingDartsAsMisses();
   advanceTurn();
 }
@@ -435,6 +461,7 @@ export function confirmShanghaiWinner() {
   gameState.shanghaiWinner = playerName;
   gameState.winner = playerName;
   gameState.pendingShanghai = null;
+  gameState.pendingWinner = null;
   gameState.finalStats = buildStatsSummary();
 
   gameState.lastMessage = `${playerName} hit SHANGHAI on ${target}!`;
@@ -477,8 +504,6 @@ export function getTargetHints() {
       if (index === gameState.currentPlayer) return null;
       if (!player || player.score <= 0) return null;
 
-      // Do not advertise ungentlemanly reset targets.
-      // The rule still exists, but the UI will not call attention to scores under 150.
       if (player.score < GR_RESET_THRESHOLD) return null;
 
       const needed = player.score - currentPlayer.score;
@@ -507,6 +532,7 @@ export function endGameEarly() {
 
   const leader = [...gameState.players].sort((a, b) => b.score - a.score)[0];
   gameState.winner = leader?.name || "No Winner";
+  gameState.pendingWinner = null;
   gameState.finalStats = buildStatsSummary();
   gameState.lastMessage = "Game ended early.";
   gameState.lastMessageColor = "#facc15";
