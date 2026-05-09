@@ -7,6 +7,7 @@ import { checkShanghai } from "../../core/rules/shanghai.js";
 
 const WINNING_SCORE = 301;
 const GR_RESET_THRESHOLD = 150;
+const TARGET_HINT_RANGE = 100;
 
 function cloneState(state) {
   return JSON.parse(JSON.stringify(state));
@@ -457,6 +458,42 @@ export function getThrowLog() {
     name: player.name,
     throws: player.throwHistory || []
   }));
+}
+
+export function getTargetHints() {
+  const currentPlayer = gameState.players?.[gameState.currentPlayer];
+
+  if (!currentPlayer) {
+    return {
+      winNeeded: null,
+      resetTargets: []
+    };
+  }
+
+  const winNeeded = WINNING_SCORE - currentPlayer.score;
+
+  const resetTargets = (gameState.players || [])
+    .map((player, index) => {
+      if (index === gameState.currentPlayer) return null;
+      if (!player || player.score <= 0) return null;
+
+      const needed = player.score - currentPlayer.score;
+
+      if (needed <= 0 || needed > TARGET_HINT_RANGE) return null;
+
+      return {
+        playerName: player.name,
+        needed,
+        targetScore: player.score
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.needed - b.needed);
+
+  return {
+    winNeeded: winNeeded > 0 && winNeeded <= TARGET_HINT_RANGE ? winNeeded : null,
+    resetTargets
+  };
 }
 
 export function endGameEarly() {
