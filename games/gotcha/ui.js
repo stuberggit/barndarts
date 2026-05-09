@@ -280,28 +280,28 @@ function getVictoryCopy(state, winner) {
 
   const banners = isShanghai
     ? [
-        "🔥 SHANGHAI STING OPERATION 🔥",
-        "🚨 CAUGHT IN THREE DARTS 🚨",
-        "🎯 GOTCHA TASK FORCE RAID 🎯",
-        "🕵️ CASE CLOSED: SHANGHAI 🕵️",
-        "⚠️ FULL-BLOWN GOTCHA EMERGENCY ⚠️",
-        "🏴‍☠️ THREE-DART HEIST COMPLETE 🏴‍☠️",
-        "🚔 NOBODY ESCAPES SHANGHAI 🚔",
-        "💰 CLEAN GETAWAY, DIRTY LOOKS 💰",
-        "🔥 SINGLE. DUB. TRIP. DONE. 🔥",
-        "🕵️ THE PERFECT CRIME SCENE 🕵️"
+        "SHANGHAI STING OPERATION",
+        "CAUGHT IN THREE DARTS",
+        "GOTCHA TASK FORCE RAID",
+        "CASE CLOSED: SHANGHAI",
+        "FULL-BLOWN GOTCHA EMERGENCY",
+        "THREE-DART HEIST COMPLETE",
+        "NOBODY ESCAPES SHANGHAI",
+        "CLEAN GETAWAY, DIRTY LOOKS",
+        "SINGLE. DUB. TRIP. DONE.",
+        "THE PERFECT CRIME SCENE"
       ]
     : [
-        "🚨 GOTCHA! 🚨",
-        "🕵️ CASE CLOSED 🕵️",
-        "🏴‍☠️ SCOREBOARD HEIST COMPLETE 🏴‍☠️",
-        "⚠️ SOMEBODY GOT CAUGHT ⚠️",
-        "💰 THE POINT BANDIT STRIKES 💰",
-        "🚔 GOTCHA POLICE REPORT FILED 🚔",
-        "🎯 CAUGHT RED-HANDED 🎯",
-        "🕵️ NO ALIBI. NO MERCY. 🕵️",
-        "🔥 THE TRAP WAS SET 🔥",
-        "🏆 GENTLEMAN OR MENACE? YES. 🏆"
+        "GOTCHA!",
+        "CASE CLOSED",
+        "SCOREBOARD HEIST COMPLETE",
+        "SOMEBODY GOT CAUGHT",
+        "THE POINT BANDIT STRIKES",
+        "GOTCHA POLICE REPORT FILED",
+        "CAUGHT RED-HANDED",
+        "NO ALIBI. NO MERCY.",
+        "THE TRAP WAS SET",
+        "GENTLEMAN OR MENACE? YES."
       ];
 
   const announcements = [
