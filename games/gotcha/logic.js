@@ -477,6 +477,10 @@ export function getTargetHints() {
       if (index === gameState.currentPlayer) return null;
       if (!player || player.score <= 0) return null;
 
+      // Do not advertise ungentlemanly reset targets.
+      // The rule still exists, but the UI will not call attention to scores under 150.
+      if (player.score < GR_RESET_THRESHOLD) return null;
+
       const needed = player.score - currentPlayer.score;
 
       if (needed <= 0 || needed > TARGET_HINT_RANGE) return null;
