@@ -152,6 +152,10 @@ function rotatePlayers(players) {
   return [...players.slice(1), players[0]];
 }
 
+function pickRandomCopy(list) {
+  return list[Math.floor(Math.random() * list.length)];
+}
+
 function formatThrowLabel(throwRecord) {
   if (!throwRecord) return "";
 
@@ -259,6 +263,148 @@ function buildTargetHintsHtml() {
   `;
 }
 
+function getFinalOrder(state) {
+  const winnerName = state.winner;
+
+  return [...(state.players || [])].sort((a, b) => {
+    if (a.name === winnerName) return -1;
+    if (b.name === winnerName) return 1;
+    return b.score - a.score;
+  });
+}
+
+function getVictoryCopy(state, winner) {
+  const isShanghai = !!state.shanghaiWinner;
+  const checkout = winner?.stats?.checkout || 0;
+  const ungentlemanlyWins = winner?.stats?.ungentlemanlyWins || 0;
+
+  const banners = isShanghai
+    ? [
+        "🔥 SHANGHAI STING OPERATION 🔥",
+        "🚨 CAUGHT IN THREE DARTS 🚨",
+        "🎯 GOTCHA TASK FORCE RAID 🎯",
+        "🕵️ CASE CLOSED: SHANGHAI 🕵️",
+        "⚠️ FULL-BLOWN GOTCHA EMERGENCY ⚠️",
+        "🏴‍☠️ THREE-DART HEIST COMPLETE 🏴‍☠️",
+        "🚔 NOBODY ESCAPES SHANGHAI 🚔",
+        "💰 CLEAN GETAWAY, DIRTY LOOKS 💰",
+        "🔥 SINGLE. DUB. TRIP. DONE. 🔥",
+        "🕵️ THE PERFECT CRIME SCENE 🕵️"
+      ]
+    : [
+        "🚨 GOTCHA! 🚨",
+        "🕵️ CASE CLOSED 🕵️",
+        "🏴‍☠️ SCOREBOARD HEIST COMPLETE 🏴‍☠️",
+        "⚠️ SOMEBODY GOT CAUGHT ⚠️",
+        "💰 THE POINT BANDIT STRIKES 💰",
+        "🚔 GOTCHA POLICE REPORT FILED 🚔",
+        "🎯 CAUGHT RED-HANDED 🎯",
+        "🕵️ NO ALIBI. NO MERCY. 🕵️",
+        "🔥 THE TRAP WAS SET 🔥",
+        "🏆 GENTLEMAN OR MENACE? YES. 🏆"
+      ];
+
+  const announcements = [
+    `${state.winner} wins Gotcha 301!`,
+    `${state.winner} got away clean!`,
+    `${state.winner} caught the room sleeping!`,
+    `${state.winner} closed the case!`,
+    `${state.winner} pulled off the dartboard robbery!`,
+    `${state.winner} made the final arrest!`,
+    `${state.winner} walked everyone into the trap!`,
+    `${state.winner} hit 301 and vanished into the night!`,
+    `${state.winner} gotcha'd the whole damn bar!`,
+    `${state.winner} is officially wanted for scoreboard crimes!`
+  ];
+
+  const subheads = isShanghai
+    ? [
+        "Single, Dub, Trip — that is not a turn, that is evidence.",
+        "The old Shanghai warrant has been served.",
+        "Three darts. One target. Zero survivors.",
+        "That was less of a win and more of a public mugging.",
+        "The gentlemanly committee has requested a full investigation.",
+        "The board saw it coming. Nobody else did.",
+        "That was a clean sweep with filthy intentions.",
+        "A three-dart confession, signed and witnessed.",
+        "Somebody call security. The scoreboard was robbed.",
+        "A perfect little dart crime scene."
+      ]
+    : ungentlemanlyWins > 0
+      ? [
+          "The win counts. The manners committee is disgusted.",
+          "That checkout was legal, but emotionally questionable.",
+          "A gentleman would have considered the room. This was not that.",
+          "A single to win? Bold. Dirty. Effective.",
+          "Not illegal. Not polite. Very Gotcha.",
+          "The scoreboard says winner. The streets say menace.",
+          "The victory is official. The etiquette is missing.",
+          "Somebody won. Somebody also owes the room an apology.",
+          "A filthy finish, but the trophy does not care.",
+          "The gentleman’s rulebook has been set on fire."
+        ]
+      : [
+          "A gentlemanly finish with just enough villain energy.",
+          "Clean checkout. Dirty consequences.",
+          "The trap closed and the scoreboard squealed.",
+          "That was a proper Gotcha finish.",
+          "No fingerprints. Just points.",
+          "Calm, classy, and slightly criminal.",
+          "That is how you catch a crowd leaning.",
+          "The darts were polite. The result was rude.",
+          "A tidy little robbery at the finish line.",
+          "The room got caught. The winner got paid."
+        ];
+
+  const bodies = isShanghai
+    ? [
+        `${state.winner} did not just win — they assembled the whole Single-Dub-Trip evidence board and slapped it on the table.`,
+        `Nobody likes getting caught by Shanghai, mostly because there is no graceful way to pretend you saw it coming.`,
+        `That was a three-dart heist. Quick entry, clean exit, and a whole room full of witnesses.`,
+        `${state.winner} turned the target into a crime scene and left everyone else holding chalk outlines.`,
+        `The scoreboard barely had time to blink before ${state.winner} kicked the door in and yelled Gotcha.`,
+        `Some wins are earned slowly. This one was delivered with sirens, paperwork, and a suspicious lack of remorse.`,
+        `Single. Dub. Trip. The kind of sequence that makes friends question why they invited you.`,
+        `${state.winner} caught everyone slipping and converted the moment into a full-blown dartboard felony.`,
+        `This was not catching up. This was catching bodies, mathematically speaking.`,
+        `A gentleman may shake hands after this. An ungentleman may ask for the security footage.`
+      ]
+    : ungentlemanlyWins > 0
+      ? [
+          `${state.winner} reached 301 and immediately triggered a small ethics investigation near the dartboard.`,
+          `The win is real. The finish was a little greasy. Somewhere, a gentleman just spit out his beer.`,
+          `A single-checkout finish is like stealing candy from a baby, except the baby had darts and still lost.`,
+          `${state.winner} got caught being effective, which is the most annoying kind of guilty.`,
+          `The scoreboard does not care about manners, and apparently neither does ${state.winner}.`,
+          `Was it legal? Yes. Was it gentlemanly? Absolutely the hell not.`,
+          `${state.winner} walked out with the win and left the etiquette manual face-down in the parking lot.`,
+          `This was not a clean getaway. This was a getaway with fingerprints, witnesses, and applause anyway.`,
+          `Everyone saw the single. Everyone judged it. Nobody can take the win away.`,
+          `${state.winner} played the villain, cashed the ticket, and made the room live with it.`
+        ]
+      : [
+          `${state.winner} finished the job, caught the room slipping, and kept it just gentlemanly enough for the record books.`,
+          `That was a clean Gotcha finish — enough class to shake hands, enough bite to ruin someone’s night.`,
+          `${state.winner} did the dartboard equivalent of a smooth getaway in a suspiciously clean getaway car.`,
+          `Nobody got robbed under 150, nobody needed a lawyer, and the winner still left with everything.`,
+          `A proper finish: composed, calculated, and only slightly criminal.`,
+          `${state.winner} worked the room, closed the gap, and delivered the final catch without making it weird.`,
+          `The trap was patient. The finish was clean. The rest of the room was late to the investigation.`,
+          `That was a gentleman’s Gotcha: sharp suit, dirty fingerprints, trophy in hand.`,
+          `${state.winner} caught up, cashed out, and left the scoreboard wondering what happened.`,
+          `No sirens needed. Just a quiet little scoreboard robbery with excellent manners.`
+        ];
+
+  return {
+    banner: pickRandomCopy(banners),
+    icon: "🏆🕵️🏆",
+    announcement: pickRandomCopy(announcements),
+    subhead: pickRandomCopy(subheads),
+    body: pickRandomCopy(bodies),
+    checkout
+  };
+}
+
 /* -------------------------
    MAIN UI
 --------------------------*/
@@ -281,7 +427,9 @@ export function renderUI(container) {
 function renderGame(container, state) {
   const currentPlayer = state.players[state.currentPlayer];
   const dartDisplay = state.turnReadyForNext
-    ? "Turn complete — tap Next Player"
+    ? state.pendingWinner
+      ? "Winning dart hit — tap Next Player"
+      : "Turn complete — tap Next Player"
     : `Dart ${state.dartsThrown + 1}/3`;
 
   const messageHtml = state.lastMessage
@@ -372,6 +520,7 @@ function renderThrowControls(container, state) {
 
   const canThrow =
     !state.winner &&
+    !state.pendingWinner &&
     !state.pendingShanghai &&
     !state.turnReadyForNext &&
     state.dartsThrown < 3;
@@ -439,6 +588,7 @@ function renderThrowControls(container, state) {
     padding:10px;
     min-height:42px;
     font-size:15px;
+    ${state.pendingWinner ? "border:2px solid #facc15;box-shadow:0 0 12px rgba(250,204,21,0.45);" : ""}
   `;
   attachButtonClick(nextBtn, () => {
     nextPlayer();
@@ -560,6 +710,22 @@ function renderTurnSummary(state) {
           `
           : ""
       }
+
+      ${
+        state.pendingWinner
+          ? `
+            <div style="
+              margin-top:8px;
+              text-align:center;
+              color:#22c55e;
+              font-weight:bold;
+              font-size:13px;
+            ">
+              Checkout hit. Tap Next Player to go to the winner screen.
+            </div>
+          `
+          : ""
+      }
     </div>
   `;
 }
@@ -633,6 +799,7 @@ function renderNumberPicker(container, hitType) {
   const isTriple = hitType === "triple";
   const canThrow =
     !state.winner &&
+    !state.pendingWinner &&
     !state.pendingShanghai &&
     !state.turnReadyForNext &&
     state.dartsThrown < 3;
@@ -755,6 +922,7 @@ function renderNumberPicker(container, hitType) {
 
       if (
         freshState.winner ||
+        freshState.pendingWinner ||
         freshState.pendingShanghai ||
         freshState.turnReadyForNext ||
         freshState.dartsThrown >= 3
@@ -768,6 +936,7 @@ function renderNumberPicker(container, hitType) {
 
       if (
         !updatedState.winner &&
+        !updatedState.pendingWinner &&
         !updatedState.pendingShanghai &&
         !updatedState.turnReadyForNext &&
         updatedState.dartsThrown < 3
@@ -788,6 +957,7 @@ function renderNumberPicker(container, hitType) {
 
       if (
         freshState.winner ||
+        freshState.pendingWinner ||
         freshState.pendingShanghai ||
         freshState.turnReadyForNext ||
         freshState.dartsThrown >= 3
@@ -801,6 +971,7 @@ function renderNumberPicker(container, hitType) {
 
       if (
         !updatedState.winner &&
+        !updatedState.pendingWinner &&
         !updatedState.pendingShanghai &&
         !updatedState.turnReadyForNext &&
         updatedState.dartsThrown < 3
@@ -952,55 +1123,226 @@ function renderEndGameConfirm(container) {
    END
 --------------------------*/
 
-function renderEnd(container, state) {
-  const winner = state.players.find(player => player.name === state.winner) || null;
+function renderFinalOrder(state) {
+  const finalOrder = getFinalOrder(state);
 
-  container.innerHTML = `
-    <h2 style="text-align:center;">
-      ${state.shanghaiWinner ? "🔥 SHANGHAI 🔥" : "🏆"} ${state.winner} Wins Gotcha 301!
-    </h2>
-
+  return `
     <div style="
-      margin:12px 0;
-      padding:14px;
-      border-radius:12px;
-      background:#11361a;
-      border:2px solid #facc15;
+      margin-top:14px;
+      padding:12px;
+      border-radius:14px;
+      background:rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.14);
       color:#ffffff;
-      text-align:center;
-      font-weight:bold;
     ">
-      <div style="font-size:18px;color:#facc15;margin-bottom:6px;">Final Score</div>
-      <div style="font-size:28px;">${winner ? winner.score : getWinningScore()} / ${getWinningScore()}</div>
-      <div style="font-size:14px;margin-top:6px;opacity:0.85;">
-        PPD ${winner ? getPpd(winner) : "0.00"}
+      <div style="
+        text-align:center;
+        color:#facc15;
+        font-weight:bold;
+        font-size:16px;
+        margin-bottom:10px;
+      ">
+        Final Order
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${finalOrder.map((player, index) => `
+          <div style="
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:10px;
+            padding:9px 10px;
+            border-radius:10px;
+            background:${player.name === state.winner ? "rgba(250,204,21,0.16)" : "rgba(255,255,255,0.06)"};
+            border:${player.name === state.winner ? "1px solid rgba(250,204,21,0.65)" : "1px solid rgba(255,255,255,0.10)"};
+            font-weight:bold;
+          ">
+            <span>${index + 1}. ${player.name}</span>
+            <span style="color:${player.name === state.winner ? "#facc15" : "#dbeafe"};">
+              ${player.score}
+            </span>
+          </div>
+        `).join("")}
       </div>
     </div>
+  `;
+}
 
-    <div id="playerBoard"></div>
+function renderEnd(container, state) {
+  const winner = state.players.find(player => player.name === state.winner) || null;
+  const copy = getVictoryCopy(state, winner);
+
+  container.innerHTML = `
+    <style>
+      @keyframes gotchaGlow {
+        0% { box-shadow:0 0 0 rgba(250,204,21,0), 0 0 0 rgba(59,130,246,0); }
+        50% { box-shadow:0 0 22px rgba(250,204,21,0.42), 0 0 38px rgba(59,130,246,0.22); }
+        100% { box-shadow:0 0 0 rgba(250,204,21,0), 0 0 0 rgba(59,130,246,0); }
+      }
+
+      @keyframes gotchaFloat {
+        0% { transform:translateY(0px) rotate(0deg); }
+        50% { transform:translateY(-5px) rotate(2deg); }
+        100% { transform:translateY(0px) rotate(0deg); }
+      }
+
+      @keyframes gotchaBannerFlash {
+        0% { opacity:0.88; }
+        50% { opacity:1; }
+        100% { opacity:0.88; }
+      }
+
+      @keyframes gotchaPulse {
+        0% { transform:scale(1); }
+        50% { transform:scale(1.08); }
+        100% { transform:scale(1); }
+      }
+    </style>
 
     <div style="
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      margin-top:12px;
-    " id="endControls"></div>
+      position:relative;
+      overflow:hidden;
+      border-radius:18px;
+      padding:18px 16px 20px;
+      background:
+        radial-gradient(circle at top, rgba(250,204,21,0.18), transparent 34%),
+        linear-gradient(180deg, #10213f 0%, #070b12 100%);
+      border:2px solid #facc15;
+      animation:gotchaGlow 2.8s infinite ease-in-out;
+    ">
+      <div style="
+        position:absolute;
+        top:10px;
+        left:-24px;
+        right:-24px;
+        display:flex;
+        justify-content:space-between;
+        pointer-events:none;
+        font-size:26px;
+        opacity:0.13;
+      ">
+        <span style="animation:gotchaFloat 2.2s infinite ease-in-out;">🕵️</span>
+        <span style="animation:gotchaFloat 2.7s infinite ease-in-out;">🚨</span>
+        <span style="animation:gotchaFloat 2.1s infinite ease-in-out;">🎯</span>
+        <span style="animation:gotchaFloat 2.9s infinite ease-in-out;">🏴‍☠️</span>
+      </div>
+
+      <div style="
+        text-align:center;
+        margin:0 auto 12px;
+        max-width:360px;
+        background:#facc15;
+        color:#111111;
+        font-weight:bold;
+        font-size:15px;
+        padding:8px 12px;
+        border-radius:999px;
+        animation:gotchaBannerFlash 1.5s infinite ease-in-out;
+      ">
+        ${copy.banner}
+      </div>
+
+      <div style="
+        text-align:center;
+        font-size:54px;
+        line-height:1;
+        margin-bottom:8px;
+        animation:gotchaPulse 1.7s infinite ease-in-out;
+      ">
+        ${copy.icon}
+      </div>
+
+      <h2 style="
+        text-align:center;
+        margin:0 0 6px;
+        font-size:28px;
+        color:#ffffff;
+      ">
+        ${copy.announcement}
+      </h2>
+
+      <div style="
+        text-align:center;
+        font-size:18px;
+        color:#facc15;
+        font-weight:bold;
+        margin-bottom:10px;
+      ">
+        ${copy.subhead}
+      </div>
+
+      <div style="
+        text-align:center;
+        font-size:15px;
+        color:#dbeafe;
+        background:rgba(255,255,255,0.06);
+        border:1px solid rgba(255,255,255,0.12);
+        border-radius:14px;
+        padding:12px;
+        margin-bottom:12px;
+        line-height:1.45;
+      ">
+        ${copy.body}
+      </div>
+
+      <div style="
+        margin:12px 0;
+        padding:14px;
+        border-radius:14px;
+        background:rgba(17,54,26,0.85);
+        border:1px solid rgba(250,204,21,0.75);
+        color:#ffffff;
+        text-align:center;
+        font-weight:bold;
+      ">
+        <div style="font-size:16px;color:#facc15;margin-bottom:6px;">Final Score</div>
+        <div style="font-size:30px;">${winner ? winner.score : getWinningScore()} / ${getWinningScore()}</div>
+        <div style="font-size:14px;margin-top:6px;opacity:0.9;">
+          PPD ${winner ? getPpd(winner) : "0.00"}
+          ${copy.checkout ? ` • Checkout ${copy.checkout}` : ""}
+        </div>
+      </div>
+
+      ${renderFinalOrder(state)}
+
+      <div style="
+        display:grid;
+        grid-template-columns:1fr;
+        gap:10px;
+        margin-top:14px;
+      ">
+        <div id="playAgainBtn" style="
+          ${buttonStyle()}
+          padding:14px;
+          min-height:52px;
+          font-size:18px;
+          border:2px solid #facc15;
+        ">Play Again</div>
+
+        <div id="statsBtn" style="
+          ${lightButtonStyle()}
+          padding:14px;
+          min-height:52px;
+          font-size:18px;
+        ">Stats</div>
+
+        <div id="mainMenuBtn" style="
+          ${buttonStyle()}
+          padding:14px;
+          min-height:52px;
+          font-size:18px;
+        ">Main Menu</div>
+      </div>
+    </div>
 
     <div id="modal"></div>
   `;
 
-  renderPlayerBoard(state);
+  const playAgainBtn = document.getElementById("playAgainBtn");
+  const statsBtn = document.getElementById("statsBtn");
+  const mainMenuBtn = document.getElementById("mainMenuBtn");
 
-  const controls = document.getElementById("endControls");
-
-  const playAgainBtn = document.createElement("div");
-  playAgainBtn.innerText = "Play Again";
-  playAgainBtn.style = `
-    ${buttonStyle()}
-    padding:14px;
-    min-height:52px;
-    font-size:18px;
-  `;
   attachButtonClick(playAgainBtn, () => {
     const rotatedPlayers = rotatePlayers(state.originalPlayers || store.players || []);
     store.players = [...rotatedPlayers];
@@ -1008,33 +1350,13 @@ function renderEnd(container, state) {
     renderUI(container);
   });
 
-  const statsBtn = document.createElement("div");
-  statsBtn.innerText = "Stats";
-  statsBtn.style = `
-    ${lightButtonStyle()}
-    padding:14px;
-    min-height:52px;
-    font-size:18px;
-  `;
   attachButtonClick(statsBtn, () => {
     renderStatsModal(getThrowLog());
   });
 
-  const mainMenuBtn = document.createElement("div");
-  mainMenuBtn.innerText = "Main Menu";
-  mainMenuBtn.style = `
-    ${buttonStyle()}
-    padding:14px;
-    min-height:52px;
-    font-size:18px;
-  `;
   attachButtonClick(mainMenuBtn, () => {
     store.screen = "HOME";
     store.players = [];
     renderApp();
   });
-
-  controls.appendChild(playAgainBtn);
-  controls.appendChild(statsBtn);
-  controls.appendChild(mainMenuBtn);
 }
