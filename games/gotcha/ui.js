@@ -7,6 +7,7 @@ import {
   initGame,
   endGameEarly,
   getWinningScore,
+  getTargetHints,
   confirmShanghaiWinner,
   cancelPendingShanghai,
   getThrowLog
@@ -174,11 +175,88 @@ function getThrowValue(throwRecord) {
   return 0;
 }
 
+function getTurnTotal(throws = []) {
+  return throws.reduce((sum, throwRecord) => sum + getThrowValue(throwRecord), 0);
+}
+
 function getPpd(player) {
   const darts = player.stats?.dartsThrown || 0;
   const points = player.stats?.totalPoints || 0;
   if (!darts) return "0.00";
   return (points / darts).toFixed(2);
+}
+
+function buildTargetHintsHtml() {
+  const hints = getTargetHints();
+  const hasWinHint = typeof hints.winNeeded === "number";
+  const hasResetHints = Array.isArray(hints.resetTargets) && hints.resetTargets.length > 0;
+
+  if (!hasWinHint && !hasResetHints) {
+    return "";
+  }
+
+  return `
+    <div style="
+      margin:0 0 10px;
+      padding:10px;
+      border-radius:12px;
+      background:#111111;
+      border:1px solid rgba(250,204,21,0.8);
+      color:#ffffff;
+      font-weight:bold;
+    ">
+      <div style="
+        text-align:center;
+        color:#facc15;
+        font-size:15px;
+        margin-bottom:8px;
+      ">
+        🎯 Targets in Range
+      </div>
+
+      ${
+        hasWinHint
+          ? `
+            <div style="
+              display:flex;
+              justify-content:space-between;
+              align-items:center;
+              gap:10px;
+              padding:7px 8px;
+              border-radius:9px;
+              background:rgba(34,197,94,0.12);
+              border:1px solid rgba(34,197,94,0.5);
+              margin-bottom:${hasResetHints ? "8px" : "0"};
+            ">
+              <span>Win</span>
+              <span style="color:#22c55e;">Need ${hints.winNeeded}</span>
+            </div>
+          `
+          : ""
+      }
+
+      ${
+        hasResetHints
+          ? hints.resetTargets.map(target => `
+            <div style="
+              display:flex;
+              justify-content:space-between;
+              align-items:center;
+              gap:10px;
+              padding:7px 8px;
+              border-radius:9px;
+              background:rgba(250,204,21,0.10);
+              border:1px solid rgba(250,204,21,0.35);
+              margin-top:6px;
+            ">
+              <span>Reset ${target.playerName}</span>
+              <span style="color:#facc15;">Need ${target.needed}</span>
+            </div>
+          `).join("")
+          : ""
+      }
+    </div>
+  `;
 }
 
 /* -------------------------
@@ -252,6 +330,8 @@ function renderGame(container, state) {
         ${dartDisplay}
       </div>
     </div>
+
+    ${buildTargetHintsHtml()}
 
     <div style="
       min-height:42px;
@@ -418,6 +498,7 @@ function renderPlayerBoard(state) {
 function renderTurnSummary(state) {
   const summary = document.getElementById("turnSummary");
   const throws = state.currentTurnThrows || [];
+  const turnTotal = getTurnTotal(throws);
 
   summary.innerHTML = `
     <div style="
@@ -458,6 +539,26 @@ function renderTurnSummary(state) {
               <div style="color:#22c55e;">+${getThrowValue(throwRecord)}</div>
             </div>
           `).join("")
+      }
+
+      ${
+        throws.length > 0
+          ? `
+            <div style="
+              margin-top:10px;
+              padding-top:10px;
+              border-top:1px solid rgba(255,255,255,0.25);
+              display:flex;
+              justify-content:space-between;
+              align-items:center;
+              gap:10px;
+              font-weight:bold;
+            ">
+              <div>Round Total</div>
+              <div style="color:#facc15;">+${turnTotal}</div>
+            </div>
+          `
+          : ""
       }
     </div>
   `;
