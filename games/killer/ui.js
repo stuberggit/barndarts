@@ -439,6 +439,153 @@ function getLivesEmoji(player) {
   return html;
 }
 
+function getTurnTargetDamage(state, target) {
+  if (target == null) return 0;
+  return Number(state.currentTurnTargetDamage?.[String(target)] || 0);
+}
+
+function getTileDamageBadgeHtml(count) {
+  if (!count) return "";
+
+  return `
+    <div style="
+      position:absolute;
+      top:5px;
+      right:7px;
+      min-width:24px;
+      height:24px;
+      padding:0 7px;
+      border-radius:999px;
+      background:#facc15;
+      color:#111111;
+      border:1px solid #111111;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:13px;
+      line-height:1;
+      font-weight:900;
+      box-sizing:border-box;
+      box-shadow:0 0 10px rgba(250,204,21,0.55);
+      z-index:3;
+    ">
+      ${count}
+    </div>
+  `;
+}
+
+function formatTurnThrowLabel(throwRecord) {
+  if (!throwRecord) return "";
+  if (throwRecord.label) return throwRecord.label;
+  if (throwRecord.hitType === "miss") return "Miss";
+  return formatTarget(throwRecord.target, throwRecord.hitType);
+}
+
+function formatTurnThrowResult(throwRecord) {
+  if (!throwRecord) return "";
+
+  if (throwRecord.result === "miss") return "Miss";
+  if (throwRecord.result === "unlock") return "Killer unlocked";
+  if (throwRecord.result === "self-hit") return `Self -${throwRecord.damageApplied || 0}`;
+  if (throwRecord.result === "self-redemski") return `Self -${throwRecord.damageApplied || 0} / Redemski`;
+  if (throwRecord.result === "redemski") return `${throwRecord.targetPlayerName || "Target"} -${throwRecord.damageApplied || 0} / Redemski`;
+  if (throwRecord.result === "blocked") return "Not in kill range";
+  if (throwRecord.result === "hit") return `${throwRecord.targetPlayerName || "Target"} -${throwRecord.damageApplied || 0}`;
+  if (throwRecord.result === "recorded") return "Recorded";
+
+  if (throwRecord.damageApplied > 0) {
+    return `${throwRecord.targetPlayerName || "Target"} -${throwRecord.damageApplied}`;
+  }
+
+  return "—";
+}
+
+function buildKillerThrowSummaryHtml(state) {
+  const throws = state.currentTurnThrows || [];
+  const livesTaken = state.livesTakenThisTurn || 0;
+
+  return `
+    <div style="
+      margin-top:10px;
+      padding:12px;
+      border-radius:12px;
+      background:#111111;
+      border:1px solid #ffffff;
+      color:#ffffff;
+    ">
+      <div style="
+        text-align:center;
+        font-size:18px;
+        font-weight:bold;
+        margin-bottom:10px;
+      ">
+        Turn
+      </div>
+
+      ${
+        throws.length === 0
+          ? `
+            <div style="text-align:center;opacity:0.85;font-weight:bold;">
+              No darts thrown.
+            </div>
+          `
+          : throws.map((throwRecord, index) => `
+            <div style="
+              display:flex;
+              justify-content:space-between;
+              align-items:center;
+              gap:10px;
+              padding:8px 0;
+              border-top:${index === 0 ? "none" : "1px solid rgba(255,255,255,0.2)"};
+              font-weight:bold;
+            ">
+              <div>Dart ${index + 1}: ${formatTurnThrowLabel(throwRecord)}</div>
+              <div style="color:${throwRecord.damageApplied > 0 ? "#facc15" : throwRecord.result === "miss" ? "#ffffff" : "#22c55e"};text-align:right;">
+                ${formatTurnThrowResult(throwRecord)}
+              </div>
+            </div>
+          `).join("")
+      }
+
+      ${
+        throws.length > 0
+          ? `
+            <div style="
+              margin-top:10px;
+              padding-top:10px;
+              border-top:1px solid rgba(255,255,255,0.2);
+              display:flex;
+              justify-content:space-between;
+              align-items:center;
+              gap:10px;
+              font-weight:bold;
+            ">
+              <div>Lives taken this turn</div>
+              <div style="color:${livesTaken >= 3 ? "#facc15" : "#22c55e"};">${livesTaken}/3</div>
+            </div>
+          `
+          : ""
+      }
+
+      ${
+        throws.length >= 3
+          ? `
+            <div style="
+              margin-top:8px;
+              text-align:center;
+              color:#facc15;
+              font-weight:bold;
+              font-size:13px;
+            ">
+              Turn complete. Tap Next Player to advance.
+            </div>
+          `
+          : ""
+      }
+    </div>
+  `;
+}
+
 /* -------------------------
    MAIN UI ROUTER
 --------------------------*/
@@ -925,7 +1072,8 @@ function getTileInfoForTarget(state, target) {
       name: currentPlayer.name,
       isDormantDead: false,
       isZombie: !!currentPlayer.isZombie,
-      isOwnTarget: true
+      isOwnTarget: true,
+      turnDamage: getTurnTargetDamage(state, target)
     };
   }
 
@@ -936,7 +1084,8 @@ function getTileInfoForTarget(state, target) {
     name: targetPlayer?.name || "",
     isDormantDead: !!targetPlayer?.isDormantDead,
     isZombie: !!targetPlayer?.isZombie,
-    isOwnTarget: false
+    isOwnTarget: false,
+    turnDamage: getTurnTargetDamage(state, target)
   };
 }
 
@@ -975,6 +1124,8 @@ function renderGameControls(container, state) {
         width:100%;
         height:100%;
       ">
+        ${getTileDamageBadgeHtml(info.turnDamage)}
+
         <div style="
           font-size:${info.isOwnTarget ? "30px" : "34px"};
           line-height:1;
@@ -1265,8 +1416,12 @@ function renderGameControls(container, state) {
   utilityRow.appendChild(undoBtn);
   utilityRow.appendChild(endBtn);
 
+  const summaryWrap = document.createElement("div");
+  summaryWrap.innerHTML = buildKillerThrowSummaryHtml(state);
+
   controls.appendChild(targetRow);
   controls.appendChild(actionRow);
+  controls.appendChild(summaryWrap);
   controls.appendChild(utilityRow);
 }
 
@@ -1687,7 +1842,8 @@ function renderStatsModal(stats) {
       <div style="font-size:18px;font-weight:bold;margin-bottom:8px;">${player.name}</div>
       <div style="font-size:14px;line-height:1.6;">
         • Target: ${targetText}<br>
-        • Total Kills: ${player.stats?.totalKills || 0}<br>
+        • Lives Taken: ${player.stats?.totalKills || 0}<br>
+        • Players Eliminated: ${player.stats?.playersEliminated || 0}<br>
         • Hits to Self: ${player.stats?.selfHits || 0}<br>
         • Redemskis: ${player.stats?.redemskis || 0}<br>
         • Revives: ${player.stats?.revives || 0}<br>
