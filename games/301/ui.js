@@ -234,19 +234,19 @@ function getPpd(player) {
 
 function getCellBaseStyle(extra = "") {
   return `
-    border:1px solid rgba(209,213,219,0.75);
-    border-radius:6px;
+    border:1px solid rgba(209,213,219,0.55);
     color:#ffffff;
     display:flex;
     align-items:center;
     justify-content:center;
     box-sizing:border-box;
     min-width:0;
-    min-height:33px;
+    min-height:31px;
     font-weight:900;
     line-height:1;
     user-select:none;
     touch-action:manipulation;
+    margin:-1px 0 0 -1px;
     ${extra}
   `;
 }
@@ -262,6 +262,12 @@ function getScoreCellHtml(number, marker = "") {
 
 function buildMessageHtml(state) {
   if (!state.lastMessage) return `<div></div>`;
+
+  const isRoutineScoreMessage = /\s scores \d+$/.test(state.lastMessage);
+
+  if (isRoutineScoreMessage) {
+    return `<div></div>`;
+  }
 
   return `
     <div style="
@@ -434,17 +440,20 @@ function renderScoringGrid(container, state) {
   grid.style = `
     display:grid;
     grid-template-columns:repeat(16, minmax(0, 1fr));
-    grid-template-rows:repeat(5, minmax(33px, 1fr));
-    gap:3px;
+    grid-template-rows:repeat(5, minmax(31px, 1fr));
+    gap:0;
     width:100%;
     box-sizing:border-box;
+    border:1px solid rgba(209,213,219,0.65);
+    overflow:hidden;
+    background:#0b0f0d;
   `;
 
   addActionCell(grid, {
     label: "MISS",
     gridColumn: "1 / span 2",
     gridRow: "1 / span 1",
-    style: buttonStyle(),
+    kind: "standard",
     disabled: !canThrow,
     onClick: () => {
       submitThrow("miss");
@@ -453,10 +462,15 @@ function renderScoringGrid(container, state) {
   });
 
   addActionCell(grid, {
-    label: `<div>BULL</div><div style="font-size:10px;opacity:0.9;margin-top:2px;">(25)</div>`,
+    label: `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;">
+        <div>BULL</div>
+        <div style="font-size:10px;opacity:0.9;line-height:1;">(25)</div>
+      </div>
+    `,
     gridColumn: "1 / span 2",
     gridRow: "2 / span 2",
-    style: buttonStyle(),
+    kind: "standard",
     disabled: !canThrow,
     onClick: () => {
       submitThrow("greenBull");
@@ -465,10 +479,15 @@ function renderScoringGrid(container, state) {
   });
 
   addActionCell(grid, {
-    label: `<div>BULL</div><div style="font-size:10px;opacity:0.9;margin-top:2px;">(50)</div>`,
+    label: `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;">
+        <div>BULL</div>
+        <div style="font-size:10px;opacity:0.9;line-height:1;">(50)</div>
+      </div>
+    `,
     gridColumn: "1 / span 2",
     gridRow: "4 / span 2",
-    style: buttonStyle(),
+    kind: "standard",
     disabled: !canThrow,
     onClick: () => {
       submitThrow("redBull");
@@ -492,7 +511,7 @@ function renderScoringGrid(container, state) {
         marker: "",
         gridColumn: `${3 + numberIndex} / span 1`,
         gridRow: `${rowIndex + 1} / span 1`,
-        shade: "rgba(255,255,255,0.055)",
+        shade: "rgba(255,255,255,0.045)",
         disabled: !canThrow,
         container
       });
@@ -503,7 +522,7 @@ function renderScoringGrid(container, state) {
         marker: "xx",
         gridColumn: `${7 + numberIndex} / span 1`,
         gridRow: `${rowIndex + 1} / span 1`,
-        shade: "rgba(34,197,94,0.16)",
+        shade: "rgba(34,197,94,0.13)",
         disabled: !canThrow,
         container
       });
@@ -514,7 +533,7 @@ function renderScoringGrid(container, state) {
         marker: "xxx",
         gridColumn: `${11 + numberIndex} / span 1`,
         gridRow: `${rowIndex + 1} / span 1`,
-        shade: "rgba(250,204,21,0.13)",
+        shade: "rgba(250,204,21,0.11)",
         disabled: !canThrow,
         container
       });
@@ -525,7 +544,7 @@ function renderScoringGrid(container, state) {
     label: "Undo",
     gridColumn: "15 / span 2",
     gridRow: "1 / span 2",
-    style: undoButtonStyle(),
+    kind: "undo",
     disabled: false,
     onClick: () => {
       undo();
@@ -537,7 +556,8 @@ function renderScoringGrid(container, state) {
     label: "Next<br>Player",
     gridColumn: "15 / span 2",
     gridRow: "3 / span 3",
-    style: nextPlayerButtonStyle(state.turnReadyForNext || state.pendingWinner),
+    kind: "next",
+    ready: state.turnReadyForNext || state.pendingWinner,
     disabled: !!state.pendingShanghai,
     onClick: () => {
       nextPlayer();
@@ -550,15 +570,37 @@ function addActionCell(parent, options) {
   const btn = document.createElement("div");
   btn.innerHTML = options.label;
   btn.dataset.disabled = options.disabled ? "true" : "false";
+
+  let background = "#206a1e";
+  let color = "#ffffff";
+  let borderColor = "rgba(209,213,219,0.65)";
+  let boxShadow = "none";
+
+  if (options.kind === "undo") {
+    background = "#206a1e";
+    borderColor = "#ff4c4c";
+  }
+
+  if (options.kind === "next") {
+    background = "#206a1e";
+    borderColor = "#facc15";
+    boxShadow = options.ready ? "inset 0 0 0 2px rgba(250,204,21,0.55)" : "none";
+  }
+
   btn.style = `
-    ${options.style}
+    ${getCellBaseStyle()}
     grid-column:${options.gridColumn};
     grid-row:${options.gridRow};
-    padding:4px;
-    font-size:clamp(10px, 1.35vw, 16px);
+    background:${background};
+    color:${color};
+    border-color:${borderColor};
+    padding:3px;
+    font-size:clamp(10px, 1.25vw, 15px);
     line-height:1.08;
     min-height:0;
-    ${options.disabled ? "opacity:0.42;cursor:not-allowed;box-shadow:none;" : ""}
+    cursor:${options.disabled ? "not-allowed" : "pointer"};
+    opacity:${options.disabled ? "0.42" : "1"};
+    box-shadow:${boxShadow};
   `;
 
   attachButtonClick(btn, () => {
