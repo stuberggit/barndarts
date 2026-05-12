@@ -1003,6 +1003,18 @@ export function submitGameThrow(hitType, target) {
 
   const revivedZombieThisDart = checkZombieRevival(hitType, target, playerIndex);
 
+  if (revivedZombieThisDart) {
+    const revivedPlayer = gameState.players.find(other => {
+      return other.target === target && other.isZombie && other.isActive && !other.isDormantDead;
+    });
+
+    enrichThrowRecord(assignment, {
+      damageApplied: 0,
+      result: "zombie",
+      targetPlayerName: revivedPlayer?.name || targetPlayer?.name || "Zombie"
+    });
+  }
+
   const shanghaiTarget = getShanghaiTargetForCurrentPlayer();
 
   if (shanghaiTarget != null) {
