@@ -53,23 +53,55 @@ function advanceTurn() {
 function save301History() {
   if (gameState.historySaved) return;
 
-  const players = gameState.players.map(p => ({
-    name: p.name,
-    score: p.score,
-    stats: p.stats
-  }));
+  const selectedProfiles = store.selectedPlayerProfiles || [];
 
-  const winner = players.find(p => p.name === gameState.winner);
+  const players = gameState.players.map((p, index) => {
+    const profile = selectedProfiles[index] || {};
+
+    return {
+      id: profile.id || null,
+      name: p.name,
+      avatar: profile.avatar || null,
+      score: p.score,
+      result: p.name === gameState.winner ? "winner" : "played",
+      throws: [...(p.throwHistory || [])],
+      stats: { ...(p.stats || {}) }
+    };
+  });
+
+  const winner = players.find(p => p.name === gameState.winner) || null;
 
   saveGameResult({
     gameId: "301",
     gameName: "301",
     players,
-    winner,
-    meta: {}
+    winner: winner
+      ? {
+          id: winner.id || null,
+          name: winner.name,
+          avatar: winner.avatar || null
+        }
+      : null,
+    meta: {
+      startingScore: STARTING_SCORE,
+      shanghaiWinner: gameState.shanghaiWinner || null,
+      pendingWinnerResolved: !!gameState.winner
+    }
   });
 
   gameState.historySaved = true;
+}
+
+function finalizePendingWinner() {
+  if (!gameState.pendingWinner || gameState.winner) return false;
+
+  gameState.winner = gameState.pendingWinner;
+  gameState.pendingWinner = null;
+  gameState.lastMessage = `${gameState.winner} wins!`;
+  gameState.lastMessageColor = "#22c55e";
+
+  save301History();
+  return true;
 }
 
 /* -------------------------
@@ -105,6 +137,7 @@ export function initGame(players) {
     lastMessageColor: "#ffffff",
 
     winner: null,
+    pendingWinner: null,
     pendingShanghai: null,
     shanghaiWinner: null,
     historySaved: false
@@ -119,8 +152,8 @@ export function initGame(players) {
 
 function getHitLabel(hitType, target = null) {
   if (hitType === "miss") return "Miss";
-  if (hitType === "greenBull") return "Sing Bull";
-  if (hitType === "redBull") return "Dub Bull";
+  if (hitType === "greenBull") return "BULL";
+  if (hitType === "redBull") return "BULL";
 
   const labels = {
     single: "Single",
@@ -179,6 +212,7 @@ function padRemainingDartsAsMisses() {
 export function submitThrow(hitType, target = null) {
   if (
     gameState.winner ||
+    gameState.pendingWinner ||
     gameState.pendingShanghai ||
     gameState.turnReadyForNext
   ) {
@@ -238,13 +272,13 @@ export function submitThrow(hitType, target = null) {
   const isBullShanghai = bullHits.length === 3;
 
   if (isNumberShanghai || isBullShanghai) {
-  gameState.pendingShanghai = {
-    playerName: player.name,
-    target: isBullShanghai ? "Bull" : target,
-    isBullShanghai
-  };
-  return;
-}
+    gameState.pendingShanghai = {
+      playerName: player.name,
+      target: isBullShanghai ? "Bull" : target,
+      isBullShanghai
+    };
+    return;
+  }
 
   if (newScore < 0) {
     player.score = gameState.turnStartScore;
@@ -255,7 +289,7 @@ export function submitThrow(hitType, target = null) {
     throwRecord.result = "bust";
     recordThrowHistory(player, throwRecord);
 
-    gameState.lastMessage = `${player.name} busts!`;
+    gameState.lastMessage = `${player.name} busts! Tap Next Player.`;
     gameState.lastMessageColor = "#ff4c4c";
     return;
   }
@@ -268,11 +302,10 @@ export function submitThrow(hitType, target = null) {
     throwRecord.result = "checkout";
     recordThrowHistory(player, throwRecord);
 
-    gameState.winner = player.name;
-    gameState.lastMessage = `${player.name} wins!`;
+    gameState.pendingWinner = player.name;
+    gameState.turnReadyForNext = true;
+    gameState.lastMessage = `${player.name} checked out! Tap Next Player to confirm the win.`;
     gameState.lastMessageColor = "#22c55e";
-
-    save301History();
     return;
   }
 
@@ -288,6 +321,7 @@ export function submitThrow(hitType, target = null) {
     gameState.lastMessage = `${player.name}'s turn complete`;
   }
 }
+
 /* -------------------------
    ACTIONS
 --------------------------*/
@@ -302,6 +336,7 @@ export function confirmShanghaiWinner() {
   gameState.shanghaiWinner = playerName;
   gameState.winner = playerName;
   gameState.pendingShanghai = null;
+  gameState.pendingWinner = null;
 
   gameState.lastMessage = isBullShanghai
     ? `${playerName} hit SHANGHAI with 3 Bulls!`
@@ -327,6 +362,10 @@ export function nextPlayer() {
 
   history.push(cloneState(gameState));
 
+  if (finalizePendingWinner()) {
+    return;
+  }
+
   padRemainingDartsAsMisses();
   advanceTurn();
 }
@@ -344,9 +383,26 @@ export function getState() {
   return gameState;
 }
 
+export function getWinningScore() {
+  return STARTING_SCORE;
+}
+
 export function getThrowLog() {
   return gameState.players.map(player => ({
     name: player.name,
     throws: player.throwHistory || []
   }));
+}
+
+export function getRotatedPlayersForReplay() {
+  if (!gameState.originalPlayers || !gameState.originalPlayers.length) return [];
+
+  if (gameState.originalPlayers.length === 1) {
+    return [...gameState.originalPlayers];
+  }
+
+  return [
+    ...gameState.originalPlayers.slice(1),
+    gameState.originalPlayers[0]
+  ];
 }
