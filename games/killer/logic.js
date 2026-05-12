@@ -126,18 +126,27 @@ function resetTurnTracking() {
   gameState.currentTurnHits = [];
   gameState.currentTurnHitsOnOwnTarget = [];
   gameState.currentTurnHitsByOpponentTarget = {};
+  gameState.currentTurnTargetDamage = {};
   gameState.livesTakenThisTurn = 0;
 }
 
 function ensureStats(player) {
+  const defaults = {
+    targetClaim: null,
+    totalKills: 0,
+    playersEliminated: 0,
+    selfHits: 0,
+    redemskis: 0,
+    revives: 0,
+    zombied: 0
+  };
+
   if (!player.stats) {
+    player.stats = { ...defaults };
+  } else {
     player.stats = {
-      targetClaim: null,
-      totalKills: 0,
-      selfHits: 0,
-      redemskis: 0,
-      revives: 0,
-      zombied: 0
+      ...defaults,
+      ...player.stats
     };
   }
 
@@ -396,9 +405,10 @@ function checkZombieRevival(hitType, target, throwerIndex) {
   return reviveZombie(dormantPlayerIndex, throwerIndex);
 }
 
-function startRedemski(playerIndex) {
+function startRedemski(playerIndex, causedByIndex = null) {
   gameState.phase = "REDEMSKI";
   gameState.redemskiPlayerIndex = playerIndex;
+  gameState.pendingRedemskiAttackerIndex = causedByIndex;
   resetTurnTracking();
 
   const player = gameState.players[playerIndex];
@@ -417,8 +427,18 @@ function finishFailedRedemski() {
 
   setDormantDead(playerIndex);
 
+  const attackerIndex = gameState.pendingRedemskiAttackerIndex;
+  if (
+    attackerIndex != null &&
+    attackerIndex !== playerIndex &&
+    gameState.players[attackerIndex]
+  ) {
+    ensureStats(gameState.players[attackerIndex]).playersEliminated += 1;
+  }
+
   gameState.phase = "GAME";
   gameState.redemskiPlayerIndex = null;
+  gameState.pendingRedemskiAttackerIndex = null;
 
   updateMessage(`${player.name} fails Redemski and becomes Dormant Dead.`, "#ff4c4c");
 
@@ -441,6 +461,7 @@ function finishSuccessfulRedemski() {
 
   gameState.phase = "GAME";
   gameState.redemskiPlayerIndex = null;
+  gameState.pendingRedemskiAttackerIndex = null;
 
   updateMessage(`${player.name} survives Redemski! Back with 1 life.`, "#22c55e");
   advanceTurn();
@@ -586,12 +607,35 @@ function consumeTurnEvents(amount) {
   return true;
 }
 
-function dealSelfHit(player, damage) {
+function addTurnTargetDamage(target, damage) {
+  if (target == null || !damage) return;
+
+  const key = String(target);
+
+  if (!gameState.currentTurnTargetDamage) {
+    gameState.currentTurnTargetDamage = {};
+  }
+
+  gameState.currentTurnTargetDamage[key] = (gameState.currentTurnTargetDamage[key] || 0) + damage;
+}
+
+function enrichThrowRecord(throwRecord, updates = {}) {
+  if (!throwRecord) return;
+  Object.assign(throwRecord, updates);
+}
+
+function dealSelfHit(player, damage, throwRecord = null) {
   ensureStats(player).selfHits += damage;
   player.lives = Math.max(0, player.lives - damage);
+  addTurnTargetDamage(player.target, damage);
+  enrichThrowRecord(throwRecord, {
+    damageApplied: damage,
+    result: player.lives <= 0 ? "self-redemski" : "self-hit",
+    targetPlayerName: player.name
+  });
 
   if (player.lives <= 0) {
-    startRedemski(gameState.currentPlayer);
+    startRedemski(gameState.currentPlayer, gameState.currentPlayer);
     return true;
   }
 
@@ -599,13 +643,19 @@ function dealSelfHit(player, damage) {
   return false;
 }
 
-function dealHitToVictim(attacker, victimIndex, hitType, damage) {
+function dealHitToVictim(attacker, victimIndex, hitType, damage, throwRecord = null) {
   const victim = gameState.players[victimIndex];
   if (!victim || !isPlayerActive(victim)) return false;
 
   if (victim.lives > damage) {
     victim.lives -= damage;
     ensureStats(attacker).totalKills += damage;
+    addTurnTargetDamage(victim.target, damage);
+    enrichThrowRecord(throwRecord, {
+      damageApplied: damage,
+      result: "hit",
+      targetPlayerName: victim.name
+    });
     updateMessage(`${attacker.name} hits ${victim.name} for ${damage}!`, "#ff4c4c");
     return false;
   }
@@ -613,10 +663,21 @@ function dealHitToVictim(attacker, victimIndex, hitType, damage) {
   if (canKillWithHit(victim, hitType)) {
     victim.lives = 0;
     ensureStats(attacker).totalKills += damage;
-    startRedemski(victimIndex);
+    addTurnTargetDamage(victim.target, damage);
+    enrichThrowRecord(throwRecord, {
+      damageApplied: damage,
+      result: "redemski",
+      targetPlayerName: victim.name
+    });
+    startRedemski(victimIndex, gameState.currentPlayer);
     return true;
   }
 
+  enrichThrowRecord(throwRecord, {
+    damageApplied: 0,
+    result: "blocked",
+    targetPlayerName: victim.name
+  });
   updateMessage(`${victim.name} is not in kill range for that hit.`, "#facc15");
   return false;
 }
@@ -643,25 +704,28 @@ export function initGame(players) {
       redemskiCount: 0,
       isActive: true,
       isDormantDead: false,
-      stats: {
-        targetClaim: null,
-        totalKills: 0,
-        selfHits: 0,
-        redemskis: 0,
-        revives: 0,
-        zombied: 0
-      }
+   stats: {
+      targetClaim: null,
+      totalKills: 0,
+      playersEliminated: 0,
+      selfHits: 0,
+      redemskis: 0,
+      revives: 0,
+      zombied: 0
+}
     })),
 
     phase: "NDH",
     currentPlayer: 0,
     redemskiPlayerIndex: null,
+    pendingRedemskiAttackerIndex: null,
 
     dartsThrown: 0,
     currentTurnThrows: [],
     currentTurnHits: [],
     currentTurnHitsOnOwnTarget: [],
     currentTurnHitsByOpponentTarget: {},
+    currentTurnTargetDamage: {}, 
     livesTakenThisTurn: 0,
 
     lastMessage: "",
@@ -863,7 +927,10 @@ export function submitMiss() {
 
   gameState.currentTurnThrows.push({
     target: null,
-    hitType: "miss"
+    hitType: "miss",
+    label: "Miss",
+    damageApplied: 0,
+    result: "miss"
   });
 
   gameState.dartsThrown = Math.min((gameState.dartsThrown || 0) + 1, 3);
@@ -915,7 +982,18 @@ export function submitGameThrow(hitType, target) {
 
   history.push(cloneState(gameState));
 
-  const assignment = { target, hitType };
+  const targetPlayerIndex = findPlayerByTarget(target);
+  const targetPlayer = targetPlayerIndex !== -1 ? gameState.players[targetPlayerIndex] : null;
+
+  const assignment = {
+    target,
+    hitType,
+    label: formatTarget(target, hitType),
+    damageApplied: 0,
+    result: "recorded",
+    targetPlayerIndex,
+    targetPlayerName: targetPlayer?.name || null
+  };
 
   gameState.currentTurnThrows.push(assignment);
   gameState.dartsThrown = Math.min((gameState.dartsThrown || 0) + 1, 3);
@@ -936,6 +1014,11 @@ export function submitGameThrow(hitType, target) {
     if (!player.isKiller) {
       if (consumeTurnEvents(1)) {
         player.isKiller = true;
+        enrichThrowRecord(assignment, {
+          damageApplied: 0,
+          result: "unlock",
+          targetPlayerName: player.name
+        });
         updateMessage(`${player.name} is now a Killer!`, "#22c55e");
       } else {
         updateMessage(`${player.name} has already used 3 total turn events.`, "#facc15");
@@ -947,7 +1030,7 @@ export function submitGameThrow(hitType, target) {
         updateMessage(`${player.name} has already used 3 total turn events.`, "#facc15");
       } else {
         consumeTurnEvents(damage);
-        const endedTurn = dealSelfHit(player, damage);
+        const endedTurn = dealSelfHit(player, damage, assignment);
         if (endedTurn) return;
       }
     }
@@ -964,7 +1047,7 @@ export function submitGameThrow(hitType, target) {
           updateMessage(`${player.name} has already used 3 total turn events.`, "#facc15");
         } else {
           consumeTurnEvents(damage);
-          const endedTurn = dealHitToVictim(player, victimIndex, hitType, damage);
+          const endedTurn = dealHitToVictim(player, victimIndex, hitType, damage, assignment);
           if (endedTurn) return;
         }
       }
@@ -1005,7 +1088,14 @@ export function submitRedemskiThrow(hitType, target) {
 
   history.push(cloneState(gameState));
 
-  gameState.currentTurnThrows.push({ target, hitType });
+  gameState.currentTurnThrows.push({
+  target,
+  hitType,
+  label: formatTarget(target, hitType),
+  damageApplied: 0,
+  result: "redemski-throw",
+  targetPlayerName: player.name
+});
   gameState.dartsThrown = Math.min((gameState.dartsThrown || 0) + 1, 3);
 
   const correctTarget = target === player.target;
