@@ -485,6 +485,7 @@ function formatTurnThrowResult(throwRecord) {
   if (!throwRecord) return "";
 
   if (throwRecord.result === "miss") return "Miss";
+  if (throwRecord.result === "zombie") return `${throwRecord.targetPlayerName || "Player"} zombied`;
   if (throwRecord.result === "unlock") return "Killer unlocked";
   if (throwRecord.result === "self-hit") return `Self -${throwRecord.damageApplied || 0}`;
   if (throwRecord.result === "self-redemski") return `Self -${throwRecord.damageApplied || 0} / Redemski`;
@@ -1030,14 +1031,27 @@ function renderReadyControls(container) {
 --------------------------*/
 
 function renderGame(container, state) {
+  const currentPlayer = state.players[state.currentPlayer];
+
   container.innerHTML = `
     <div style="
       text-align:center;
       margin-bottom:12px;
       font-size:24px;
       font-weight:bold;
+      color:#facc15;
     ">
-      🎯 Target: ${getCurrentTargetDisplay()} | Dart ${getCurrentDartDisplay()}
+      🧟‍♂️ Current Player 🧟‍♂️
+    </div>
+
+    <div style="
+      text-align:center;
+      margin-bottom:12px;
+      font-size:26px;
+      font-weight:bold;
+      color:#ffffff;
+    ">
+      ${currentPlayer ? currentPlayer.name : "—"}
     </div>
 
     <div id="playerBoard"></div>
@@ -1096,6 +1110,7 @@ function renderGameControls(container, state) {
   const currentPlayer = state.players[state.currentPlayer];
   const targets = getCurrentTargetOptions();
   const canThrow = canCurrentPlayerThrow();
+  const turnComplete = (state.dartsThrown || 0) >= 3;
 
   const targetRow = document.createElement("div");
   targetRow.style = `
@@ -1108,7 +1123,7 @@ function renderGameControls(container, state) {
   targets.forEach(target => {
     const info = getTileInfoForTarget(state, target);
     const zombieTarget = info.isZombie && !info.isDormantDead;
-    const ownTargetIsDanger = info.isOwnTarget && currentPlayer.isKiller && !zombieTarget;
+    const ownTargetIsDanger = info.isOwnTarget && currentPlayer.isKiller;
     const ownTargetIsUnlock = info.isOwnTarget && !currentPlayer.isKiller && !zombieTarget;
 
     const btn = document.createElement("div");
@@ -1160,7 +1175,7 @@ function renderGameControls(container, state) {
         }
 
         ${
-          zombieTarget
+          zombieTarget && !ownTargetIsDanger
             ? `
               <div style="
                 position:absolute;
@@ -1169,13 +1184,13 @@ function renderGameControls(container, state) {
                 transform:translateX(-50%) rotate(-6deg);
                 background:rgba(20,83,45,0.98);
                 color:#dcfce7;
-                border:1px solid #86efac;
+                border:1px solid #fb923c;
                 border-radius:999px;
                 padding:2px 8px;
                 font-size:12px;
                 font-weight:bold;
                 letter-spacing:0.5px;
-                box-shadow:0 0 10px rgba(34,197,94,0.35);
+                box-shadow:0 0 10px rgba(249,115,22,0.45);
                 white-space:nowrap;
               ">
                 🧟 Zombie 🧟
@@ -1192,16 +1207,18 @@ function renderGameControls(container, state) {
                 top:8px;
                 left:50%;
                 transform:translateX(-50%) rotate(-6deg);
-                background:rgba(127,29,29,0.98);
-                color:#fecaca;
-                border:1px solid #fca5a5;
-                border-radius:6px;
+                background:${zombieTarget ? "rgba(154,52,18,0.98)" : "rgba(127,29,29,0.98)"};
+                color:${zombieTarget ? "#ffedd5" : "#fecaca"};
+                border:1px solid ${zombieTarget ? "#fb923c" : "#fca5a5"};
+                border-radius:${zombieTarget ? "999px" : "6px"};
                 padding:2px 8px;
                 font-size:12px;
                 font-weight:bold;
                 letter-spacing:1px;
+                box-shadow:${zombieTarget ? "0 0 10px rgba(249,115,22,0.45)" : "none"};
+                white-space:nowrap;
               ">
-                BEWARE
+                ${zombieTarget ? "🧟 BEWARE" : "BEWARE"}
               </div>
             `
             : ""
@@ -1263,28 +1280,37 @@ function renderGameControls(container, state) {
           : ""
       }
       ${
-        zombieTarget
+        zombieTarget && ownTargetIsDanger
           ? `
             background:
-              radial-gradient(circle at top, rgba(134,239,172,0.22), transparent 42%),
-              linear-gradient(180deg, #14532d 0%, #052e16 100%);
-            color:#dcfce7;
-            border:2px solid #22c55e;
-            box-shadow:inset 0 0 18px rgba(34,197,94,0.22);
+              radial-gradient(circle at top, rgba(251,146,60,0.26), transparent 42%),
+              linear-gradient(180deg, #7c2d12 0%, #431407 100%);
+            color:#ffedd5;
+            border:2px solid #fb923c;
+            box-shadow:inset 0 0 18px rgba(251,146,60,0.24), 0 0 12px rgba(249,115,22,0.18);
           `
-          : ownTargetIsDanger
+          : zombieTarget
             ? `
-              background:#451a1a;
-              color:#facc15;
-              border:2px solid #facc15;
+              background:
+                radial-gradient(circle at top, rgba(251,146,60,0.22), transparent 42%),
+                linear-gradient(180deg, #14532d 0%, #052e16 100%);
+              color:#dcfce7;
+              border:2px solid #fb923c;
+              box-shadow:inset 0 0 18px rgba(34,197,94,0.22), 0 0 12px rgba(249,115,22,0.18);
             `
-            : info.isOwnTarget
+            : ownTargetIsDanger
               ? `
-                background:#11361a;
+                background:#451a1a;
                 color:#facc15;
-                border:2px solid #22c55e;
+                border:2px solid #facc15;
               `
-              : ""
+              : info.isOwnTarget
+                ? `
+                  background:#11361a;
+                  color:#facc15;
+                  border:2px solid #22c55e;
+                `
+                : ""
       }
     `;
 
@@ -1358,6 +1384,7 @@ function renderGameControls(container, state) {
     padding:8px;
     min-height:40px;
     font-size:15px;
+    ${turnComplete ? "border:2px solid #facc15;box-shadow:0 0 12px rgba(250,204,21,0.35);" : ""}
   `;
   attachButtonClick(nextBtn, () => {
     nextPlayer();
