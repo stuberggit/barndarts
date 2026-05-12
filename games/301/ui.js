@@ -234,15 +234,15 @@ function getPpd(player) {
 
 function getCellBaseStyle(extra = "") {
   return `
-    border:1px solid rgba(209,213,219,0.55);
+    border:1px solid rgba(209,213,219,0.58);
     color:#ffffff;
     display:flex;
     align-items:center;
     justify-content:center;
     box-sizing:border-box;
     min-width:0;
-    min-height:31px;
-    font-weight:900;
+    min-height:40px;
+    font-weight:700;
     line-height:1;
     user-select:none;
     touch-action:manipulation;
@@ -253,9 +253,34 @@ function getCellBaseStyle(extra = "") {
 
 function getScoreCellHtml(number, marker = "") {
   return `
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1;">
-      <div style="font-size:clamp(12px, 1.55vw, 18px);font-weight:900;">${number}</div>
-      ${marker ? `<div style="font-size:clamp(6px, 0.72vw, 8px);font-weight:900;letter-spacing:0.5px;opacity:0.9;line-height:1;">${marker}</div>` : ""}
+    <div style="
+      display:grid;
+      grid-template-rows:1fr 9px;
+      align-items:center;
+      justify-items:center;
+      width:100%;
+      height:100%;
+      line-height:1;
+      padding-top:2px;
+      box-sizing:border-box;
+    ">
+      <div style="
+        font-size:clamp(13px, 1.65vw, 19px);
+        font-weight:700;
+        line-height:1;
+      ">
+        ${number}
+      </div>
+
+      <div style="
+        font-size:clamp(6px, 0.72vw, 8px);
+        font-weight:700;
+        letter-spacing:0.5px;
+        opacity:${marker ? "0.95" : "0"};
+        line-height:1;
+      ">
+        ${marker || "xx"}
+      </div>
     </div>
   `;
 }
@@ -323,7 +348,7 @@ function renderGame(container, state) {
     </div>
 
     <div style="
-      margin-bottom:8px;
+      margin-bottom:4px;
       padding:10px;
       border-radius:12px;
       background:#11361a;
@@ -344,18 +369,6 @@ function renderGame(container, state) {
         color:#facc15;
       ">
         ${currentPlayer ? currentPlayer.name : "—"} | ${dartDisplay}
-      </div>
-    </div>
-
-    <div style="
-      min-height:36px;
-      margin:6px 0 8px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-    ">
-      <div style="width:100%;">
-        ${buildMessageHtml(state)}
       </div>
     </div>
 
@@ -440,13 +453,14 @@ function renderScoringGrid(container, state) {
   grid.style = `
     display:grid;
     grid-template-columns:repeat(16, minmax(0, 1fr));
-    grid-template-rows:repeat(5, minmax(31px, 1fr));
+    grid-template-rows:repeat(5, minmax(40px, 1fr));
     gap:0;
     width:100%;
     box-sizing:border-box;
-    border:1px solid rgba(209,213,219,0.65);
+    border:1px solid rgba(209,213,219,0.7);
     overflow:hidden;
     background:#0b0f0d;
+    margin-top:0;
   `;
 
   addActionCell(grid, {
@@ -463,7 +477,17 @@ function renderScoringGrid(container, state) {
 
   addActionCell(grid, {
     label: `
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;">
+      <div style="
+        display:grid;
+        grid-template-rows:1fr 12px;
+        align-items:center;
+        justify-items:center;
+        width:100%;
+        height:100%;
+        line-height:1;
+        padding-top:3px;
+        box-sizing:border-box;
+      ">
         <div>BULL</div>
         <div style="font-size:10px;opacity:0.9;line-height:1;">(25)</div>
       </div>
@@ -480,7 +504,17 @@ function renderScoringGrid(container, state) {
 
   addActionCell(grid, {
     label: `
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;">
+      <div style="
+        display:grid;
+        grid-template-rows:1fr 12px;
+        align-items:center;
+        justify-items:center;
+        width:100%;
+        height:100%;
+        line-height:1;
+        padding-top:3px;
+        box-sizing:border-box;
+      ">
         <div>BULL</div>
         <div style="font-size:10px;opacity:0.9;line-height:1;">(50)</div>
       </div>
@@ -511,7 +545,7 @@ function renderScoringGrid(container, state) {
         marker: "",
         gridColumn: `${3 + numberIndex} / span 1`,
         gridRow: `${rowIndex + 1} / span 1`,
-        shade: "rgba(255,255,255,0.045)",
+        shade: "rgba(255,255,255,0.085)",
         disabled: !canThrow,
         container
       });
@@ -522,7 +556,7 @@ function renderScoringGrid(container, state) {
         marker: "xx",
         gridColumn: `${7 + numberIndex} / span 1`,
         gridRow: `${rowIndex + 1} / span 1`,
-        shade: "rgba(34,197,94,0.13)",
+        shade: "rgba(34,197,94,0.22)",
         disabled: !canThrow,
         container
       });
@@ -533,7 +567,7 @@ function renderScoringGrid(container, state) {
         marker: "xxx",
         gridColumn: `${11 + numberIndex} / span 1`,
         gridRow: `${rowIndex + 1} / span 1`,
-        shade: "rgba(250,204,21,0.11)",
+        shade: "rgba(250,204,21,0.22)",
         disabled: !canThrow,
         container
       });
@@ -553,7 +587,19 @@ function renderScoringGrid(container, state) {
   });
 
   addActionCell(grid, {
-    label: "Next<br>Player",
+    label: `
+      <div style="
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        width:100%;
+        height:100%;
+        text-align:center;
+        line-height:1.15;
+      ">
+        Next<br>Player
+      </div>
+    `,
     gridColumn: "15 / span 2",
     gridRow: "3 / span 3",
     kind: "next",
