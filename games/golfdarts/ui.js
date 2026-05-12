@@ -380,31 +380,39 @@ function buildCurrentPlayerHeader(state) {
     ">
       <div style="
         display:grid;
-        grid-template-columns:1fr;
-        gap:6px;
+        grid-template-columns:1fr 1fr 1fr;
+        gap:8px;
         align-items:center;
+        width:100%;
       ">
         <div style="
-          font-size:26px;
+          font-size:24px;
           line-height:1.15;
           color:#facc15;
+          min-width:0;
+          white-space:nowrap;
         ">
           ${topLabel}
         </div>
 
         <div style="
-          font-size:26px;
+          font-size:24px;
           line-height:1.15;
           color:#ffffff;
-          word-break:break-word;
+          min-width:0;
+          overflow:hidden;
+          text-overflow:ellipsis;
+          white-space:nowrap;
         ">
           ${player ? player.name : "—"}
         </div>
 
         <div style="
-          font-size:26px;
+          font-size:24px;
           line-height:1.15;
           color:#ffffff;
+          min-width:0;
+          white-space:nowrap;
         ">
           ${scoreToPar}
         </div>
