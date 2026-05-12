@@ -330,6 +330,89 @@ function formatGolfScore(score) {
   return "E";
 }
 
+function getCompletedHoleCount(player) {
+  return (player.scores || []).filter(score => score !== null && score !== undefined).length;
+}
+
+function getScoreToPar(player) {
+  const completedHoles = getCompletedHoleCount(player);
+  const parThroughCompletedHoles = completedHoles * 3;
+  return player.total - parThroughCompletedHoles;
+}
+
+function formatScoreToPar(scoreToPar) {
+  if (scoreToPar === 0) return "Even";
+  if (scoreToPar > 0) return `+${scoreToPar}`;
+  return String(scoreToPar);
+}
+
+function buildCurrentPlayerHeader(state) {
+  const player = state.players[state.currentPlayer];
+  const scoreToPar = player ? formatScoreToPar(getScoreToPar(player)) : "—";
+
+  const topLabel = state.hazardHoles?.includes(state.currentHole)
+    ? `Hazard Hole ${state.currentHole + 1}`
+    : state.hammerHoles?.includes(state.currentHole)
+      ? `Hammer Hole ${state.currentHole + 1}`
+      : `Hole ${state.currentHole + 1}`;
+
+  return `
+    <div style="
+      text-align:center;
+      margin-bottom:10px;
+      font-size:24px;
+      font-weight:bold;
+      color:#facc15;
+    ">
+      🏌️‍♂️ Current Player 🏌️‍♂️
+    </div>
+
+    <div style="
+      margin-bottom:12px;
+      padding:14px;
+      border-radius:14px;
+      background:#11361a;
+      border:3px solid #facc15;
+      box-shadow:0 0 18px rgba(250,204,21,0.35);
+      color:#ffffff;
+      text-align:center;
+      font-weight:bold;
+    ">
+      <div style="
+        display:grid;
+        grid-template-columns:1fr;
+        gap:6px;
+        align-items:center;
+      ">
+        <div style="
+          font-size:26px;
+          line-height:1.15;
+          color:#facc15;
+        ">
+          ${topLabel}
+        </div>
+
+        <div style="
+          font-size:26px;
+          line-height:1.15;
+          color:#ffffff;
+          word-break:break-word;
+        ">
+          ${player ? player.name : "—"}
+        </div>
+
+        <div style="
+          font-size:26px;
+          line-height:1.15;
+          color:#ffffff;
+        ">
+          ${scoreToPar}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 /* -------------------------
    MODAL SHELLS
 --------------------------*/
@@ -470,7 +553,7 @@ function renderStatsModal(stats, stateForScorecard = getState()) {
   renderModalShell(`
     <h2 style="text-align:center;margin-top:0;color:#facc15;">Game Stats</h2>
 
-    <div id="scorecard"></div>
+    <div id="statsScorecard"></div>
     <div id="statsList"></div>
 
     <div style="
@@ -488,7 +571,10 @@ function renderStatsModal(stats, stateForScorecard = getState()) {
     </div>
   `);
 
-  renderScorecard(stateForScorecard, { showFull: true });
+  renderScorecard(stateForScorecard, {
+    showFull: true,
+    targetId: "statsScorecard"
+  });
 
   const list = document.getElementById("statsList");
   list.innerHTML = "";
@@ -562,7 +648,6 @@ export function renderUI(container) {
 --------------------------*/
 
 function renderGame(container, state) {
-  const player = state.players[state.currentPlayer];
   const preview = getPreviewMeta(state);
 
   const scoreMessageHtml = state.lastScoreMessage
@@ -580,45 +665,8 @@ function renderGame(container, state) {
     `
     : `<div></div>`;
 
-  const topLabel = state.hazardHoles?.includes(state.currentHole)
-    ? `Hazard Hole ${state.currentHole + 1}`
-    : state.hammerHoles?.includes(state.currentHole)
-      ? `Hammer Hole ${state.currentHole + 1}`
-      : `Hole ${state.currentHole + 1}`;
-
   container.innerHTML = `
-    <div style="
-      margin-bottom:12px;
-      padding:14px;
-      border-radius:14px;
-      background:#11361a;
-      border:3px solid #facc15;
-      box-shadow:0 0 18px rgba(250,204,21,0.35);
-      color:#ffffff;
-      text-align:center;
-      font-weight:bold;
-    ">
-      <div style="
-        font-size:13px;
-        letter-spacing:0.7px;
-        color:#facc15;
-        margin-bottom:4px;
-      ">
-        ${topLabel}
-      </div>
-
-      <div style="font-size:28px;line-height:1.1;">
-        🎯 ${player.name}
-      </div>
-
-      <div style="
-        font-size:15px;
-        margin-top:5px;
-        opacity:0.95;
-      ">
-        Dart ${Math.min(state.dartsThrown + 1, 3)}/3
-      </div>
-    </div>
+    ${buildCurrentPlayerHeader(state)}
 
     <div id="scorecard"></div>
 
@@ -900,12 +948,11 @@ function renderUtilityControls(container) {
 --------------------------*/
 
 function renderHazardPrompt(container, state) {
-  const player = state.players[state.currentPlayer];
   const hitsText = formatCurrentHits(state.currentTurnThrows);
   const hitsDisplay = hitsText ? ` | Hits ${hitsText}` : "";
 
   container.innerHTML = `
-    <h2 style="text-align:center;">Hazard Hole ${state.currentHole + 1}</h2>
+    ${buildCurrentPlayerHeader(state)}
 
     <div id="scorecard"></div>
 
@@ -925,7 +972,7 @@ function renderHazardPrompt(container, state) {
           font-weight:bold;
           text-align:center;
         ">
-          🎯 ${player.name}${hitsDisplay}
+          ${hitsDisplay ? hitsDisplay.replace(" | ", "") : "Turn complete"}
         </div>
       </div>
     </div>
@@ -988,7 +1035,8 @@ function renderHazardPrompt(container, state) {
 --------------------------*/
 
 function renderScorecard(state, options = {}) {
-  const div = document.getElementById("scorecard");
+  const targetId = options.targetId || "scorecard";
+  const div = document.getElementById(targetId);
   if (!div) return;
 
   if (options.showFull) {
