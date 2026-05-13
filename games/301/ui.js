@@ -285,6 +285,40 @@ function getScoreCellHtml(number, marker = "") {
   `;
 }
 
+function getBullCellHtml(valueLabel) {
+  return `
+    <div style="
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      width:100%;
+      height:100%;
+      line-height:1;
+      box-sizing:border-box;
+      transform:translateY(-1px);
+    ">
+      <div style="
+        font-size:clamp(13px, 1.5vw, 17px);
+        font-weight:800;
+        line-height:1;
+        letter-spacing:0.3px;
+      ">
+        BULL
+      </div>
+      <div style="
+        font-size:clamp(8px, 0.95vw, 11px);
+        font-weight:700;
+        opacity:0.9;
+        line-height:1;
+        margin-top:2px;
+      ">
+        (${valueLabel})
+      </div>
+    </div>
+  `;
+}
+
 function buildMessageHtml(state) {
   if (!state.lastMessage) return `<div></div>`;
 
@@ -329,13 +363,6 @@ export function renderUI(container) {
 --------------------------*/
 
 function renderGame(container, state) {
-  const currentPlayer = state.players[state.currentPlayer];
-  const dartDisplay = state.pendingWinner
-    ? "Checkout hit — tap Next Player"
-    : state.turnReadyForNext
-      ? "Turn complete — tap Next Player"
-      : `Dart ${Math.min(state.dartsThrown + 1, 3)}/3`;
-
   container.innerHTML = `
     <div style="
       text-align:center;
@@ -348,7 +375,7 @@ function renderGame(container, state) {
     </div>
 
     <div style="
-      margin-bottom:4px;
+      margin-bottom:8px;
       padding:10px;
       border-radius:12px;
       background:#11361a;
@@ -361,15 +388,6 @@ function renderGame(container, state) {
         grid-template-columns:repeat(${Math.max(1, Math.min((state.players || []).length, 5))}, minmax(0, 1fr));
         gap:7px;
       " id="scoreStrip"></div>
-
-      <div style="
-        margin-top:7px;
-        text-align:center;
-        font-size:14px;
-        color:#facc15;
-      ">
-        ${currentPlayer ? currentPlayer.name : "—"} | ${dartDisplay}
-      </div>
     </div>
 
     <div id="scoringGrid"></div>
@@ -458,6 +476,7 @@ function renderScoringGrid(container, state) {
     width:100%;
     box-sizing:border-box;
     border:1px solid rgba(209,213,219,0.7);
+    border-radius:12px;
     overflow:hidden;
     background:#0b0f0d;
     margin-top:0;
@@ -476,22 +495,7 @@ function renderScoringGrid(container, state) {
   });
 
   addActionCell(grid, {
-    label: `
-      <div style="
-        display:grid;
-        grid-template-rows:1fr 12px;
-        align-items:center;
-        justify-items:center;
-        width:100%;
-        height:100%;
-        line-height:1;
-        padding-top:3px;
-        box-sizing:border-box;
-      ">
-        <div>BULL</div>
-        <div style="font-size:10px;opacity:0.9;line-height:1;">(25)</div>
-      </div>
-    `,
+    label: getBullCellHtml("25"),
     gridColumn: "1 / span 2",
     gridRow: "2 / span 2",
     kind: "standard",
@@ -503,22 +507,7 @@ function renderScoringGrid(container, state) {
   });
 
   addActionCell(grid, {
-    label: `
-      <div style="
-        display:grid;
-        grid-template-rows:1fr 12px;
-        align-items:center;
-        justify-items:center;
-        width:100%;
-        height:100%;
-        line-height:1;
-        padding-top:3px;
-        box-sizing:border-box;
-      ">
-        <div>BULL</div>
-        <div style="font-size:10px;opacity:0.9;line-height:1;">(50)</div>
-      </div>
-    `,
+    label: getBullCellHtml("50"),
     gridColumn: "1 / span 2",
     gridRow: "4 / span 2",
     kind: "standard",
