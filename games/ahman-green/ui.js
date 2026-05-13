@@ -221,11 +221,113 @@ function getRankedPlayers(state) {
 
 function formatProgressStatus(player) {
   if (player.progress >= 4) return "Finished";
-  return `Needs | ${getNeedsColor(player.progress)}`;
+  return getNeedsColor(player.progress);
 }
 
 function pluralize(count, label) {
   return `${count} ${label}${count === 1 ? "" : "s"}`;
+}
+
+function getDartDisplay(state) {
+  if (state.pendingWinner) return "Red complete — tap Next Player";
+  if (state.turnReadyForNext) return "Turn complete — tap Next Player";
+  return `Dart ${Math.min((state.dartsThrown || 0) + 1, 3)}/3`;
+}
+
+function getColorTextColor(color) {
+  return color.bg === "#ffffff" ? "#111111" : color.text;
+}
+
+function getProgressDots(player) {
+  return `
+    <div style="
+      display:grid;
+      grid-template-columns:repeat(4, 1fr);
+      gap:5px;
+      width:100%;
+      max-width:210px;
+    ">
+      ${COLORS.map((color, colorIndex) => {
+        const completed = player.progress > colorIndex;
+        const target = player.progress === colorIndex;
+        const locked = player.progress < colorIndex;
+
+        return `
+          <div style="
+            min-height:28px;
+            border-radius:999px;
+            border:${target ? "2px solid #facc15" : "1px solid rgba(255,255,255,0.7)"};
+            background:${color.bg};
+            color:${getColorTextColor(color)};
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-size:11px;
+            font-weight:900;
+            opacity:${locked ? 0.35 : 1};
+            box-shadow:${target ? "0 0 10px rgba(250,204,21,0.35)" : "none"};
+          ">
+            ${completed ? "✓" : color.name[0]}
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderPlayerBoard(state) {
+  const board = document.getElementById("playerBoard");
+  if (!board) return;
+
+  board.innerHTML = "";
+  board.style = `
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));
+    gap:8px;
+    margin:10px 0 12px;
+  `;
+
+  state.players.forEach((player, index) => {
+    const isActive = index === state.currentPlayer;
+    const currentColor = getNeedsColorMeta(player.progress);
+
+    const tile = document.createElement("div");
+    tile.style = `
+      padding:10px;
+      border-radius:12px;
+      background:${isActive ? "#11361a" : "#111111"};
+      border:${isActive ? "3px solid #facc15" : "1px solid #ffffff"};
+      color:#ffffff;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      min-width:0;
+    `;
+
+    tile.innerHTML = `
+      <div style="
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:8px;
+        font-weight:bold;
+      ">
+        <span style="min-width:0;word-break:break-word;font-size:16px;">
+          ${player.name}
+        </span>
+        <span style="
+          flex-shrink:0;
+          color:${player.progress >= 4 ? "#facc15" : currentColor.bg === "#ffffff" ? "#ffffff" : currentColor.bg};
+          font-size:13px;
+        ">
+          ${player.progress >= 4 ? "Done" : currentColor.name}
+        </span>
+      </div>
+      ${getProgressDots(player)}
+    `;
+
+    board.appendChild(tile);
+  });
 }
 
 function getProgressCells(player, isInteractive, container) {
@@ -256,7 +358,7 @@ function getProgressCells(player, isInteractive, container) {
       font-weight:bold;
       font-size:14px;
       opacity:${locked ? 0.45 : 1};
-      cursor:${target && isInteractive ? "pointer" : "default"};
+      cursor:${!locked && isInteractive ? "pointer" : "default"};
       user-select:none;
     `;
     cell.innerText = color.name;
@@ -278,7 +380,7 @@ function getProgressCells(player, isInteractive, container) {
       cell.appendChild(xOverlay);
     }
 
-    if (target && isInteractive) {
+        if (!locked && isInteractive) {
       cell.onclick = () => {
         advancePlayer(color.name);
         renderUI(container);
@@ -352,6 +454,7 @@ export function renderUI(container) {
 
   const currentPlayer = state.players[state.currentPlayer];
   const needsMeta = getNeedsColorMeta(currentPlayer.progress);
+  const dartDisplay = getDartDisplay(state);
 
   const messageHtml = state.lastMessage
     ? `
@@ -371,21 +474,62 @@ export function renderUI(container) {
   container.innerHTML = `
     <div style="
       text-align:center;
-      margin:0 0 12px;
-      font-size:16px;
+      margin-bottom:12px;
+      font-size:24px;
       font-weight:bold;
-      line-height:1.4;
+      color:#facc15;
     ">
-      <div>Current Player: ${currentPlayer.name}</div>
-      <div>
-        Needs |
-        <span style="color:${needsMeta.bg === "#ffffff" ? "#ffffff" : needsMeta.bg}; font-weight:bold;">
+      🏈 Current Player 🏈
+    </div>
+
+    <div style="
+      margin-bottom:8px;
+      padding:14px;
+      border-radius:12px;
+      background:#11361a;
+      border:2px solid #f0970a;
+      color:#ffffff;
+      text-align:center;
+      font-weight:bold;
+    ">
+      <div style="font-size:26px;margin-bottom:8px;">
+        ${currentPlayer ? currentPlayer.name : "—"}
+      </div>
+
+      <div style="
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:10px;
+        align-items:center;
+      ">
+        <div style="
+          padding:10px;
+          border-radius:10px;
+          background:${needsMeta.bg};
+          color:${needsMeta.bg === "#ffffff" ? "#111111" : needsMeta.text};
+          border:1px solid rgba(255,255,255,0.7);
+          font-size:20px;
+          line-height:1.1;
+        ">
           ${needsMeta.name}
-        </span>
+        </div>
+
+        <div style="
+          padding:10px;
+          border-radius:10px;
+          background:rgba(0,0,0,0.22);
+          border:1px solid rgba(255,255,255,0.35);
+          color:#facc15;
+          font-size:16px;
+          line-height:1.2;
+        ">
+          ${dartDisplay}
+        </div>
       </div>
     </div>
 
     <div id="activeColorBlock"></div>
+    <div id="playerBoard"></div>
 
     <div style="
       min-height:54px;
@@ -399,19 +543,15 @@ export function renderUI(container) {
       </div>
     </div>
 
-    <h3 style="text-align:center;margin:8px 0 12px;">
-      🎯 ${currentPlayer.name}
-      (Dart ${state.dartsThrown + 1}/3)
-    </h3>
-
     <div id="controls"></div>
 
     <div id="modal"></div>
   `;
 
   const activeColorBlock = document.getElementById("activeColorBlock");
-  activeColorBlock.appendChild(getProgressCells(currentPlayer, true, container));
+  activeColorBlock.appendChild(getProgressCells(currentPlayer, !state.turnReadyForNext && !state.pendingWinner, container));
 
+  renderPlayerBoard(state);
   renderControls(container);
 }
 
@@ -420,8 +560,15 @@ export function renderUI(container) {
 --------------------------*/
 
 function renderControls(container) {
+  const state = getState();
   const controls = document.getElementById("controls");
   controls.innerHTML = "";
+
+  const canThrow =
+    !state.winner &&
+    !state.pendingWinner &&
+    !state.turnReadyForNext &&
+    state.dartsThrown < 3;
 
   const row1 = document.createElement("div");
   row1.style = `
@@ -431,16 +578,18 @@ function renderControls(container) {
     margin-top:10px;
   `;
 
-  const missBtn = document.createElement("div");
-  missBtn.innerText = "❌ Miss Board";
-  missBtn.style = `
+  const acdcBtn = document.createElement("div");
+  acdcBtn.innerText = "⚡ AC/DC";
+  acdcBtn.style = `
     ${buttonStyle()}
     padding:8px;
     font-size:15px;
     min-height:40px;
+    ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
   `;
-  attachButtonClick(missBtn, () => {
-    missBoard();
+  attachButtonClick(acdcBtn, () => {
+    if (!canThrow) return;
+    acdcJump();
     renderUI(container);
   });
 
@@ -451,13 +600,15 @@ function renderControls(container) {
     padding:8px;
     font-size:15px;
     min-height:40px;
+    ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
   `;
   attachButtonClick(partyBtn, () => {
+    if (!canThrow) return;
     partyJump();
     renderUI(container);
   });
 
-  row1.appendChild(missBtn);
+  row1.appendChild(acdcBtn);
   row1.appendChild(partyBtn);
 
   const row2 = document.createElement("div");
@@ -468,16 +619,18 @@ function renderControls(container) {
     margin-top:8px;
   `;
 
-  const acdcBtn = document.createElement("div");
-  acdcBtn.innerText = "⚡ AC/DC";
-  acdcBtn.style = `
+  const missBtn = document.createElement("div");
+  missBtn.innerText = "❌ Miss Board";
+  missBtn.style = `
     ${buttonStyle()}
     padding:8px;
     font-size:15px;
     min-height:40px;
+    ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
   `;
-  attachButtonClick(acdcBtn, () => {
-    acdcJump();
+  attachButtonClick(missBtn, () => {
+    if (!canThrow) return;
+    missBoard();
     renderUI(container);
   });
 
@@ -488,13 +641,14 @@ function renderControls(container) {
     padding:8px;
     font-size:15px;
     min-height:40px;
+    ${state.turnReadyForNext || state.pendingWinner ? "border:2px solid #facc15;box-shadow:0 0 12px rgba(250,204,21,0.25);" : ""}
   `;
   attachButtonClick(nextBtn, () => {
     nextPlayer();
     renderUI(container);
   });
 
-  row2.appendChild(acdcBtn);
+  row2.appendChild(missBtn);
   row2.appendChild(nextBtn);
 
   const row3 = document.createElement("div");
