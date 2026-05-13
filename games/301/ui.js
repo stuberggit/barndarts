@@ -74,7 +74,7 @@ function nextPlayerButtonStyle(isReady = false) {
   return `
     background:#206a1e;
     color:#ffffff;
-    border:${isReady ? "3px solid #facc15" : "2px solid #facc15"};
+    border:${isReady ? "3px solid #facc15" : "1px solid #ffffff"};
     border-radius:10px;
     cursor:pointer;
     display:flex;
@@ -202,8 +202,8 @@ function formatThrowLabel(throwRecord) {
   if (throwRecord.label) return throwRecord.label;
 
   if (throwRecord.hitType === "miss") return "Miss";
-  if (throwRecord.hitType === "greenBull") return "BULL";
-  if (throwRecord.hitType === "redBull") return "BULL";
+  if (throwRecord.hitType === "greenBull") return "Sing Bull";
+  if (throwRecord.hitType === "redBull") return "Dub Bull";
 
   const labels = {
     single: "Single",
@@ -285,7 +285,7 @@ function getScoreCellHtml(number, marker = "") {
   `;
 }
 
-function getBullCellHtml(valueLabel) {
+function getBullCellHtml(label, valueLabel) {
   return `
     <div style="
       display:flex;
@@ -299,19 +299,28 @@ function getBullCellHtml(valueLabel) {
       transform:translateY(-1px);
     ">
       <div style="
-        font-size:clamp(13px, 1.5vw, 17px);
+        font-size:clamp(12px, 1.35vw, 16px);
         font-weight:800;
         line-height:1;
-        letter-spacing:0.3px;
+        letter-spacing:0.2px;
       ">
-        BULL
+        ${label}
+      </div>
+      <div style="
+        font-size:clamp(12px, 1.35vw, 16px);
+        font-weight:800;
+        line-height:1;
+        margin-top:2px;
+        letter-spacing:0.2px;
+      ">
+        Bull
       </div>
       <div style="
         font-size:clamp(8px, 0.95vw, 11px);
         font-weight:700;
         opacity:0.9;
         line-height:1;
-        margin-top:2px;
+        margin-top:3px;
       ">
         (${valueLabel})
       </div>
@@ -391,6 +400,7 @@ function renderGame(container, state) {
     </div>
 
     <div id="scoringGrid"></div>
+    <div id="primaryControls"></div>
     <div id="turnSummary"></div>
     <div id="utilityControls"></div>
     <div id="modal"></div>
@@ -398,6 +408,7 @@ function renderGame(container, state) {
 
   renderScoreStrip(state);
   renderScoringGrid(container, state);
+  renderPrimaryControls(container, state);
   renderTurnSummary(state);
   renderUtilityControls(container);
 
@@ -470,7 +481,7 @@ function renderScoringGrid(container, state) {
   grid.innerHTML = "";
   grid.style = `
     display:grid;
-    grid-template-columns:repeat(16, minmax(0, 1fr));
+    grid-template-columns:repeat(14, minmax(0, 1fr));
     grid-template-rows:repeat(5, minmax(40px, 1fr));
     gap:0;
     width:100%;
@@ -482,23 +493,18 @@ function renderScoringGrid(container, state) {
     margin-top:0;
   `;
 
-  addActionCell(grid, {
-    label: "MISS",
-    gridColumn: "1 / span 2",
-    gridRow: "1 / span 1",
-    kind: "standard",
-    disabled: !canThrow,
-    onClick: () => {
-      submitThrow("miss");
-      renderUI(container);
-    }
-  });
+  const bullStack = document.createElement("div");
+  bullStack.style = `
+    grid-column:1 / span 2;
+    grid-row:1 / span 5;
+    display:grid;
+    grid-template-rows:1fr 1fr;
+    min-width:0;
+    min-height:0;
+  `;
 
-  addActionCell(grid, {
-    label: getBullCellHtml("25"),
-    gridColumn: "1 / span 2",
-    gridRow: "2 / span 2",
-    kind: "standard",
+  addBullCell(bullStack, {
+    label: getBullCellHtml("Sing", "25"),
     disabled: !canThrow,
     onClick: () => {
       submitThrow("greenBull");
@@ -506,17 +512,16 @@ function renderScoringGrid(container, state) {
     }
   });
 
-  addActionCell(grid, {
-    label: getBullCellHtml("50"),
-    gridColumn: "1 / span 2",
-    gridRow: "4 / span 2",
-    kind: "standard",
+  addBullCell(bullStack, {
+    label: getBullCellHtml("Dub", "50"),
     disabled: !canThrow,
     onClick: () => {
       submitThrow("redBull");
       renderUI(container);
     }
   });
+
+  grid.appendChild(bullStack);
 
   const rows = [
     [20, 19, 18, 17],
@@ -562,80 +567,24 @@ function renderScoringGrid(container, state) {
       });
     });
   });
-
-  addActionCell(grid, {
-    label: "Undo",
-    gridColumn: "15 / span 2",
-    gridRow: "1 / span 2",
-    kind: "undo",
-    disabled: false,
-    onClick: () => {
-      undo();
-      renderUI(container);
-    }
-  });
-
-  addActionCell(grid, {
-    label: `
-      <div style="
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        width:100%;
-        height:100%;
-        text-align:center;
-        line-height:1.15;
-      ">
-        Next<br>Player
-      </div>
-    `,
-    gridColumn: "15 / span 2",
-    gridRow: "3 / span 3",
-    kind: "next",
-    ready: state.turnReadyForNext || state.pendingWinner,
-    disabled: !!state.pendingShanghai,
-    onClick: () => {
-      nextPlayer();
-      renderUI(container);
-    }
-  });
 }
 
-function addActionCell(parent, options) {
+function addBullCell(parent, options) {
   const btn = document.createElement("div");
   btn.innerHTML = options.label;
   btn.dataset.disabled = options.disabled ? "true" : "false";
 
-  let background = "#206a1e";
-  let color = "#ffffff";
-  let borderColor = "rgba(209,213,219,0.65)";
-  let boxShadow = "none";
-
-  if (options.kind === "undo") {
-    background = "#206a1e";
-    borderColor = "#ff4c4c";
-  }
-
-  if (options.kind === "next") {
-    background = "#206a1e";
-    borderColor = "#facc15";
-    boxShadow = options.ready ? "inset 0 0 0 2px rgba(250,204,21,0.55)" : "none";
-  }
-
   btn.style = `
     ${getCellBaseStyle()}
-    grid-column:${options.gridColumn};
-    grid-row:${options.gridRow};
-    background:${background};
-    color:${color};
-    border-color:${borderColor};
+    background:#206a1e;
+    color:#ffffff;
+    border-color:rgba(209,213,219,0.65);
     padding:3px;
     font-size:clamp(10px, 1.25vw, 15px);
     line-height:1.08;
     min-height:0;
     cursor:${options.disabled ? "not-allowed" : "pointer"};
     opacity:${options.disabled ? "0.42" : "1"};
-    box-shadow:${boxShadow};
   `;
 
   attachButtonClick(btn, () => {
@@ -666,6 +615,71 @@ function addScoreCell(parent, options) {
   });
 
   parent.appendChild(btn);
+}
+
+/* -------------------------
+   PRIMARY CONTROLS
+--------------------------*/
+
+function renderPrimaryControls(container, state) {
+  const controls = document.getElementById("primaryControls");
+  if (!controls) return;
+
+  const canThrow =
+    !state.winner &&
+    !state.pendingWinner &&
+    !state.pendingShanghai &&
+    !state.turnReadyForNext &&
+    state.dartsThrown < 3;
+
+  const readyForNext = state.turnReadyForNext || state.pendingWinner;
+
+  controls.innerHTML = "";
+
+  const row = document.createElement("div");
+  row.style = `
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:8px;
+  `;
+
+  const missBtn = document.createElement("div");
+  missBtn.innerText = "❌ Miss";
+  missBtn.dataset.disabled = !canThrow ? "true" : "false";
+  missBtn.style = `
+    ${buttonStyle()}
+    padding:8px;
+    min-height:40px;
+    font-size:15px;
+    ${!canThrow ? "opacity:0.45;cursor:not-allowed;" : ""}
+  `;
+  attachButtonClick(missBtn, () => {
+    if (!canThrow) return;
+    submitThrow("miss");
+    renderUI(container);
+  });
+
+  const nextBtn = document.createElement("div");
+  nextBtn.innerText = "➡️ Next Player";
+  nextBtn.dataset.disabled = state.pendingShanghai ? "true" : "false";
+  nextBtn.style = `
+    ${nextPlayerButtonStyle(readyForNext)}
+    padding:8px;
+    min-height:40px;
+    font-size:15px;
+    ${state.pendingShanghai ? "opacity:0.45;cursor:not-allowed;" : ""}
+  `;
+  attachButtonClick(nextBtn, () => {
+    if (state.pendingShanghai) return;
+    nextPlayer();
+    renderUI(container);
+  });
+
+  row.appendChild(missBtn);
+  row.appendChild(nextBtn);
+
+  controls.appendChild(row);
 }
 
 /* -------------------------
