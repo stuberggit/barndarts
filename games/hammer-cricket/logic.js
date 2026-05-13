@@ -325,6 +325,18 @@ export function nextPlayer() {
   finalizeTurn();
 }
 
+export function endGameEarly() {
+  if (!gameState.players?.length) return;
+
+  history.push(cloneState(gameState));
+
+  gameState.shanghaiWinner = null;
+  gameState.currentRound = gameState.rounds.length;
+  gameState.lastScoreMessage = "Game ended early.";
+  gameState.lastScoreColor = "#facc15";
+  gameState.lastScoreTimestamp = Date.now();
+}
+
 export function undo() {
   if (!history.length) return;
   gameState = history.pop();
