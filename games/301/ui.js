@@ -1013,10 +1013,97 @@ function renderEndGameConfirm(container) {
 }
 
 /* -------------------------
+   WIN COPY
+--------------------------*/
+
+const THREE_OH_ONE_WIN_COPY = {
+  banners: [
+    "CHECKOUT COMPLETE",
+    "ZEROED OUT",
+    "PERFECTLY COMPLIANT",
+    "THE MATH CHECKED OUT",
+    "FINISHED ON TIME",
+    "DIRECTIONS FOLLOWED",
+    "CLEAN EXIT",
+    "NO POINTS LEFT BEHIND",
+    "MISSION ACTUALLY ACCOMPLISHED",
+    "THE ASSIGNMENT WAS UNDERSTOOD",
+    "FINAL DART FILED",
+    "COMPLIANCE HAS ENTERED THE CHAT"
+  ],
+
+  headlines: [
+    "{winnerName} Wins 301!",
+    "{winnerName} Checked Out Like a Damn Professional!",
+    "{winnerName} Hit Zero and Left No Crumbs!",
+    "{winnerName} Finished the Job!",
+    "{winnerName} Followed Directions All the Way to Zero!",
+    "{winnerName} Submitted a Perfectly Legal Checkout!",
+    "{winnerName} Did the Math and Made It Hurt!",
+    "{winnerName} Turned 301 Into 0!",
+    "{winnerName} Closed the Books!",
+    "{winnerName} Got to Zero Without Asking for an Extension!",
+    "{winnerName} Completed the Assignment!",
+    "{winnerName} Is Your 301 Finisher!"
+  ],
+
+  subheads: [
+    "Zero points. Zero excuses. Maximum compliance.",
+    "The scoreboard asked for zero, and they actually listened.",
+    "A rare case of darts, math, and basic instructions working together.",
+    "Finished clean, on time, and suspiciously competent.",
+    "That checkout was filed, approved, and emotionally damaging.",
+    "The dartboard gave directions. They followed every damn one.",
+    "No late work. No extra credit. Just zero.",
+    "A tidy little finish with just enough disrespect.",
+    "This is what happens when someone reads the instructions.",
+    "The assignment was 301. The answer was domination.",
+    "Compliance never looked this annoying.",
+    "A clean finish from someone who clearly understood the rubric."
+  ],
+
+  bodyCopies: [
+    "Some players wandered through the math. {winnerName} showed up, followed directions, and checked out before things got weird.",
+    "There were points to remove, darts to throw, and a very simple goal. {winnerName} handled all three without making it everyone else’s problem.",
+    "The board demanded precision, the score demanded discipline, and {winnerName} delivered a checkout that was almost too responsible.",
+    "A lesser player might have busted, panicked, or blamed the lighting. {winnerName} simply got to zero and let the rest of the room process it.",
+    "That was less of a win and more of a strongly worded memo to everyone still stuck above zero.",
+    "{winnerName} took 301 points, followed the instructions, and returned them to sender with interest.",
+    "The math was clean, the finish was rude, and the rest of the field is now reviewing their life choices.",
+    "No loopholes. No nonsense. No points remaining. {winnerName} completed the task like a dartboard tax auditor.",
+    "Everybody had the same assignment. {winnerName} was the only one who turned it in on time and made it look slightly personal.",
+    "That checkout had structure, discipline, and just enough bastard energy to make it memorable.",
+    "The score hit zero, the room got quiet, and {winnerName} walked away like they had read the damn syllabus.",
+    "A beautiful little act of compliance: start at 301, subtract correctly, end everyone’s evening."
+  ]
+};
+
+function pickRandomCopy(items) {
+  if (!Array.isArray(items) || !items.length) return "";
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function personalizeCopyText(text, winnerName) {
+  return String(text || "").replaceAll("{winnerName}", winnerName || "Winner");
+}
+
+function getThreeOhOneWinCopy(winnerName) {
+  return {
+    banner: personalizeCopyText(pickRandomCopy(THREE_OH_ONE_WIN_COPY.banners), winnerName),
+    headline: personalizeCopyText(pickRandomCopy(THREE_OH_ONE_WIN_COPY.headlines), winnerName),
+    subhead: personalizeCopyText(pickRandomCopy(THREE_OH_ONE_WIN_COPY.subheads), winnerName),
+    bodyCopy: personalizeCopyText(pickRandomCopy(THREE_OH_ONE_WIN_COPY.bodyCopies), winnerName)
+  };
+}
+
+/* -------------------------
    END
 --------------------------*/
 
 function renderEnd(container, state) {
+  const winnerName = state.winner || "Winner";
+  const winCopy = getThreeOhOneWinCopy(winnerName);
+
   container.innerHTML = `
     <div style="
       padding:16px;
@@ -1035,20 +1122,43 @@ function renderEnd(container, state) {
         margin-bottom:14px;
         font-size:20px;
         letter-spacing:0.5px;
+        text-transform:uppercase;
       ">
-        CHECKOUT COMPLETE
+        ${winCopy.banner}
       </div>
 
-      <div style="font-size:30px;line-height:1.15;color:#ffffff;">
-        ${state.winner} Wins 301!
+      <div style="
+        font-size:28px;
+        line-height:1;
+        margin-bottom:10px;
+      ">
+        🏆 🎯 🏆
       </div>
 
-      <div style="font-size:17px;color:#facc15;margin-top:8px;">
-        Zero never looked so good.
+      <div style="
+        font-size:30px;
+        line-height:1.15;
+        color:#ffffff;
+      ">
+        ${winCopy.headline}
       </div>
 
-      <div style="font-size:14px;color:#bfdbfe;margin-top:8px;line-height:1.45;">
-        The math is done, the darts are counted, and the checkout belongs to ${state.winner}.
+      <div style="
+        font-size:17px;
+        color:#facc15;
+        margin-top:8px;
+        line-height:1.35;
+      ">
+        ${winCopy.subhead}
+      </div>
+
+      <div style="
+        font-size:14px;
+        color:#bfdbfe;
+        margin-top:8px;
+        line-height:1.45;
+      ">
+        ${winCopy.bodyCopy}
       </div>
     </div>
 
@@ -1096,18 +1206,6 @@ function renderEnd(container, state) {
     renderStatsModal(getThrowLog());
   });
 
-  const leaderboardBtn = document.createElement("div");
-  leaderboardBtn.innerText = "Leaderboard";
-  leaderboardBtn.style = `
-    ${lightButtonStyle()}
-    padding:14px;
-    min-height:52px;
-    font-size:18px;
-  `;
-  attachButtonClick(leaderboardBtn, () => {
-    renderLeaderboardModal(getState());
-  });
-
   const mainMenuBtn = document.createElement("div");
   mainMenuBtn.innerText = "Main Menu";
   mainMenuBtn.style = `
@@ -1124,7 +1222,6 @@ function renderEnd(container, state) {
 
   controls.appendChild(playAgainBtn);
   controls.appendChild(statsBtn);
-  controls.appendChild(leaderboardBtn);
   controls.appendChild(mainMenuBtn);
 }
 
@@ -1136,42 +1233,91 @@ function renderEndScoreStrip(state) {
 
   wrap.innerHTML = "";
   wrap.style = `
-    display:grid;
-    grid-template-columns:repeat(${Math.max(1, Math.min(rankedPlayers.length, 5))}, minmax(0, 1fr));
-    gap:7px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
     margin-top:12px;
   `;
 
   rankedPlayers.forEach((player, index) => {
     const isWinner = player.name === state.winner;
 
-    const tile = document.createElement("div");
-    tile.style = `
-      padding:10px 8px;
-      border-radius:10px;
+    const row = document.createElement("div");
+    row.style = `
+      padding:12px 14px;
+      border-radius:12px;
       background:${isWinner ? "#11361a" : "#111111"};
       border:${isWinner ? "2px solid #facc15" : "1px solid #ffffff"};
       color:#ffffff;
-      text-align:center;
       font-weight:bold;
-      min-width:0;
+      display:grid;
+      grid-template-columns:44px 1fr auto;
+      align-items:center;
+      gap:10px;
+      box-sizing:border-box;
     `;
 
-    tile.innerHTML = `
-      <div style="font-size:12px;color:${isWinner ? "#facc15" : "rgba(255,255,255,0.75)"};">
+    row.innerHTML = `
+      <div style="
+        width:32px;
+        height:32px;
+        border-radius:999px;
+        background:${isWinner ? "#facc15" : "rgba(255,255,255,0.12)"};
+        color:${isWinner ? "#111111" : "#ffffff"};
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:14px;
+        font-weight:900;
+      ">
         ${index + 1}
       </div>
-      <div style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-        ${player.name}
+
+      <div style="
+        min-width:0;
+        text-align:left;
+      ">
+        <div style="
+          font-size:17px;
+          line-height:1.15;
+          white-space:nowrap;
+          overflow:hidden;
+          text-overflow:ellipsis;
+          color:${isWinner ? "#facc15" : "#ffffff"};
+        ">
+          ${player.name}
+        </div>
+
+        <div style="
+          font-size:12px;
+          opacity:0.82;
+          margin-top:3px;
+        ">
+          PPD ${getPpd(player)}
+        </div>
       </div>
-      <div style="font-size:24px;line-height:1.1;margin-top:3px;">
-        ${player.score}
-      </div>
-      <div style="font-size:11px;opacity:0.8;margin-top:2px;">
-        PPD ${getPpd(player)}
+
+      <div style="
+        text-align:right;
+        flex-shrink:0;
+      ">
+        <div style="
+          font-size:24px;
+          line-height:1.05;
+          color:${isWinner ? "#facc15" : "#ffffff"};
+        ">
+          ${player.score}
+        </div>
+        <div style="
+          font-size:11px;
+          opacity:0.78;
+          margin-top:2px;
+        ">
+          remaining
+        </div>
       </div>
     `;
 
-    wrap.appendChild(tile);
+    wrap.appendChild(row);
   });
 }
