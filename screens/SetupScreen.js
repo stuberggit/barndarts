@@ -834,6 +834,48 @@ function miniButtonStyle() {
   `;
 }
 
+function playerActionButtonStyle() {
+  return `
+    background:#206a1e;
+    color:#ffffff;
+    border:1px solid #ffffff;
+    border-radius:8px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+    text-align:center;
+    user-select:none;
+    padding:6px 8px;
+    min-height:30px;
+    font-size:12px;
+    touch-action:manipulation;
+  `;
+}
+
+function playerDeleteButtonStyle() {
+  return `
+    background:#7f1d1d;
+    color:#ffffff;
+    border:1px solid #fca5a5;
+    border-radius:8px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    box-sizing:border-box;
+    text-align:center;
+    user-select:none;
+    padding:6px 8px;
+    min-height:30px;
+    font-size:12px;
+    touch-action:manipulation;
+  `;
+}
+
 function startButtonStyle() {
   return `
     ${buttonStyle()}
@@ -845,20 +887,20 @@ function playerBlockStyle(isSelected) {
   return `
     background:#111111;
     color:#ffffff;
-    border:${isSelected ? "3px solid #f0970a" : "1px solid #9ca3af"};
+    border:${isSelected ? "2px solid #f0970a" : "1px solid #9ca3af"};
     border-radius:12px;
-    padding:12px;
-    margin-bottom:8px;
+    padding:9px;
     font-weight:bold;
     box-sizing:border-box;
     position:relative;
+    min-width:0;
   `;
 }
 
 function avatarStyle(color) {
   return `
-    width:42px;
-    height:42px;
+    width:36px;
+    height:36px;
     border-radius:999px;
     background:${color || "#206a1e"};
     color:#ffffff;
@@ -868,7 +910,7 @@ function avatarStyle(color) {
     justify-content:center;
     font-weight:bold;
     flex-shrink:0;
-    font-size:22px;
+    font-size:19px;
   `;
 }
 
@@ -878,8 +920,8 @@ function orderBadgeStyle() {
     color:#111111;
     border:1px solid #ffffff;
     border-radius:999px;
-    padding:4px 9px;
-    font-size:13px;
+    padding:3px 8px;
+    font-size:12px;
     font-weight:bold;
     flex-shrink:0;
   `;
@@ -902,6 +944,77 @@ function modalButtonStyle() {
     padding:10px;
     min-height:44px;
   `;
+}
+
+function attachSafeTap(el, handler) {
+  if (!el) return;
+
+  let startX = 0;
+  let startY = 0;
+  let moved = false;
+  let locked = false;
+
+  const run = event => {
+    if (locked) return;
+    if (moved) return;
+
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    locked = true;
+
+    try {
+      handler(event);
+    } finally {
+      setTimeout(() => {
+        locked = false;
+      }, 250);
+    }
+  };
+
+  el.onclick = null;
+  el.ontouchstart = null;
+  el.ontouchend = null;
+  el.onpointerdown = null;
+  el.onpointermove = null;
+  el.onpointerup = null;
+
+  if (window.PointerEvent) {
+    el.onpointerdown = event => {
+      moved = false;
+      startX = event.clientX;
+      startY = event.clientY;
+    };
+
+    el.onpointermove = event => {
+      if (Math.abs(event.clientX - startX) > 8 || Math.abs(event.clientY - startY) > 8) {
+        moved = true;
+      }
+    };
+
+    el.onpointerup = run;
+  } else {
+    el.ontouchstart = event => {
+      moved = false;
+      const touch = event.touches?.[0];
+      startX = touch ? touch.clientX : 0;
+      startY = touch ? touch.clientY : 0;
+    };
+
+    el.ontouchmove = event => {
+      const touch = event.touches?.[0];
+      if (!touch) return;
+
+      if (Math.abs(touch.clientX - startX) > 8 || Math.abs(touch.clientY - startY) > 8) {
+        moved = true;
+      }
+    };
+
+    el.ontouchend = run;
+    el.onclick = run;
+  }
 }
 
 function getGameDisplayName(gameId) {
@@ -1236,65 +1349,76 @@ export function renderSetup(container) {
   }
 
   function renderPlayers() {
-    updateSelectedCount();
-    renderOrderPreview();
+  updateSelectedCount();
+  renderOrderPreview();
 
-    if (!profiles.length) {
-      playersDiv.innerHTML = `
-        <div style="
-          background:#111111;
-          color:#ffffff;
-          border:1px solid #9ca3af;
-          border-radius:10px;
-          padding:12px;
-          text-align:center;
-          font-weight:bold;
-          opacity:0.85;
-        ">
-          No saved players yet.
+  playersDiv.style = `
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));
+    gap:8px;
+    align-items:start;
+  `;
+
+  if (!profiles.length) {
+    playersDiv.innerHTML = `
+      <div style="
+        background:#111111;
+        color:#ffffff;
+        border:1px solid #9ca3af;
+        border-radius:10px;
+        padding:12px;
+        text-align:center;
+        font-weight:bold;
+        opacity:0.85;
+        grid-column:1 / -1;
+      ">
+        No saved players yet.
+      </div>
+    `;
+    return;
+  }
+
+  playersDiv.innerHTML = "";
+
+  profiles.forEach(profile => {
+    const selected = isSelected(profile.id);
+    const orderNumber = getSelectedOrderNumber(profile.id);
+
+    const row = document.createElement("div");
+    row.style = playerBlockStyle(selected);
+
+    row.innerHTML = `
+      <div style="
+        display:grid;
+        grid-template-columns:auto minmax(0, 1fr);
+        gap:8px;
+        align-items:center;
+      ">
+        <div style="${avatarStyle(profile.color)}">
+          ${escapeHtml(getAvatar(profile))}
         </div>
-      `;
-      return;
-    }
 
-    playersDiv.innerHTML = "";
-
-    profiles.forEach(profile => {
-      const selected = isSelected(profile.id);
-      const orderNumber = getSelectedOrderNumber(profile.id);
-
-      const row = document.createElement("div");
-      row.style = playerBlockStyle(selected);
-
-      row.innerHTML = `
-        <div data-select-player="${profile.id}" style="
+        <div style="
+          min-width:0;
           display:flex;
-          align-items:center;
-          justify-content:space-between;
-          gap:10px;
-          cursor:pointer;
+          flex-direction:column;
+          gap:6px;
         ">
-          <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-            <div style="${avatarStyle(profile.color)}">
-              ${escapeHtml(getAvatar(profile))}
-            </div>
-
-            <div style="
-              font-size:18px;
-              overflow:hidden;
-              text-overflow:ellipsis;
-              white-space:nowrap;
-            ">
-              ${escapeHtml(profile.name)}
-            </div>
+          <div style="
+            font-size:15px;
+            line-height:1.15;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            white-space:nowrap;
+          ">
+            ${escapeHtml(profile.name)}
           </div>
 
           <div style="
             display:flex;
             align-items:center;
-            justify-content:flex-end;
-            gap:8px;
-            flex-shrink:0;
+            gap:6px;
+            min-width:0;
           ">
             ${
               selected
@@ -1302,73 +1426,72 @@ export function renderSetup(container) {
                 : ""
             }
 
-            <div style="
-              color:${selected ? "#f0970a" : "#9ca3af"};
-              font-size:14px;
+            <div data-select-player="${profile.id}" style="
+              background:${selected ? "rgba(240,151,10,0.18)" : "rgba(255,255,255,0.08)"};
+              color:${selected ? "#facc15" : "#d1d5db"};
+              border:1px solid ${selected ? "#f0970a" : "rgba(255,255,255,0.28)"};
+              border-radius:999px;
+              padding:5px 9px;
+              font-size:12px;
+              line-height:1;
               flex-shrink:0;
+              cursor:pointer;
+              user-select:none;
+              touch-action:manipulation;
             ">
-              ${selected ? "SELECTED" : "Tap to Select"}
+              ${selected ? "Selected" : "Tap to Select"}
             </div>
           </div>
         </div>
+      </div>
 
-        <div style="
-          display:grid;
-          grid-template-columns:1fr 1fr;
-          gap:8px;
-          margin-top:10px;
-        ">
-          <div data-edit-player="${profile.id}" style="${miniButtonStyle()}">Edit</div>
-          <div data-delete-player="${profile.id}" style="${dangerButtonStyle()}">Delete</div>
-        </div>
-      `;
+      <div style="
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:6px;
+        margin-top:8px;
+      ">
+        <div data-edit-player="${profile.id}" style="${playerActionButtonStyle()}">Edit</div>
+        <div data-delete-player="${profile.id}" style="${playerDeleteButtonStyle()}">Delete</div>
+      </div>
+    `;
 
-      playersDiv.appendChild(row);
+    playersDiv.appendChild(row);
+  });
+
+  playersDiv.querySelectorAll("[data-select-player]").forEach(el => {
+    attachSafeTap(el, () => {
+      const id = el.getAttribute("data-select-player");
+      toggleSelectedPlayer(id);
+      renderPlayers();
     });
+  });
 
-    playersDiv.querySelectorAll("[data-select-player]").forEach(el => {
-      el.onclick = () => {
-        const id = el.getAttribute("data-select-player");
-        toggleSelectedPlayer(id);
-        renderPlayers();
-      };
-
-      el.ontouchstart = event => {
-        event.preventDefault();
-        const id = el.getAttribute("data-select-player");
-        toggleSelectedPlayer(id);
-        renderPlayers();
-      };
+  playersDiv.querySelectorAll("[data-edit-player]").forEach(el => {
+    attachSafeTap(el, () => {
+      const id = el.getAttribute("data-edit-player");
+      renderEditPlayer(id);
     });
+  });
 
-    playersDiv.querySelectorAll("[data-edit-player]").forEach(el => {
-      el.onclick = event => {
-        event.stopPropagation();
-        const id = el.getAttribute("data-edit-player");
-        renderEditPlayer(id);
-      };
+  playersDiv.querySelectorAll("[data-delete-player]").forEach(el => {
+    attachSafeTap(el, () => {
+      const id = el.getAttribute("data-delete-player");
+      const profile = profiles.find(p => p.id === id);
+      if (!profile) return;
+
+      const confirmed = confirm(`Delete ${profile.name}?`);
+      if (!confirmed) return;
+
+      profiles = profiles.filter(p => p.id !== id);
+      selectedOrderIds = selectedOrderIds.filter(selectedId => selectedId !== id);
+
+      saveProfiles(profiles);
+      saveLastSelectedPlayers();
+      renderPlayers();
     });
-
-    playersDiv.querySelectorAll("[data-delete-player]").forEach(el => {
-      el.onclick = event => {
-        event.stopPropagation();
-
-        const id = el.getAttribute("data-delete-player");
-        const profile = profiles.find(p => p.id === id);
-        if (!profile) return;
-
-        const confirmed = confirm(`Delete ${profile.name}?`);
-        if (!confirmed) return;
-
-        profiles = profiles.filter(p => p.id !== id);
-        selectedOrderIds = selectedOrderIds.filter(selectedId => selectedId !== id);
-
-        saveProfiles(profiles);
-        saveLastSelectedPlayers();
-        renderPlayers();
-      };
-    });
-  }
+  });
+}
 
   function renderEditPlayer(profileId, avatarOverride = null) {
     const profile = profiles.find(p => p.id === profileId);
