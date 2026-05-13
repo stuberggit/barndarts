@@ -53,8 +53,13 @@ function ensureStats(player) {
   return player.stats;
 }
 
-function advanceTurn() {
+function resetTurnTracking() {
   gameState.dartsThrown = 0;
+  gameState.turnReadyForNext = false;
+}
+
+function advanceTurn() {
+  resetTurnTracking();
 
   gameState.currentPlayer++;
 
@@ -191,6 +196,8 @@ export function initGame(players) {
     lastMessageTimestamp: 0,
 
     winner: null,
+    pendingWinner: null,
+    turnReadyForNext: false,
     finalStats: null,
     historySaved: false
   };
@@ -211,7 +218,7 @@ export function getStats() {
 --------------------------*/
 
 export function advancePlayer(colorClicked) {
-  if (gameState.winner) return;
+  if (gameState.winner || gameState.pendingWinner || gameState.turnReadyForNext) return;
 
   history.push(cloneState(gameState));
 
@@ -219,26 +226,38 @@ export function advancePlayer(colorClicked) {
   const stats = ensureStats(player);
   const targetColor = getCurrentTargetColor(player.progress);
 
-  if (!targetColor) return;
+  if (!player || !targetColor) return;
+
+  stats.dartsThrown++;
+  gameState.dartsThrown++;
 
   if (colorClicked !== targetColor) {
+    gameState.lastMessage = `${player.name} hit ${colorClicked}. Still needs ${targetColor}.`;
+    gameState.lastMessageColor = "#facc15";
+    gameState.lastMessageTimestamp = Date.now();
+
+    if (gameState.dartsThrown >= 3) {
+      gameState.turnReadyForNext = true;
+      gameState.lastMessage = `${player.name}'s turn is complete. Tap Next Player.`;
+      gameState.lastMessageColor = "#facc15";
+      gameState.lastMessageTimestamp = Date.now();
+    }
+
     return;
   }
 
-  stats.dartsThrown++;
   stats.colorHits++;
   stats.completedColors[targetColor] = (stats.completedColors[targetColor] || 0) + 1;
 
   player.progress = Math.min(player.progress + 1, 4);
-  gameState.dartsThrown++;
 
   if (player.progress >= 4) {
-    gameState.winner = player.name;
+    gameState.pendingWinner = player.name;
+    gameState.turnReadyForNext = true;
     gameState.finalStats = buildStatsSummary();
-    gameState.lastMessage = `${player.name} wins!`;
+    gameState.lastMessage = `${player.name} finished Red! Tap Next Player to confirm the win.`;
     gameState.lastMessageColor = "#22c55e";
     gameState.lastMessageTimestamp = Date.now();
-    saveAhmanGreenHistory();
     return;
   }
 
@@ -249,12 +268,15 @@ export function advancePlayer(colorClicked) {
   gameState.lastMessageTimestamp = Date.now();
 
   if (gameState.dartsThrown >= 3) {
-    advanceTurn();
+    gameState.turnReadyForNext = true;
+    gameState.lastMessage = `${player.name}'s turn is complete. Tap Next Player.`;
+    gameState.lastMessageColor = "#facc15";
+    gameState.lastMessageTimestamp = Date.now();
   }
 }
 
 export function missBoard() {
-  if (gameState.winner) return;
+  if (gameState.winner || gameState.pendingWinner || gameState.turnReadyForNext) return;
 
   history.push(cloneState(gameState));
 
@@ -275,7 +297,7 @@ export function missBoard() {
 }
 
 export function partyJump() {
-  if (gameState.winner) return;
+  if (gameState.winner || gameState.pendingWinner || gameState.turnReadyForNext) return;
 
   history.push(cloneState(gameState));
 
@@ -298,7 +320,7 @@ export function partyJump() {
 }
 
 export function acdcJump() {
-  if (gameState.winner) return;
+  if (gameState.winner || gameState.pendingWinner || gameState.turnReadyForNext) return;
 
   history.push(cloneState(gameState));
 
@@ -324,6 +346,18 @@ export function nextPlayer() {
   if (gameState.winner) return;
 
   history.push(cloneState(gameState));
+
+  if (gameState.pendingWinner) {
+    gameState.winner = gameState.pendingWinner;
+    gameState.pendingWinner = null;
+    gameState.finalStats = buildStatsSummary();
+    gameState.lastMessage = `${gameState.winner} wins!`;
+    gameState.lastMessageColor = "#22c55e";
+    gameState.lastMessageTimestamp = Date.now();
+    saveAhmanGreenHistory();
+    return;
+  }
+
   advanceTurn();
 }
 
