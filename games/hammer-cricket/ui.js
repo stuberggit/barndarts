@@ -455,47 +455,66 @@ function getCurrentPlayerHeaderHtml(state, round, currentPlayer) {
     ">
       <div style="
         display:grid;
-        grid-template-columns:repeat(3, 1fr);
+        grid-template-columns:1fr 1fr;
         gap:8px;
-        align-items:center;
+        align-items:stretch;
         margin-bottom:12px;
       ">
         <div style="
           min-width:0;
-          padding:8px;
+          padding:10px 8px;
           border-radius:10px;
           background:rgba(0,0,0,0.20);
           border:1px solid rgba(255,255,255,0.25);
+          display:flex;
+          flex-direction:column;
+          justify-content:center;
         ">
-          <div style="font-size:11px;letter-spacing:0.7px;color:#facc15;text-transform:uppercase;">Target</div>
-          <div style="font-size:24px;line-height:1.1;color:${round.type === "bonus" || state.suddenDeathActive ? "#facc15" : round.target === 25 ? "#3b82f6" : "#ffffff"};">
+          <div style="
+            font-size:12px;
+            letter-spacing:0.7px;
+            color:#facc15;
+            text-transform:uppercase;
+            margin-bottom:4px;
+          ">
+            Target
+          </div>
+          <div style="
+            font-size:34px;
+            line-height:1.05;
+            color:${round.type === "bonus" || state.suddenDeathActive ? "#facc15" : round.target === 25 ? "#3b82f6" : "#ffffff"};
+          ">
             ${formatTarget(round.target)}
           </div>
         </div>
 
         <div style="
           min-width:0;
-          padding:8px;
+          padding:10px 8px;
           border-radius:10px;
           background:rgba(0,0,0,0.28);
           border:1px solid rgba(250,204,21,0.45);
+          display:flex;
+          flex-direction:column;
+          justify-content:center;
         ">
-          <div style="font-size:11px;letter-spacing:0.7px;color:#facc15;text-transform:uppercase;">${getRoundTypeLabel(round, state)}</div>
-          <div style="font-size:24px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-            ${currentPlayer ? currentPlayer.name : "—"}
+          <div style="
+            font-size:12px;
+            letter-spacing:0.7px;
+            color:#facc15;
+            text-transform:uppercase;
+            margin-bottom:4px;
+          ">
+            Current Player
           </div>
-        </div>
-
-        <div style="
-          min-width:0;
-          padding:8px;
-          border-radius:10px;
-          background:rgba(0,0,0,0.20);
-          border:1px solid rgba(255,255,255,0.25);
-        ">
-          <div style="font-size:11px;letter-spacing:0.7px;color:#facc15;text-transform:uppercase;">Turn</div>
-          <div style="font-size:15px;line-height:1.2;">
-            ${getDartDisplay(state)}
+          <div style="
+            font-size:30px;
+            line-height:1.08;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+          ">
+            ${currentPlayer ? currentPlayer.name : "—"}
           </div>
         </div>
       </div>
