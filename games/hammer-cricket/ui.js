@@ -3,6 +3,7 @@ import {
   recordThrow,
   nextPlayer,
   undo,
+  endGameEarly,
   isGameOver,
   getMeta,
   initGame,
@@ -211,6 +212,13 @@ function buttonStyle() {
   `;
 }
 
+function playAgainButtonStyle() {
+  return `
+    ${buttonStyle()}
+    border:2px solid #facc15;
+  `;
+}
+
 function lightButtonStyle() {
   return `
     background:#ffffff;
@@ -361,6 +369,101 @@ function getTopTiePlayers(state) {
   return state.players.filter(player => player.total === highestTotal);
 }
 
+function getActivePlayerGridColumns(state) {
+  const count = Math.max(1, state.players?.length || 1);
+  return `repeat(${count}, minmax(0, 1fr))`;
+}
+
+function getDartDisplay(state) {
+  if ((state.currentTurnThrows || []).length >= 3) {
+    return "Turn complete — tap Next Player";
+  }
+
+  return `Dart ${Math.min(state.dartsThrown + 1, 3)}/3`;
+}
+
+function getRoundTypeLabel(round, state) {
+  if (state.suddenDeathActive) return "Sudden Death";
+  if (round.type === "bonus") return "Bonus Round";
+  if (round.type === "bull") return "Bull Round";
+  return "Target Round";
+}
+
+function getCurrentPlayerHeaderHtml(state, round, currentPlayer) {
+  return `
+    <div style="
+      text-align:center;
+      margin-bottom:10px;
+      font-size:24px;
+      font-weight:bold;
+      color:#facc15;
+    ">
+      🔨 Current Player 🔨
+    </div>
+
+    <div style="
+      margin-bottom:8px;
+      padding:14px;
+      border-radius:14px;
+      background:#11361a;
+      border:3px solid #facc15;
+      box-shadow:0 0 18px rgba(250,204,21,0.30);
+      color:#ffffff;
+      text-align:center;
+      font-weight:bold;
+    ">
+      <div style="
+        display:grid;
+        grid-template-columns:repeat(3, 1fr);
+        gap:8px;
+        align-items:center;
+        margin-bottom:12px;
+      ">
+        <div style="
+          min-width:0;
+          padding:8px;
+          border-radius:10px;
+          background:rgba(0,0,0,0.20);
+          border:1px solid rgba(255,255,255,0.25);
+        ">
+          <div style="font-size:11px;letter-spacing:0.7px;color:#facc15;text-transform:uppercase;">Target</div>
+          <div style="font-size:24px;line-height:1.1;color:${round.type === "bonus" || state.suddenDeathActive ? "#facc15" : round.target === 25 ? "#3b82f6" : "#ffffff"};">
+            ${formatTarget(round.target)}
+          </div>
+        </div>
+
+        <div style="
+          min-width:0;
+          padding:8px;
+          border-radius:10px;
+          background:rgba(0,0,0,0.28);
+          border:1px solid rgba(250,204,21,0.45);
+        ">
+          <div style="font-size:11px;letter-spacing:0.7px;color:#facc15;text-transform:uppercase;">${getRoundTypeLabel(round, state)}</div>
+          <div style="font-size:24px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${currentPlayer ? currentPlayer.name : "—"}
+          </div>
+        </div>
+
+        <div style="
+          min-width:0;
+          padding:8px;
+          border-radius:10px;
+          background:rgba(0,0,0,0.20);
+          border:1px solid rgba(255,255,255,0.25);
+        ">
+          <div style="font-size:11px;letter-spacing:0.7px;color:#facc15;text-transform:uppercase;">Turn</div>
+          <div style="font-size:15px;line-height:1.2;">
+            ${getDartDisplay(state)}
+          </div>
+        </div>
+      </div>
+
+      <div id="playerTiles"></div>
+    </div>
+  `;
+}
+
 /* -------------------------
    MAIN UI
 --------------------------*/
@@ -376,7 +479,10 @@ export function renderUI(container) {
   const round = state.rounds[state.currentRound];
   const currentPlayer = state.players[state.currentPlayer];
 
-  const scoreMessageHtml = state.lastScoreMessage
+  const scoreAge = Date.now() - (state.lastScoreTimestamp || 0);
+  const showScoreFlash = state.lastScoreMessage && scoreAge < 2500;
+
+  const scoreFlashHtml = showScoreFlash
     ? `
       <div style="
         padding:8px 10px;
@@ -385,37 +491,22 @@ export function renderUI(container) {
         color:${state.lastScoreColor || "#ffffff"};
         font-weight:bold;
         text-align:center;
+        opacity:${scoreAge > 1800 ? 0.35 : 1};
+        transition:opacity 0.6s ease;
       ">
         ${state.lastScoreMessage}
       </div>
     `
     : "";
 
-  const feedbackHtml = scoreMessageHtml || `<div></div>`;
+  const feedbackHtml = scoreFlashHtml || `<div></div>`;
 
   container.innerHTML = `
-    <div style="text-align:center;margin-bottom:10px;">
-      <div style="
-        font-size:14px;
-        opacity:0.75;
-        letter-spacing:0.5px;
-      ">${state.suddenDeathActive ? "SUDDEN DEATH TARGET" : "TARGET"}</div>
-
-      <div style="
-        font-size:36px;
-        font-weight:bold;
-        line-height:1.1;
-        color:${round.type === "bonus" || state.suddenDeathActive ? "#facc15" : round.target === 25 ? "#3b82f6" : "#ffffff"};
-      ">
-        ${formatTarget(round.target)}
-      </div>
-    </div>
-
-    <div id="playerTiles"></div>
+    ${getCurrentPlayerHeaderHtml(state, round, currentPlayer)}
 
     <div style="
-      min-height:54px;
-      margin:8px 0 12px;
+      min-height:46px;
+      margin:8px 0 10px;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -425,17 +516,18 @@ export function renderUI(container) {
       </div>
     </div>
 
-    <h3 style="text-align:center;margin:8px 0 12px;">
-      🎯 ${currentPlayer.name}
-      (Dart ${Math.min(state.dartsThrown + 1, 3)}/3)
-    </h3>
-
     <div id="controls"></div>
     <div id="modal"></div>
   `;
 
   renderPlayerTiles(state);
   renderControls(container);
+
+  if (showScoreFlash) {
+    setTimeout(() => {
+      renderUI(container);
+    }, 700);
+  }
 }
 
 /* -------------------------
@@ -448,9 +540,9 @@ function renderPlayerTiles(state) {
   container.innerHTML = "";
   container.style = `
     display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
+    grid-template-columns:${getActivePlayerGridColumns(state)};
     gap:8px;
-    margin-bottom:8px;
+    width:100%;
   `;
 
   state.players.forEach((player, index) => {
@@ -460,25 +552,41 @@ function renderPlayerTiles(state) {
 
     const tile = document.createElement("div");
     tile.style = `
-      padding:12px 10px;
-      border-radius:10px;
+      min-width:0;
+      min-height:62px;
+      padding:8px 6px;
+      border-radius:12px;
       background:${isActive ? "#1e293b" : "#111111"};
       color:#ffffff;
       display:flex;
-      justify-content:space-between;
+      flex-direction:column;
+      justify-content:center;
       align-items:center;
-      font-size:18px;
-      border:${isActive ? "2px solid #facc15" : isSuddenDeathPlayer ? "1px solid #facc15" : "1px solid #ffffff"};
+      font-size:14px;
+      border:${isActive ? "3px solid #facc15" : isSuddenDeathPlayer ? "2px solid #facc15" : "1px solid rgba(255,255,255,0.65)"};
       opacity:${state.suddenDeathActive && !isSuddenDeathPlayer ? 0.5 : 1};
-      gap:10px;
+      gap:4px;
+      box-shadow:${isActive ? "0 0 12px rgba(250,204,21,0.28)" : "none"};
+      box-sizing:border-box;
+      overflow:hidden;
     `;
 
     tile.innerHTML = `
-      <span style="font-weight:bold;min-width:0;word-break:break-word;">
+      <div style="
+        width:100%;
+        font-weight:bold;
+        min-width:0;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        line-height:1.15;
+      ">
         ${player.name}
-        ${isSuddenDeathPlayer ? `<span style="font-size:12px;color:#facc15;margin-left:4px;">SD</span>` : ""}
-      </span>
-      <span style="font-weight:bold;">${player.total}</span>
+      </div>
+      <div style="font-size:22px;font-weight:900;line-height:1;">${player.total}</div>
+      <div style="font-size:10px;letter-spacing:0.5px;color:${isActive ? "#facc15" : isSuddenDeathPlayer ? "#facc15" : "rgba(255,255,255,0.70)"};line-height:1;">
+        ${isActive ? "ACTIVE" : isSuddenDeathPlayer ? "SD" : "TOTAL"}
+      </div>
     `;
 
     container.appendChild(tile);
@@ -567,13 +675,12 @@ function renderControls(container) {
     renderUI(container);
   });
 
-  const nextBtn = document.createElement("div");
-  nextBtn.innerText = "➡️ Next Player";
-  nextBtn.style = `
+    nextBtn.style = `
     ${buttonStyle()}
     padding:8px;
     font-size:15px;
     min-height:40px;
+    ${state.dartsThrown >= 3 ? "border:2px solid #facc15;box-shadow:0 0 12px rgba(250,204,21,0.25);" : ""}
   `;
   attachButtonClick(nextBtn, () => {
     nextPlayer();
