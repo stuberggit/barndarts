@@ -420,42 +420,6 @@ function renderEndGameConfirm(container) {
   });
 }
 
-function renderEndGameConfirm(container) {
-  renderModalShell(`
-    <h2 style="text-align:center;margin-top:0;color:#facc15;">End Game?</h2>
-
-    <div style="text-align:center;margin-bottom:14px;line-height:1.4;">
-      Are you sure you want to end this Hammered game early?
-    </div>
-
-    <div style="
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-    ">
-      <div id="cancelEndBtn" style="
-        ${lightButtonStyle()}
-        padding:12px;
-        min-height:48px;
-      ">Cancel</div>
-
-      <div id="confirmEndBtn" style="
-        ${dangerButtonStyle()}
-        padding:12px;
-        min-height:48px;
-      ">End Game</div>
-    </div>
-  `);
-
-  attachButtonClick(document.getElementById("cancelEndBtn"), closeModal);
-
-  attachButtonClick(document.getElementById("confirmEndBtn"), () => {
-    endGameEarly();
-    closeModal();
-    renderUI(container);
-  });
-}
-
 function getSelectedCount(throws, value) {
   return (throws || []).filter(v => v === value).length;
 }
