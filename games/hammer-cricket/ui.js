@@ -4,6 +4,8 @@ import {
   nextPlayer,
   undo,
   endGameEarly,
+  confirmShanghaiWinner,
+  cancelPendingShanghai,
   isGameOver,
   getMeta,
   initGame,
@@ -330,6 +332,94 @@ function renderModalShell(innerHtml) {
   };
 }
 
+function renderShanghaiConfirm(container, pendingShanghai) {
+  const isBullShanghai = !!pendingShanghai.isBullShanghai;
+
+  const shanghaiMessage = isBullShanghai
+    ? `${pendingShanghai.playerName} hit 2 Sing Bulls + 1 Dub Bull this turn.<br>
+       Confirm Bull Shanghai and end the game?`
+    : `${pendingShanghai.playerName} hit Single + Dub + Trip on ${pendingShanghai.target}.<br>
+       Confirm Shanghai and end the game?`;
+
+  renderModalShell(`
+    <h2 style="text-align:center;margin-top:0;color:#facc15;">
+      🔥 ${isBullShanghai ? "BULL SHANGHAI?" : "SHANGHAI?"} 🔥
+    </h2>
+
+    <div style="text-align:center;margin-bottom:14px;line-height:1.45;">
+      ${shanghaiMessage}
+    </div>
+
+    <div style="
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    ">
+      <div id="cancelShanghaiBtn" style="
+        ${lightButtonStyle()}
+        padding:12px;
+        min-height:48px;
+      ">Cancel</div>
+
+      <div id="confirmShanghaiBtn" style="
+        ${buttonStyle()}
+        padding:12px;
+        min-height:48px;
+        border:1px solid #facc15;
+      ">Confirm</div>
+    </div>
+  `);
+
+  attachButtonClick(document.getElementById("cancelShanghaiBtn"), () => {
+    cancelPendingShanghai();
+    closeModal();
+    renderUI(container);
+  });
+
+  attachButtonClick(document.getElementById("confirmShanghaiBtn"), () => {
+    confirmShanghaiWinner();
+    closeModal();
+    renderUI(container);
+  });
+}
+
+function renderEndGameConfirm(container) {
+  renderModalShell(`
+    <h2 style="text-align:center;margin-top:0;color:#facc15;">End Game?</h2>
+
+    <div style="text-align:center;margin-bottom:14px;line-height:1.4;">
+      Are you sure you want to end this Hammered game early?<br>
+      No winner will be declared.
+    </div>
+
+    <div style="
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    ">
+      <div id="cancelEndBtn" style="
+        ${lightButtonStyle()}
+        padding:12px;
+        min-height:48px;
+      ">Cancel</div>
+
+      <div id="confirmEndBtn" style="
+        ${dangerButtonStyle()}
+        padding:12px;
+        min-height:48px;
+      ">End Game</div>
+    </div>
+  `);
+
+  attachButtonClick(document.getElementById("cancelEndBtn"), closeModal);
+
+  attachButtonClick(document.getElementById("confirmEndBtn"), () => {
+    endGameEarly();
+    closeModal();
+    renderUI(container);
+  });
+}
+
 function renderEndGameConfirm(container) {
   renderModalShell(`
     <h2 style="text-align:center;margin-top:0;color:#facc15;">End Game?</h2>
@@ -430,7 +520,39 @@ function getRoundTypeLabel(round, state) {
   return "Target Round";
 }
 
+function getPlayerLiveStats(state, round, player, playerIndex) {
+  const baseStats = player.stats || {};
+  const isCurrentPlayer = playerIndex === state.currentPlayer;
+  const currentThrows = isCurrentPlayer ? (state.currentTurnThrows || []) : [];
+
+  const liveMarks = currentThrows.reduce(
+    (sum, value) => sum + Math.max(0, Math.min(3, value)),
+    0
+  );
+
+  const liveScore = isCurrentPlayer
+    ? getLiveRoundScore(currentThrows, round)
+    : 0;
+
+  const dartsThrown = (baseStats.dartsThrown || 0) + currentThrows.length;
+  const marksMade = (baseStats.marksMade || 0) + liveMarks;
+  const pointsScored = (baseStats.pointsScored || 0) + liveScore;
+
+  const hasLiveRound = currentThrows.length > 0 ? 1 : 0;
+  const roundsForMpr = (baseStats.roundsCompleted || 0) + hasLiveRound;
+
+  return {
+    mpr: roundsForMpr > 0 ? (marksMade / roundsForMpr).toFixed(2) : "0.00",
+    ppd: dartsThrown > 0 ? (pointsScored / dartsThrown).toFixed(2) : "0.00"
+  };
+}
+
 function getCurrentPlayerHeaderHtml(state, round, currentPlayer) {
+  const currentPlayerIndex = state.currentPlayer;
+  const liveStats = currentPlayer
+    ? getPlayerLiveStats(state, round, currentPlayer, currentPlayerIndex)
+    : { mpr: "0.00", ppd: "0.00" };
+
   return `
     <div style="
       text-align:center;
@@ -458,7 +580,7 @@ function getCurrentPlayerHeaderHtml(state, round, currentPlayer) {
         grid-template-columns:1fr 1fr;
         gap:8px;
         align-items:stretch;
-        margin-bottom:12px;
+        margin-bottom:10px;
       ">
         <div style="
           min-width:0;
@@ -480,7 +602,7 @@ function getCurrentPlayerHeaderHtml(state, round, currentPlayer) {
             Target
           </div>
           <div style="
-            font-size:34px;
+            font-size:38px;
             line-height:1.05;
             color:${round.type === "bonus" || state.suddenDeathActive ? "#facc15" : round.target === 25 ? "#3b82f6" : "#ffffff"};
           ">
@@ -508,13 +630,48 @@ function getCurrentPlayerHeaderHtml(state, round, currentPlayer) {
             Current Player
           </div>
           <div style="
-            font-size:30px;
+            font-size:32px;
             line-height:1.08;
             white-space:nowrap;
             overflow:hidden;
             text-overflow:ellipsis;
           ">
             ${currentPlayer ? currentPlayer.name : "—"}
+          </div>
+        </div>
+      </div>
+
+      <div style="
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:8px;
+        margin-bottom:12px;
+      ">
+        <div style="
+          padding:8px;
+          border-radius:10px;
+          background:rgba(0,0,0,0.18);
+          border:1px solid rgba(255,255,255,0.20);
+        ">
+          <div style="font-size:11px;letter-spacing:0.7px;color:#facc15;text-transform:uppercase;">
+            MPR
+          </div>
+          <div style="font-size:22px;line-height:1.1;">
+            ${liveStats.mpr}
+          </div>
+        </div>
+
+        <div style="
+          padding:8px;
+          border-radius:10px;
+          background:rgba(0,0,0,0.18);
+          border:1px solid rgba(255,255,255,0.20);
+        ">
+          <div style="font-size:11px;letter-spacing:0.7px;color:#facc15;text-transform:uppercase;">
+            PPD
+          </div>
+          <div style="font-size:22px;line-height:1.1;">
+            ${liveStats.ppd}
           </div>
         </div>
       </div>
@@ -583,7 +740,11 @@ export function renderUI(container) {
   renderPlayerTiles(state);
   renderControls(container);
 
-  if (showScoreFlash) {
+  if (state.pendingShanghai) {
+    renderShanghaiConfirm(container, state.pendingShanghai);
+  }
+
+  if (showScoreFlash && !state.pendingShanghai) {
     setTimeout(() => {
       renderUI(container);
     }, 700);
@@ -665,7 +826,7 @@ function renderControls(container) {
   controls.innerHTML = "";
 
   const round = state.rounds[state.currentRound];
-  const canThrow = state.dartsThrown < 3;
+  const canThrow = !state.pendingShanghai && state.dartsThrown < 3;
 
   const topOptions = round.target === 25
     ? [
@@ -745,8 +906,10 @@ function renderControls(container) {
     font-size:15px;
     min-height:40px;
     ${state.dartsThrown >= 3 ? "border:2px solid #facc15;box-shadow:0 0 12px rgba(250,204,21,0.25);" : ""}
+    ${state.pendingShanghai ? "opacity:0.45;cursor:not-allowed;" : ""}
   `;
   attachButtonClick(nextBtn, () => {
+    if (state.pendingShanghai) return;
     nextPlayer();
     renderUI(container);
   });
@@ -1043,12 +1206,23 @@ function renderScorecard(state) {
 --------------------------*/
 
 function renderEnd(container, state) {
-  const winner = state.shanghaiWinner
-    ? state.shanghaiWinner
-    : [...state.players].sort((a, b) => b.total - a.total)[0]?.name;
-
+  const isEarlyEnd = !!state.earlyEnded;
   const isShanghai = !!state.shanghaiWinner;
-  const winCopy = getHammerWinCopy(winner, isShanghai);
+
+  const winner = isEarlyEnd
+    ? null
+    : isShanghai
+      ? state.shanghaiWinner
+      : [...state.players].sort((a, b) => b.total - a.total)[0]?.name;
+
+  const winCopy = isEarlyEnd
+    ? {
+        banner: "GAME ENDED EARLY",
+        headline: "No Winner Declared",
+        subhead: "The hammer went back in the toolbox before the job was finished.",
+        bodyCopy: "This game was ended manually, so no player was awarded the win. Scores and stats are still available, and you can play again with the same group."
+      }
+    : getHammerWinCopy(winner, isShanghai);
 
   const rankedPlayers = [...state.players].sort((a, b) => {
     if (state.shanghaiWinner) {
@@ -1091,7 +1265,7 @@ function renderEnd(container, state) {
         line-height:1;
         margin-bottom:8px;
       ">
-        ${isShanghai ? "🏆💥🔨" : "🏆🔨🏆"}
+        ${isEarlyEnd ? "🔨" : isShanghai ? "🏆💥🔨" : "🏆🔨🏆"}
       </div>
 
       <h2 style="
@@ -1141,7 +1315,7 @@ function renderEnd(container, state) {
           font-size:16px;
           margin-bottom:10px;
         ">
-          Final Order
+          ${isEarlyEnd ? "Final Scores" : "Final Order"}
         </div>
 
         <div style="
@@ -1157,8 +1331,8 @@ function renderEnd(container, state) {
               gap:10px;
               padding:10px 12px;
               border-radius:10px;
-              background:${index === 0 ? "rgba(250,204,21,0.16)" : "rgba(255,255,255,0.06)"};
-              border:${index === 0 ? "1px solid #facc15" : "1px solid rgba(255,255,255,0.12)"};
+              background:${!isEarlyEnd && index === 0 ? "rgba(250,204,21,0.16)" : "rgba(255,255,255,0.06)"};
+              border:${!isEarlyEnd && index === 0 ? "1px solid #facc15" : "1px solid rgba(255,255,255,0.12)"};
               color:#ffffff;
               font-weight:bold;
             ">
@@ -1166,7 +1340,7 @@ function renderEnd(container, state) {
                 ${index + 1}. ${player.name}
               </span>
               <span style="
-                color:${index === 0 ? "#facc15" : "#ffffff"};
+                color:${!isEarlyEnd && index === 0 ? "#facc15" : "#ffffff"};
                 flex-shrink:0;
               ">
                 ${player.total}
