@@ -14,7 +14,13 @@ export function initGame(players) {
       name,
       roundScores: Array(rounds.length).fill(null),
       total: 0,
-      isSuddenDeathActive: false
+      isSuddenDeathActive: false,
+      stats: {
+        roundsCompleted: 0,
+        dartsThrown: 0,
+        marksMade: 0,
+        pointsScored: 0
+      }
     })),
 
     rounds,
@@ -30,6 +36,9 @@ export function initGame(players) {
     lastScoreTimestamp: 0,
 
     shanghaiWinner: null,
+    pendingShanghai: null,
+    earlyEnded: false,
+
     suddenDeathActive: false,
     suddenDeathRound: 0,
     suddenDeathPlayerIndexes: [],
@@ -250,7 +259,12 @@ function resolveRoundProgress(scoredPlayerIndex) {
 }
 
 function finalizeTurn() {
-  if (gameState.currentRound >= gameState.rounds.length || gameState.shanghaiWinner) {
+  if (
+    gameState.currentRound >= gameState.rounds.length ||
+    gameState.shanghaiWinner ||
+    gameState.pendingShanghai ||
+    gameState.earlyEnded
+  ) {
     return;
   }
 
@@ -271,6 +285,24 @@ function finalizeTurn() {
   player.roundScores[gameState.currentRound] = score;
   player.total += score;
 
+  if (!player.stats) {
+    player.stats = {
+      roundsCompleted: 0,
+      dartsThrown: 0,
+      marksMade: 0,
+      pointsScored: 0
+    };
+  }
+
+  const marksThisRound = gameState.currentTurnThrows
+    .slice(0, 3)
+    .reduce((sum, value) => sum + Math.max(0, Math.min(3, value)), 0);
+
+  player.stats.roundsCompleted++;
+  player.stats.dartsThrown += 3;
+  player.stats.marksMade += marksThisRound;
+  player.stats.pointsScored += score;
+
   gameState.lastScoreMessage = `${player.name} ${roundLabel}: ${score > 0 ? "+" : ""}${score}`;
   gameState.lastScoreColor = score < 0 ? "#ff4c4c" : "#22c55e";
   gameState.lastScoreTimestamp = Date.now();
@@ -284,7 +316,12 @@ function finalizeTurn() {
 --------------------------*/
 
 export function recordThrow(hitValue) {
-  if (gameState.currentRound >= gameState.rounds.length || gameState.shanghaiWinner) {
+  if (
+    gameState.currentRound >= gameState.rounds.length ||
+    gameState.shanghaiWinner ||
+    gameState.pendingShanghai ||
+    gameState.earlyEnded
+  ) {
     return;
   }
 
@@ -295,6 +332,7 @@ export function recordThrow(hitValue) {
   history.push(cloneState(gameState));
 
   const player = gameState.players[gameState.currentPlayer];
+  const round = gameState.rounds[gameState.currentRound];
   const safeHitValue = Math.max(0, Math.min(3, hitValue));
 
   gameState.currentTurnThrows.push(safeHitValue);
@@ -304,20 +342,79 @@ export function recordThrow(hitValue) {
     gameState.currentTurnHits.push(safeHitValue);
   }
 
-  if (
+  const isBullRound = round?.target === 25;
+
+  const isNumberShanghai =
+    !isBullRound &&
     gameState.currentTurnHits.includes(1) &&
     gameState.currentTurnHits.includes(2) &&
-    gameState.currentTurnHits.includes(3)
-  ) {
-    gameState.shanghaiWinner = player.name;
-    gameState.lastScoreMessage = `${player.name} hit SHANGHAI!`;
+    gameState.currentTurnHits.includes(3);
+
+  const bullSingCount = gameState.currentTurnHits.filter(v => v === 1).length;
+  const bullDubCount = gameState.currentTurnHits.filter(v => v === 2).length;
+
+  const isBullShanghai =
+    isBullRound &&
+    gameState.currentTurnHits.length === 3 &&
+    bullSingCount === 2 &&
+    bullDubCount === 1;
+
+  if (isNumberShanghai || isBullShanghai) {
+    gameState.pendingShanghai = {
+      playerName: player.name,
+      target: isBullRound ? "Bull" : round.target,
+      isBullShanghai
+    };
+
+    gameState.lastScoreMessage = isBullShanghai
+      ? `${player.name} may have hit Bull Shanghai. Confirm to end the game.`
+      : `${player.name} may have hit Shanghai on ${round.target}. Confirm to end the game.`;
+
     gameState.lastScoreColor = "#ffcc00";
     gameState.lastScoreTimestamp = Date.now();
   }
 }
 
+export function confirmShanghaiWinner() {
+  if (!gameState.pendingShanghai || gameState.shanghaiWinner || gameState.earlyEnded) return;
+
+  history.push(cloneState(gameState));
+
+  const playerName = gameState.pendingShanghai.playerName;
+  const target = gameState.pendingShanghai.target;
+  const isBullShanghai = !!gameState.pendingShanghai.isBullShanghai;
+
+  gameState.shanghaiWinner = playerName;
+  gameState.pendingShanghai = null;
+
+  gameState.lastScoreMessage = isBullShanghai
+    ? `${playerName} hit SHANGHAI with Bull!`
+    : `${playerName} hit SHANGHAI on ${target}!`;
+
+  gameState.lastScoreColor = "#ffcc00";
+  gameState.lastScoreTimestamp = Date.now();
+}
+
+export function cancelPendingShanghai() {
+  if (!gameState.pendingShanghai || gameState.shanghaiWinner || gameState.earlyEnded) return;
+
+  if (history.length) {
+    gameState = history.pop();
+  } else {
+    gameState.pendingShanghai = null;
+    gameState.lastScoreMessage = "Shanghai canceled. Continue the turn.";
+    gameState.lastScoreColor = "#facc15";
+    gameState.lastScoreTimestamp = Date.now();
+  }
+}
+
 export function nextPlayer() {
-  if (gameState.currentRound >= gameState.rounds.length || gameState.shanghaiWinner) {
+  if (
+    gameState.currentRound >= gameState.rounds.length ||
+    gameState.shanghaiWinner ||
+    gameState.pendingShanghai ||
+    gameState.earlyEnded
+  ) {
     return;
   }
 
@@ -327,12 +424,16 @@ export function nextPlayer() {
 
 export function endGameEarly() {
   if (!gameState.players?.length) return;
+  if (gameState.shanghaiWinner || gameState.earlyEnded) return;
 
   history.push(cloneState(gameState));
 
+  gameState.pendingShanghai = null;
   gameState.shanghaiWinner = null;
+  gameState.earlyEnded = true;
   gameState.currentRound = gameState.rounds.length;
-  gameState.lastScoreMessage = "Game ended early.";
+
+  gameState.lastScoreMessage = "Game ended early. No winner declared.";
   gameState.lastScoreColor = "#facc15";
   gameState.lastScoreTimestamp = Date.now();
 }
@@ -343,7 +444,11 @@ export function undo() {
 }
 
 export function isGameOver() {
-  return !!gameState.shanghaiWinner || gameState.currentRound >= gameState.rounds.length;
+  return (
+    !!gameState.shanghaiWinner ||
+    !!gameState.earlyEnded ||
+    gameState.currentRound >= gameState.rounds.length
+  );
 }
 
 export function getMeta(score) {
