@@ -407,7 +407,12 @@ function getTopTiePlayers(state) {
 
 function getActivePlayerGridColumns(state) {
   const count = Math.max(1, state.players?.length || 1);
-  return `repeat(${count}, minmax(0, 1fr))`;
+
+  if (count <= 4) {
+    return `repeat(${count}, minmax(0, 1fr))`;
+  }
+
+  return "repeat(auto-fit, minmax(88px, 1fr))";
 }
 
 function getDartDisplay(state) {
@@ -574,11 +579,13 @@ function renderPlayerTiles(state) {
   const container = document.getElementById("playerTiles");
 
   container.innerHTML = "";
-  container.style = `
+    container.style = `
     display:grid;
     grid-template-columns:${getActivePlayerGridColumns(state)};
     gap:8px;
     width:100%;
+    max-width:100%;
+    overflow:visible;
   `;
 
   state.players.forEach((player, index) => {
@@ -589,7 +596,7 @@ function renderPlayerTiles(state) {
     const tile = document.createElement("div");
     tile.style = `
       min-width:0;
-      min-height:62px;
+      min-height:56px;
       padding:8px 6px;
       border-radius:12px;
       background:${isActive ? "#1e293b" : "#111111"};
