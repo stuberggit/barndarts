@@ -330,6 +330,42 @@ function renderModalShell(innerHtml) {
   };
 }
 
+function renderEndGameConfirm(container) {
+  renderModalShell(`
+    <h2 style="text-align:center;margin-top:0;color:#facc15;">End Game?</h2>
+
+    <div style="text-align:center;margin-bottom:14px;line-height:1.4;">
+      Are you sure you want to end this Hammered game early?
+    </div>
+
+    <div style="
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    ">
+      <div id="cancelEndBtn" style="
+        ${lightButtonStyle()}
+        padding:12px;
+        min-height:48px;
+      ">Cancel</div>
+
+      <div id="confirmEndBtn" style="
+        ${dangerButtonStyle()}
+        padding:12px;
+        min-height:48px;
+      ">End Game</div>
+    </div>
+  `);
+
+  attachButtonClick(document.getElementById("cancelEndBtn"), closeModal);
+
+  attachButtonClick(document.getElementById("confirmEndBtn"), () => {
+    endGameEarly();
+    closeModal();
+    renderUI(container);
+  });
+}
+
 function getSelectedCount(throws, value) {
   return (throws || []).filter(v => v === value).length;
 }
@@ -675,7 +711,9 @@ function renderControls(container) {
     renderUI(container);
   });
 
-    nextBtn.style = `
+  const nextBtn = document.createElement("div");
+  nextBtn.innerText = "➡️ Next Player";
+  nextBtn.style = `
     ${buttonStyle()}
     padding:8px;
     font-size:15px;
@@ -996,44 +1034,17 @@ function renderEnd(container, state) {
   });
 
   container.innerHTML = `
-    <style>
-      @keyframes hammeredGlow {
-        0% { box-shadow: 0 0 0 rgba(250,204,21,0.0), 0 0 0 rgba(59,130,246,0.0); }
-        50% { box-shadow: 0 0 22px rgba(250,204,21,0.48), 0 0 38px rgba(59,130,246,0.25); }
-        100% { box-shadow: 0 0 0 rgba(250,204,21,0.0), 0 0 0 rgba(59,130,246,0.0); }
-      }
-
-      @keyframes hammerFloat {
-        0% { transform: translateY(0px) rotate(0deg); }
-        50% { transform: translateY(-6px) rotate(3deg); }
-        100% { transform: translateY(0px) rotate(0deg); }
-      }
-
-      @keyframes tapeFlash {
-        0% { opacity: 0.8; }
-        50% { opacity: 1; }
-        100% { opacity: 0.8; }
-      }
-
-      @keyframes trophyPulse {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.08); }
-        100% { transform: scale(1); }
-      }
-    </style>
-
     <div style="
       position:relative;
       overflow:hidden;
       border-radius:18px;
       padding:18px 16px 20px;
       background:
-        radial-gradient(circle at top, rgba(250,204,21,0.20), transparent 36%),
+        radial-gradient(circle at top, rgba(250,204,21,0.18), transparent 36%),
         linear-gradient(180deg, #172033 0%, #0b0f17 100%);
       border:2px solid #facc15;
-      animation:hammeredGlow 2.8s infinite ease-in-out;
+      color:#ffffff;
     ">
-
       <div style="
         text-align:center;
         margin:0 auto 12px;
@@ -1044,17 +1055,15 @@ function renderEnd(container, state) {
         font-size:15px;
         padding:8px 12px;
         border-radius:999px;
-        animation:tapeFlash 1.5s infinite ease-in-out;
       ">
         ${winCopy.banner}
       </div>
 
       <div style="
         text-align:center;
-        font-size:54px;
+        font-size:48px;
         line-height:1;
         margin-bottom:8px;
-        animation:trophyPulse 1.7s infinite ease-in-out;
       ">
         ${isShanghai ? "🏆💥🔨" : "🏆🔨🏆"}
       </div>
@@ -1087,6 +1096,7 @@ function renderEnd(container, state) {
         border-radius:14px;
         padding:12px;
         margin-bottom:16px;
+        line-height:1.45;
       ">
         ${winCopy.bodyCopy}
       </div>
@@ -1146,11 +1156,10 @@ function renderEnd(container, state) {
         gap:10px;
       ">
         <div id="playAgainBtn" style="
-          ${buttonStyle()}
+          ${playAgainButtonStyle()}
           padding:14px;
           min-height:52px;
           font-size:18px;
-          border:2px solid #facc15;
         ">Play Again</div>
 
         <div id="statsBtn" style="
