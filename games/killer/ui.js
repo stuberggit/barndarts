@@ -1888,9 +1888,12 @@ function renderStatsModal(stats) {
 function renderEndGameConfirm(container) {
   renderModalShell(`
     <h2 style="text-align:center;margin-top:0;color:#facc15;">End Game?</h2>
-    <div style="text-align:center;margin-bottom:14px;">
-      Are you sure you want to end this game early?
+
+    <div style="text-align:center;margin-bottom:14px;line-height:1.4;">
+      Are you sure you want to end this Killer game early?<br>
+      No winner will be declared.
     </div>
+
     <div style="
       display:grid;
       grid-template-columns:1fr 1fr;
@@ -1901,6 +1904,7 @@ function renderEndGameConfirm(container) {
         padding:12px;
         min-height:48px;
       ">Cancel</div>
+
       <div id="confirmEndBtn" style="
         ${dangerButtonStyle()}
         padding:12px;
@@ -1913,6 +1917,7 @@ function renderEndGameConfirm(container) {
   const confirmBtn = document.getElementById("confirmEndBtn");
 
   attachButtonClick(cancelBtn, closeModal);
+
   attachButtonClick(confirmBtn, () => {
     closeModal();
     endGameEarly();
@@ -1925,9 +1930,19 @@ function renderEndGameConfirm(container) {
 --------------------------*/
 
 function renderEnd(container, state) {
-  const winnerName = state.winner || state.shanghaiWinner;
+  const isEarlyEnd = !!state.earlyEnded;
+  const winnerName = isEarlyEnd ? null : state.winner || state.shanghaiWinner;
   const isShanghai = !!state.shanghaiWinner;
-  const winCopy = getKillerWinCopy(winnerName, isShanghai);
+
+  const winCopy = isEarlyEnd
+    ? {
+        banner: "GAME ENDED EARLY",
+        headline: "No Winner Declared",
+        subhead: "The horde lives to moan another day.",
+        bodyCopy: "This Killer game was ended manually, so no player was awarded the win. Scores, lives, targets, zombies, and Redemski chaos are still available in Stats, and you can play again with the same group."
+      }
+    : getKillerWinCopy(winnerName, isShanghai);
+
   const stats = state.finalStats || getStats();
 
   const loserTags = [
@@ -1951,8 +1966,10 @@ function renderEnd(container, state) {
   const shuffledLoserTags = [...loserTags].sort(() => Math.random() - 0.5);
 
   const rankedPlayers = [...(state.players || [])].sort((a, b) => {
-    if (a.name === winnerName) return -1;
-    if (b.name === winnerName) return 1;
+    if (!isEarlyEnd && winnerName) {
+      if (a.name === winnerName) return -1;
+      if (b.name === winnerName) return 1;
+    }
 
     const aActiveScore = a.isDormantDead ? 0 : 1;
     const bActiveScore = b.isDormantDead ? 0 : 1;
@@ -1976,6 +1993,14 @@ function renderEnd(container, state) {
   });
 
   function getPlayerFinalTag(player, index) {
+    if (isEarlyEnd) {
+      if (player.isDormantDead) return "Dormant Dead";
+      if (player.isZombie || player.wasZombied || (player.stats?.zombied || 0) > 0) return "Still Zombie-ing";
+      if (player.isRedemski) return "Redemski Pending";
+      if (player.isKiller) return "Still Dangerous";
+      return "Still Alive";
+    }
+
     if (index === 0) {
       return player.isZombie || player.wasZombied || (player.stats?.zombied || 0) > 0
         ? "Zombie King"
@@ -1992,44 +2017,17 @@ function renderEnd(container, state) {
   }
 
   container.innerHTML = `
-    <style>
-      @keyframes zombieGlow {
-        0% { box-shadow: 0 0 0 rgba(250,204,21,0.0), 0 0 0 rgba(34,197,94,0.0); }
-        50% { box-shadow: 0 0 20px rgba(250,204,21,0.45), 0 0 36px rgba(34,197,94,0.25); }
-        100% { box-shadow: 0 0 0 rgba(250,204,21,0.0), 0 0 0 rgba(34,197,94,0.0); }
-      }
-
-      @keyframes survivorFloat {
-        0% { transform: translateY(0px) rotate(0deg); }
-        50% { transform: translateY(-6px) rotate(2deg); }
-        100% { transform: translateY(0px) rotate(0deg); }
-      }
-
-      @keyframes tapeFlash {
-        0% { opacity: 0.8; }
-        50% { opacity: 1; }
-        100% { opacity: 0.8; }
-      }
-
-      @keyframes trophyPulse {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.08); }
-        100% { transform: scale(1); }
-      }
-    </style>
-
     <div style="
       position:relative;
       overflow:hidden;
       border-radius:18px;
       padding:18px 16px 20px;
       background:
-        radial-gradient(circle at top, rgba(250,204,21,0.18), transparent 35%),
-        linear-gradient(180deg, #102417 0%, #0b0f0c 100%);
+        radial-gradient(circle at top, rgba(250,204,21,0.18), transparent 36%),
+        linear-gradient(180deg, #172033 0%, #0b0f17 100%);
       border:2px solid #facc15;
-      animation:zombieGlow 2.8s infinite ease-in-out;
+      color:#ffffff;
     ">
-      
       <div style="
         text-align:center;
         margin:0 auto 12px;
@@ -2040,19 +2038,17 @@ function renderEnd(container, state) {
         font-size:15px;
         padding:8px 12px;
         border-radius:999px;
-        animation:tapeFlash 1.5s infinite ease-in-out;
       ">
         ${winCopy.banner}
       </div>
 
       <div style="
         text-align:center;
-        font-size:54px;
+        font-size:48px;
         line-height:1;
         margin-bottom:8px;
-        animation:trophyPulse 1.7s infinite ease-in-out;
       ">
-        ${isShanghai ? "🏆💥🧟" : "🏆🧟‍♂️🏆"}
+        ${isEarlyEnd ? "🧟‍♂️" : isShanghai ? "🏆🧟‍♂️🏆" : "🏆🧟‍♂️🏆"}
       </div>
 
       <h2 style="
@@ -2077,12 +2073,13 @@ function renderEnd(container, state) {
       <div style="
         text-align:center;
         font-size:15px;
-        color:#d1fae5;
+        color:#dbeafe;
         background:rgba(255,255,255,0.06);
         border:1px solid rgba(255,255,255,0.12);
         border-radius:14px;
         padding:12px;
         margin-bottom:16px;
+        line-height:1.45;
       ">
         ${winCopy.bodyCopy}
       </div>
@@ -2101,7 +2098,7 @@ function renderEnd(container, state) {
           font-size:16px;
           margin-bottom:10px;
         ">
-          Final Order
+          ${isEarlyEnd ? "Final Status" : "Final Order"}
         </div>
 
         <div style="
@@ -2117,8 +2114,8 @@ function renderEnd(container, state) {
               gap:10px;
               padding:10px 12px;
               border-radius:10px;
-              background:${index === 0 ? "rgba(250,204,21,0.16)" : "rgba(255,255,255,0.06)"};
-              border:${index === 0 ? "1px solid #facc15" : "1px solid rgba(255,255,255,0.12)"};
+              background:${!isEarlyEnd && index === 0 ? "rgba(250,204,21,0.16)" : "rgba(255,255,255,0.06)"};
+              border:${!isEarlyEnd && index === 0 ? "1px solid #facc15" : "1px solid rgba(255,255,255,0.12)"};
               color:#ffffff;
               font-weight:bold;
             ">
@@ -2126,9 +2123,9 @@ function renderEnd(container, state) {
                 ${index + 1}. ${player.name}${getZombieMarker(player)}
               </span>
               <span style="
-                color:${index === 0 ? "#facc15" : "#ffffff"};
+                color:${!isEarlyEnd && index === 0 ? "#facc15" : "#ffffff"};
                 flex-shrink:0;
-                text-align:right;
+                font-size:13px;
               ">
                 ${getPlayerFinalTag(player, index)}
               </span>
@@ -2174,8 +2171,7 @@ function renderEnd(container, state) {
   const mainMenuBtn = document.getElementById("mainMenuBtn");
 
   attachButtonClick(playAgainBtn, () => {
-    const rotatedPlayers = rotatePlayers(state.originalPlayers || store.players || []);
-    store.players = [...rotatedPlayers];
+    const rotatedPlayers = rotatePlayers(state.originalPlayers || state.players.map(player => player.name));
     initGame(rotatedPlayers);
     renderUI(container);
   });
