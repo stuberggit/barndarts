@@ -382,6 +382,7 @@ function renderGame(container, state) {
         grid-template-columns:1fr 1fr;
         gap:8px;
         align-items:stretch;
+        margin-bottom:10px;
       ">
         <div style="
           padding:10px 8px;
@@ -422,6 +423,15 @@ function renderGame(container, state) {
             ${currentPpd}
           </div>
         </div>
+      </div>
+
+      <div style="
+        font-size:28px;
+        line-height:1.1;
+        color:#facc15;
+        text-align:center;
+      ">
+        ${getCurrentTargetDisplay()}
       </div>
     </div>
 
