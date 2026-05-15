@@ -63,14 +63,19 @@ function shouldCreateBonusRound() {
 }
 
 function setBonusForNewRound() {
-  const bonusActive = shouldCreateBonusRound();
-
-  gameState.bonusTarget = bonusActive ? getRandomBonusTarget() : null;
-
   if (!Array.isArray(gameState.bonusRoundHistory)) {
     gameState.bonusRoundHistory = [];
   }
 
+  if (gameState.turnNumber <= 2) {
+    gameState.bonusTarget = null;
+    gameState.bonusRoundHistory.push(false);
+    return;
+  }
+
+  const bonusActive = shouldCreateBonusRound();
+
+  gameState.bonusTarget = bonusActive ? getRandomBonusTarget() : null;
   gameState.bonusRoundHistory.push(bonusActive);
 }
 
@@ -432,11 +437,7 @@ export function getCurrentTargetDisplay() {
     return "Turn complete — tap Next Player";
   }
 
-  const bonusText = getActiveBonusTarget()
-    ? ` | Bonus: ${getActiveBonusTarget()}`
-    : "";
-
-  return `Dart ${gameState.dartsThrown + 1}/3${bonusText}`;
+  return `Dart ${gameState.dartsThrown + 1}/3`;
 }
 
 export function getCurrentBonusDisplay() {
