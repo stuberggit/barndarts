@@ -19,6 +19,7 @@ function normalizePlayerName(player, index) {
 }
 
 function getWinnerName() {
+  if (gameState.earlyEnded) return null;
   return gameState.winner || gameState.Winner || gameState.shanghaiWinner || null;
 }
 
@@ -183,7 +184,13 @@ function saveKillerHistory() {
       name: player.name,
       avatar: profile.avatar || null,
       score: player.lives,
-      result: player.name === winnerName ? "winner" : player.isDormantDead ? "out" : "played",
+      result: gameState.earlyEnded
+        ? "played"
+        : player.name === winnerName
+          ? "winner"
+          : player.isDormantDead
+            ? "out"
+            : "played",
       stats: { ...(player.stats || {}) },
       meta: {
         target: player.target,
@@ -198,7 +205,9 @@ function saveKillerHistory() {
     };
   });
 
-  const winnerPlayer = players.find(player => player.name === winnerName) || null;
+  const winnerPlayer = winnerName
+    ? players.find(player => player.name === winnerName) || null
+    : null;
 
   saveGameResult({
     gameId: "killer",
@@ -213,6 +222,7 @@ function saveKillerHistory() {
       : null,
     meta: {
       Winner: winnerName,
+      earlyEnded: !!gameState.earlyEnded,
       finalStats: gameState.finalStats || buildStatsSummary()
     }
   });
@@ -734,6 +744,7 @@ export function initGame(players) {
 
     winner: null,
     shanghaiWinner: null,
+    earlyEnded: false,
     finalStats: null,
     historySaved: false
   };
@@ -765,7 +776,7 @@ export function getCurrentDartDisplay() {
 }
 
 export function canCurrentPlayerThrow() {
-  if (gameState.winner || gameState.shanghaiWinner) return false;
+  if (gameState.winner || gameState.shanghaiWinner || gameState.earlyEnded) return false;
   if (gameState.phase !== "GAME") return false;
 
   const player = gameState.players[gameState.currentPlayer];
@@ -1134,7 +1145,7 @@ export function submitRedemskiThrow(hitType, target) {
 --------------------------*/
 
 export function nextPlayer() {
-  if (gameState.winner || gameState.shanghaiWinner) return;
+  if (gameState.winner || gameState.shanghaiWinner || gameState.earlyEnded) return;
 
   history.push(cloneState(gameState));
 
@@ -1159,21 +1170,16 @@ export function nextPlayer() {
 }
 
 export function endGameEarly() {
-  if (gameState.winner || gameState.shanghaiWinner) return;
+  if (gameState.winner || gameState.shanghaiWinner || gameState.earlyEnded) return;
 
   history.push(cloneState(gameState));
 
-  const activePlayers = getActivePlayers();
-
-  if (activePlayers.length > 0) {
-    const leader = [...activePlayers].sort((a, b) => b.lives - a.lives)[0];
-    gameState.winner = leader.name;
-  } else {
-    gameState.winner = "No Winner";
-  }
-
+  gameState.earlyEnded = true;
+  gameState.winner = null;
+  gameState.shanghaiWinner = null;
   gameState.finalStats = buildStatsSummary();
-  updateMessage("Game ended early.", "#facc15");
+
+  updateMessage("Game ended early. No winner declared.", "#facc15");
   saveKillerHistory();
 }
 
@@ -1187,5 +1193,5 @@ export function undo() {
 }
 
 export function isGameOver() {
-  return !!gameState.winner || !!gameState.shanghaiWinner;
+  return !!gameState.winner || !!gameState.shanghaiWinner || !!gameState.earlyEnded;
 }
