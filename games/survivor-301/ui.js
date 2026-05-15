@@ -292,6 +292,32 @@ function getPlayerRowOpacity(player) {
   return player.isEliminated ? 0.65 : 1;
 }
 
+function getLivePpd(state, player, playerIndex) {
+  if (!player) return "0.00";
+
+  const stats = player.stats || {};
+  const isCurrentPlayer = playerIndex === state.currentPlayer;
+  const currentThrows = isCurrentPlayer ? (state.currentTurnThrows || []) : [];
+
+  const livePoints = currentThrows.reduce((sum, throwRecord) => {
+    if (!throwRecord || typeof throwRecord.scoreChange !== "number") return sum;
+    return sum + Math.abs(throwRecord.scoreChange);
+  }, 0);
+
+  const totalPoints =
+    (stats.pointsLost || 0) +
+    (stats.pointsGained || 0) +
+    livePoints;
+
+  const totalDarts =
+    (stats.dartsThrown || 0) +
+    currentThrows.length;
+
+  if (!totalDarts) return "0.00";
+
+  return (totalPoints / totalDarts).toFixed(2);
+}
+
 /* -------------------------
    MAIN UI
 --------------------------*/
@@ -322,9 +348,9 @@ export function renderUI(container) {
 --------------------------*/
 
 function renderGame(container, state) {
-  const { flashHtml } = buildFlashHtml(state);
+  const { showFlash, flashHtml } = buildFlashHtml(state);
   const currentPlayer = state.players[state.currentPlayer];
-  const bonusDisplay = getCurrentBonusDisplay();
+  const currentPpd = getLivePpd(state, currentPlayer, state.currentPlayer);
 
   container.innerHTML = `
     <div style="
@@ -338,7 +364,7 @@ function renderGame(container, state) {
     </div>
 
     <div style="
-      margin-bottom:8px;
+      margin-bottom:12px;
       padding:14px;
       border-radius:12px;
       background:#11361a;
@@ -347,58 +373,65 @@ function renderGame(container, state) {
       text-align:center;
       font-weight:bold;
     ">
-      <div style="font-size:26px;margin-bottom:8px;">
+      <div style="font-size:28px;margin-bottom:8px;line-height:1.1;">
         ${currentPlayer ? currentPlayer.name : "—"}
       </div>
 
       <div style="
         display:grid;
         grid-template-columns:1fr 1fr;
-        gap:10px;
+        gap:8px;
         align-items:stretch;
-        margin-bottom:8px;
       ">
         <div style="
-          background:rgba(255,255,255,0.08);
-          border:1px solid rgba(255,255,255,0.16);
+          padding:10px 8px;
           border-radius:10px;
-          padding:10px;
+          background:rgba(0,0,0,0.20);
+          border:1px solid rgba(255,255,255,0.25);
         ">
-          <div style="font-size:13px;color:#d1d5db;margin-bottom:4px;">
+          <div style="
+            font-size:11px;
+            letter-spacing:0.7px;
+            color:#facc15;
+            text-transform:uppercase;
+            margin-bottom:4px;
+          ">
             Score
           </div>
-          <div style="font-size:38px;line-height:1;">
+          <div style="font-size:34px;line-height:1;">
             ${currentPlayer ? currentPlayer.score : "—"}
           </div>
         </div>
 
         <div style="
-          background:${bonusDisplay.active ? "rgba(250,204,21,0.15)" : "rgba(255,255,255,0.05)"};
-          border:${bonusDisplay.active ? "2px solid #facc15" : "1px solid rgba(255,255,255,0.16)"};
+          padding:10px 8px;
           border-radius:10px;
-          padding:10px;
+          background:rgba(0,0,0,0.20);
+          border:1px solid rgba(255,255,255,0.25);
         ">
-          <div style="font-size:13px;color:#d1d5db;margin-bottom:4px;">
-            ${bonusDisplay.active ? "Bonus Number" : "Bonus"}
-          </div>
           <div style="
-            font-size:${bonusDisplay.active ? "38px" : "30px"};
-            line-height:1;
-            color:${bonusDisplay.active ? "#facc15" : "#9ca3af"};
+            font-size:11px;
+            letter-spacing:0.7px;
+            color:#facc15;
+            text-transform:uppercase;
+            margin-bottom:4px;
           ">
-            ${bonusDisplay.active ? bonusDisplay.target : "—"}
+            PPD
+          </div>
+          <div style="font-size:34px;line-height:1;">
+            ${currentPpd}
           </div>
         </div>
       </div>
-
-      <div style="font-size:16px;color:#facc15;">
-        ${getCurrentTargetDisplay()}
-      </div>
     </div>
 
+    <div id="controls"></div>
+
+    <div id="playerBoard"></div>
+
     <div style="
-      min-height:42px;
-      margin:8px 0 10px;
+      min-height:54px;
+      margin:12px 0;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -408,8 +441,6 @@ function renderGame(container, state) {
       </div>
     </div>
 
-    <div id="controls"></div>
-    <div id="playerBoard"></div>
     <div id="turnSummary"></div>
     <div id="utilityControls"></div>
     <div id="modal"></div>
