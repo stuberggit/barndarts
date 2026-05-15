@@ -296,22 +296,12 @@ function getLivePpd(state, player, playerIndex) {
   if (!player) return "0.00";
 
   const stats = player.stats || {};
-  const isCurrentPlayer = playerIndex === state.currentPlayer;
-  const currentThrows = isCurrentPlayer ? (state.currentTurnThrows || []) : [];
-
-  const livePoints = currentThrows.reduce((sum, throwRecord) => {
-    if (!throwRecord || typeof throwRecord.scoreChange !== "number") return sum;
-    return sum + Math.abs(throwRecord.scoreChange);
-  }, 0);
 
   const totalPoints =
     (stats.pointsLost || 0) +
-    (stats.pointsGained || 0) +
-    livePoints;
+    (stats.pointsGained || 0);
 
-  const totalDarts =
-    (stats.dartsThrown || 0) +
-    currentThrows.length;
+  const totalDarts = stats.dartsThrown || 0;
 
   if (!totalDarts) return "0.00";
 
@@ -351,6 +341,7 @@ function renderGame(container, state) {
   const { showFlash, flashHtml } = buildFlashHtml(state);
   const currentPlayer = state.players[state.currentPlayer];
   const currentPpd = getLivePpd(state, currentPlayer, state.currentPlayer);
+  const bonusDisplay = getCurrentBonusDisplay();
 
   container.innerHTML = `
     <div style="
@@ -426,18 +417,15 @@ function renderGame(container, state) {
       </div>
 
       <div style="
+        min-height:31px;
         font-size:28px;
         line-height:1.1;
         color:#facc15;
         text-align:center;
       ">
-        ${getCurrentTargetDisplay()}
+        ${bonusDisplay.active ? bonusDisplay.label : ""}
       </div>
     </div>
-
-    <div id="controls"></div>
-
-    <div id="playerBoard"></div>
 
     <div style="
       min-height:54px;
@@ -450,6 +438,10 @@ function renderGame(container, state) {
         ${flashHtml}
       </div>
     </div>
+
+    <div id="controls"></div>
+
+    <div id="playerBoard"></div>
 
     <div id="turnSummary"></div>
     <div id="utilityControls"></div>
