@@ -1144,7 +1144,7 @@ function buildScorecardTable(state, startHole, endHole, subtotalLabel, forceComp
       text-align:left;
       white-space:nowrap;
       ${activePlayer ? "background:#facc15;color:#111111;" : ""}
-    ">${activePlayer ? "▶ " : ""}${player.name}</td>`;
+    ">${activePlayer ? "▶︎ " : ""}${player.name}</td>`;
 
     for (let h = startHole; h < endHole; h++) {
       const score = player.scores[h];
