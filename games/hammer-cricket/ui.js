@@ -1316,34 +1316,76 @@ function renderEnd(container, state) {
           flex-direction:column;
           gap:8px;
         ">
-          ${rankedPlayers.map((player, index) => `
-            <div style="
-              display:flex;
-              justify-content:space-between;
-              align-items:center;
-              gap:10px;
-              padding:10px 12px;
-              border-radius:10px;
-              background:${!isEarlyEnd && index === 0 ? "rgba(250,204,21,0.16)" : "rgba(255,255,255,0.06)"};
-              border:${!isEarlyEnd && index === 0 ? "1px solid #facc15" : "1px solid rgba(255,255,255,0.12)"};
-              color:#ffffff;
-              font-weight:bold;
-            ">
-              <span style="
-  color:${index === 0 ? "#facc15" : "#ffffff"};
-  flex-shrink:0;
-  text-align:right;
-  line-height:1.2;
-">
-  <span style="display:block;font-size:17px;">
-    ${formatScore(player.total)}
-  </span>
-  <span style="display:block;font-size:12px;opacity:0.85;">
-    MPR ${getPlayerMpr(player)} · PPD ${getPlayerPpd(player)}
-  </span>
-</span>
-            </div>
-          `).join("")}
+          ${rankedPlayers.map((player, index) => {
+  const stats = player.stats || {};
+  const roundsCompleted =
+    stats.roundsCompleted ||
+    (player.roundScores || []).filter(score => score != null).length;
+
+  const dartsThrown =
+    stats.dartsThrown ||
+    roundsCompleted * 3;
+
+  const marksMade = stats.marksMade || 0;
+
+  const pointsScored =
+    typeof stats.pointsScored === "number"
+      ? stats.pointsScored
+      : player.total || 0;
+
+  const mpr = roundsCompleted
+    ? (marksMade / roundsCompleted).toFixed(2)
+    : "0.00";
+
+  const ppd = dartsThrown
+    ? (pointsScored / dartsThrown).toFixed(2)
+    : "0.00";
+
+  return `
+    <div style="
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) 76px 86px 86px;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:10px;
+      background:${!state.earlyEnded && index === 0 ? "rgba(250,204,21,0.16)" : "rgba(255,255,255,0.06)"};
+      border:${!state.earlyEnded && index === 0 ? "1px solid #facc15" : "1px solid rgba(255,255,255,0.12)"};
+      color:#ffffff;
+      font-weight:bold;
+    ">
+      <span style="min-width:0;word-break:break-word;">
+        ${index + 1}. ${player.name}
+      </span>
+
+      <span style="
+        color:${!state.earlyEnded && index === 0 ? "#facc15" : "#ffffff"};
+        text-align:center;
+        white-space:nowrap;
+      ">
+        ${formatScore(player.total)}
+      </span>
+
+      <span style="
+        color:${!state.earlyEnded && index === 0 ? "#facc15" : "#ffffff"};
+        text-align:center;
+        white-space:nowrap;
+        opacity:0.9;
+      ">
+        MPR ${mpr}
+      </span>
+
+      <span style="
+        color:${!state.earlyEnded && index === 0 ? "#facc15" : "#ffffff"};
+        text-align:center;
+        white-space:nowrap;
+        opacity:0.9;
+      ">
+        PPD ${ppd}
+      </span>
+    </div>
+  `;
+}).join("")}
         </div>
       </div>
 
