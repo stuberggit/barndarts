@@ -1278,32 +1278,69 @@ function renderEnd(container, state) {
           flex-direction:column;
           gap:8px;
         ">
-          ${rankedPlayers.map((player, index) => `
-            <div style="
-              display:flex;
-              justify-content:space-between;
-              align-items:center;
-              gap:10px;
-              padding:10px 12px;
-              border-radius:10px;
-              background:${index === 0 ? "rgba(250,204,21,0.16)" : "rgba(255,255,255,0.06)"};
-              border:${index === 0 ? "1px solid #facc15" : "1px solid rgba(255,255,255,0.12)"};
-              color:#ffffff;
-              font-weight:bold;
-            ">
-              <span style="min-width:0;word-break:break-word;">
-                ${index + 1}. ${player.name}
-              </span>
-              <span style="
-                color:${index === 0 ? "#facc15" : player.isEliminated ? "#9ca3af" : "#ffffff"};
-                flex-shrink:0;
-                text-align:right;
-                line-height:1.15;
-              ">
-                ${getFinalOrderLabel(player, index)}
-              </span>
-            </div>
-          `).join("")}
+          ${rankedPlayers.map((player, index) => {
+  const playerStats = player.stats || {};
+  const totalPoints =
+    (playerStats.pointsLost || 0) +
+    (playerStats.pointsGained || 0);
+
+  const totalDarts = playerStats.dartsThrown || 0;
+
+  const ppd = totalDarts
+    ? (totalPoints / totalDarts).toFixed(2)
+    : "0.00";
+
+  const tag = !player.isEliminated
+    ? "Survivor"
+    : shuffledSurvivorTags[index - 1] || "Did Not Survive";
+
+  return `
+    <div style="
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) 76px minmax(90px, 140px) 86px;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:10px;
+      background:${index === 0 ? "rgba(250,204,21,0.16)" : "rgba(255,255,255,0.06)"};
+      border:${index === 0 ? "1px solid #facc15" : "1px solid rgba(255,255,255,0.12)"};
+      color:#ffffff;
+      font-weight:bold;
+    ">
+      <span style="min-width:0;word-break:break-word;">
+        ${index + 1}. ${player.name}
+      </span>
+
+      <span style="
+        color:${index === 0 ? "#facc15" : player.isEliminated ? "#9ca3af" : "#ffffff"};
+        text-align:center;
+        white-space:nowrap;
+      ">
+        ${player.score}
+      </span>
+
+      <span style="
+        color:${index === 0 ? "#facc15" : player.isEliminated ? "#9ca3af" : "#ffffff"};
+        text-align:center;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        opacity:0.9;
+      ">
+        ${tag}
+      </span>
+
+      <span style="
+        color:${index === 0 ? "#facc15" : player.isEliminated ? "#9ca3af" : "#ffffff"};
+        text-align:center;
+        white-space:nowrap;
+        opacity:0.9;
+      ">
+        PPD ${ppd}
+      </span>
+    </div>
+  `;
+}).join("")}
         </div>
       </div>
 
