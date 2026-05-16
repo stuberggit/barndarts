@@ -330,6 +330,15 @@ function formatGolfScore(score) {
   return "E";
 }
 
+function formatGolfVsPar(totalScore) {
+  const par = 54;
+  const vsPar = totalScore - par;
+
+  if (vsPar > 0) return `+${vsPar}`;
+  if (vsPar < 0) return `${vsPar}`;
+  return "E";
+}
+
 function getCompletedHoleCount(player) {
   return (player.scores || []).filter(score => score !== null && score !== undefined).length;
 }
@@ -1341,11 +1350,18 @@ function renderEnd(container, state) {
                 ${index + 1}. ${player.name}
               </span>
               <span style="
-                color:${index === 0 ? "#facc15" : "#ffffff"};
-                flex-shrink:0;
-              ">
-                ${formatGolfScore(player.total)}
-              </span>
+  color:${index === 0 ? "#facc15" : "#ffffff"};
+  flex-shrink:0;
+  text-align:right;
+  line-height:1.15;
+">
+  <span style="display:block;font-size:17px;">
+    ${player.total}
+  </span>
+  <span style="display:block;font-size:12px;opacity:0.85;">
+    ${formatGolfVsPar(player.total)}
+  </span>
+</span>
             </div>
           `).join("")}
         </div>
