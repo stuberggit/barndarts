@@ -296,7 +296,32 @@ function getLivePpd(state, player, playerIndex) {
   if (!player) return "0.00";
 
   const stats = player.stats || {};
+  const isCurrentPlayer = playerIndex === state.currentPlayer;
+  const currentThrows = isCurrentPlayer ? (state.currentTurnThrows || []) : [];
 
+  const livePoints = currentThrows.reduce((sum, throwRecord) => {
+    if (!throwRecord || typeof throwRecord.scoreChange !== "number") return sum;
+    return sum + Math.abs(throwRecord.scoreChange);
+  }, 0);
+
+  const totalPoints =
+    (stats.pointsLost || 0) +
+    (stats.pointsGained || 0) +
+    livePoints;
+
+  const totalDarts =
+    (stats.dartsThrown || 0) +
+    currentThrows.length;
+
+  if (!totalDarts) return "0.00";
+
+  return (totalPoints / totalDarts).toFixed(2);
+}
+
+function getFinalPpd(player) {
+  if (!player) return "0.00";
+
+  const stats = player.stats || {};
   const totalPoints =
     (stats.pointsLost || 0) +
     (stats.pointsGained || 0);
@@ -1123,42 +1148,48 @@ function renderEnd(container, state) {
     return b.score - a.score;
   });
 
+  function getFinalPpd(player) {
+    if (!player) return "0.00";
+
+    const stats = player.stats || {};
+    const totalPoints =
+      (stats.pointsLost || 0) +
+      (stats.pointsGained || 0);
+
+    const totalDarts = stats.dartsThrown || 0;
+
+    if (!totalDarts) return "0.00";
+
+    return (totalPoints / totalDarts).toFixed(2);
+  }
+
   function getFinalOrderLabel(player, index) {
+    const ppd = getFinalPpd(player);
+
     if (!player.isEliminated) {
-      return `${player.score}`;
+      return `
+        <span style="display:block;font-size:17px;line-height:1.15;">
+          ${player.score}
+        </span>
+        <span style="display:block;font-size:12px;opacity:0.85;line-height:1.15;">
+          PPD ${ppd}
+        </span>
+      `;
     }
 
     const tag = shuffledSurvivorTags[index - 1] || "Did Not Survive";
-    return `${player.score} • ${tag}`;
+
+    return `
+      <span style="display:block;font-size:17px;line-height:1.15;">
+        ${player.score}
+      </span>
+      <span style="display:block;font-size:12px;opacity:0.85;line-height:1.15;">
+        ${tag} · PPD ${ppd}
+      </span>
+    `;
   }
 
   container.innerHTML = `
-    <style>
-      @keyframes survivorGlow {
-        0% { box-shadow: 0 0 0 rgba(250,204,21,0.0), 0 0 0 rgba(34,197,94,0.0); }
-        50% { box-shadow: 0 0 20px rgba(250,204,21,0.45), 0 0 36px rgba(34,197,94,0.25); }
-        100% { box-shadow: 0 0 0 rgba(250,204,21,0.0), 0 0 0 rgba(34,197,94,0.0); }
-      }
-
-      @keyframes survivorFloat {
-        0% { transform: translateY(0px) rotate(0deg); }
-        50% { transform: translateY(-6px) rotate(2deg); }
-        100% { transform: translateY(0px) rotate(0deg); }
-      }
-
-      @keyframes tapeFlash {
-        0% { opacity: 0.8; }
-        50% { opacity: 1; }
-        100% { opacity: 0.8; }
-      }
-
-      @keyframes trophyPulse {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.08); }
-        100% { transform: scale(1); }
-      }
-    </style>
-
     <div style="
       position:relative;
       overflow:hidden;
@@ -1168,7 +1199,6 @@ function renderEnd(container, state) {
         radial-gradient(circle at top, rgba(250,204,21,0.18), transparent 35%),
         linear-gradient(180deg, #102417 0%, #0b0f0c 100%);
       border:2px solid #facc15;
-      animation:survivorGlow 2.8s infinite ease-in-out;
     ">
 
       <div style="
@@ -1181,7 +1211,6 @@ function renderEnd(container, state) {
         font-size:15px;
         padding:8px 12px;
         border-radius:999px;
-        animation:tapeFlash 1.5s infinite ease-in-out;
       ">
         ${winCopy.banner}
       </div>
@@ -1191,7 +1220,6 @@ function renderEnd(container, state) {
         font-size:54px;
         line-height:1;
         margin-bottom:8px;
-        animation:trophyPulse 1.7s infinite ease-in-out;
       ">
         🏆☣️🏆
       </div>
@@ -1270,6 +1298,7 @@ function renderEnd(container, state) {
                 color:${index === 0 ? "#facc15" : player.isEliminated ? "#9ca3af" : "#ffffff"};
                 flex-shrink:0;
                 text-align:right;
+                line-height:1.15;
               ">
                 ${getFinalOrderLabel(player, index)}
               </span>
