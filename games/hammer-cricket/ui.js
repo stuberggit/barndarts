@@ -162,6 +162,35 @@ function formatScore(score) {
   return String(score);
 }
 
+function getPlayerMpr(player) {
+  const stats = player.stats || {};
+  const roundsCompleted =
+    stats.roundsCompleted ||
+    (player.roundScores || []).filter(score => score != null).length;
+
+  const marksMade = stats.marksMade || 0;
+
+  if (!roundsCompleted) return "0.00";
+
+  return (marksMade / roundsCompleted).toFixed(2);
+}
+
+function getPlayerPpd(player) {
+  const stats = player.stats || {};
+  const dartsThrown =
+    stats.dartsThrown ||
+    ((player.roundScores || []).filter(score => score != null).length * 3);
+
+  const pointsScored =
+    typeof stats.pointsScored === "number"
+      ? stats.pointsScored
+      : player.total || 0;
+
+  if (!dartsThrown) return "0.00";
+
+  return (pointsScored / dartsThrown).toFixed(2);
+}
+
 function getLiveRoundScore(throws, round) {
   if (!round || !Array.isArray(throws)) return 0;
 
@@ -1300,15 +1329,19 @@ function renderEnd(container, state) {
               color:#ffffff;
               font-weight:bold;
             ">
-              <span style="min-width:0;word-break:break-word;">
-                ${index + 1}. ${player.name}
-              </span>
               <span style="
-                color:${!isEarlyEnd && index === 0 ? "#facc15" : "#ffffff"};
-                flex-shrink:0;
-              ">
-                ${player.total}
-              </span>
+  color:${index === 0 ? "#facc15" : "#ffffff"};
+  flex-shrink:0;
+  text-align:right;
+  line-height:1.2;
+">
+  <span style="display:block;font-size:17px;">
+    ${formatScore(player.total)}
+  </span>
+  <span style="display:block;font-size:12px;opacity:0.85;">
+    MPR ${getPlayerMpr(player)} · PPD ${getPlayerPpd(player)}
+  </span>
+</span>
             </div>
           `).join("")}
         </div>
