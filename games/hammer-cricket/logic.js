@@ -36,9 +36,6 @@ export function initGame(players) {
     lastScoreTimestamp: 0,
 
     shanghaiWinner: null,
-    pendingShanghai: null,
-    earlyEnded: false,
-
     suddenDeathActive: false,
     suddenDeathRound: 0,
     suddenDeathPlayerIndexes: [],
@@ -259,12 +256,7 @@ function resolveRoundProgress(scoredPlayerIndex) {
 }
 
 function finalizeTurn() {
-  if (
-    gameState.currentRound >= gameState.rounds.length ||
-    gameState.shanghaiWinner ||
-    gameState.pendingShanghai ||
-    gameState.earlyEnded
-  ) {
+  if (gameState.currentRound >= gameState.rounds.length || gameState.shanghaiWinner) {
     return;
   }
 
