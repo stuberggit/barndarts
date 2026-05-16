@@ -1333,37 +1333,46 @@ function renderEnd(container, state) {
           flex-direction:column;
           gap:8px;
         ">
-          ${rankedPlayers.map((player, index) => `
-            <div style="
-              display:flex;
-              justify-content:space-between;
-              align-items:center;
-              gap:10px;
-              padding:10px 12px;
-              border-radius:10px;
-              background:${index === 0 ? "rgba(250,204,21,0.16)" : "rgba(255,255,255,0.06)"};
-              border:${index === 0 ? "1px solid #facc15" : "1px solid rgba(255,255,255,0.12)"};
-              color:#ffffff;
-              font-weight:bold;
-            ">
-              <span style="min-width:0;word-break:break-word;">
-                ${index + 1}. ${player.name}
-              </span>
-              <span style="
-  color:${index === 0 ? "#facc15" : "#ffffff"};
-  flex-shrink:0;
-  text-align:right;
-  line-height:1.15;
-">
-  <span style="display:block;font-size:17px;">
-    ${player.total}
-  </span>
-  <span style="display:block;font-size:12px;opacity:0.85;">
-    ${formatGolfVsPar(player.total)}
-  </span>
-</span>
-            </div>
-          `).join("")}
+          ${rankedPlayers.map((player, index) => {
+  const vsPar = player.total - 54;
+  const vsParLabel = vsPar > 0 ? `+${vsPar}` : vsPar < 0 ? `${vsPar}` : "E";
+
+  return `
+    <div style="
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) 76px 76px;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:10px;
+      background:${index === 0 ? "rgba(250,204,21,0.16)" : "rgba(255,255,255,0.06)"};
+      border:${index === 0 ? "1px solid #facc15" : "1px solid rgba(255,255,255,0.12)"};
+      color:#ffffff;
+      font-weight:bold;
+    ">
+      <span style="min-width:0;word-break:break-word;">
+        ${index + 1}. ${player.name}
+      </span>
+
+      <span style="
+        color:${index === 0 ? "#facc15" : "#ffffff"};
+        text-align:center;
+        white-space:nowrap;
+      ">
+        ${player.total}
+      </span>
+
+      <span style="
+        color:${index === 0 ? "#facc15" : "#ffffff"};
+        text-align:center;
+        white-space:nowrap;
+        opacity:0.9;
+      ">
+        ${vsParLabel}
+      </span>
+    </div>
+  `;
+}).join("")}
         </div>
       </div>
 
